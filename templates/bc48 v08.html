@@ -1,0 +1,685 @@
+{% extends "base.html" %}
+
+{% block title %}Hệ thống nạp dữ liệu BC48 (TXT; CSV){% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    {# --- 1. GIAO DIỆN BÁO CÁO TỔNG HỢP & VẤN TIN --- #}
+    {% if view_mode == 'report' %}
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between" style="background: #17a2b8; color: white;">
+                <h6 class="m-0 font-weight-bold"><i class="fas fa-chart-bar mr-2"></i>Báo cáo Tổng hợp toàn hàng (Agribank) toàn bộ BC48</h6>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info shadow-sm border-left-info small">
+                    <i class="fas fa-info-circle mr-2"></i> Chức năng này chạy (auto mysql lúc 12:00AM; manual khi "Thực hiện Tổng hợp") <b>Procedure sp_TongHopToanBoBaoCao</b> để quét dữ liệu các bảng <b>CTR, DWT, EFT, PTR</b> và lưu vào bảng vật lý <i>bao_cao_tong_hop_history</i> (dong thoi 4 loai bao cao ctr,dwt,eft,ptr bang tong sap).
+                </div>
+                
+                <form method="POST" class="mb-4 bg-light p-3 rounded border" id="formTongHop">
+                    <input type="hidden" name="action" value="run_procedure">
+                    <div class="row align-items-end">
+                        <div class="col-md-4">
+                            <label class="small font-weight-bold text-dark">Từ tháng:</label>
+                            <input type="month" name="start_period" class="form-control form-control-sm" value="{{ current_year }}-01" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="small font-weight-bold text-dark">Đến tháng:</label>
+                            <input type="month" name="end_period" class="form-control form-control-sm" value="{{ current_year }}-12" required>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-info btn-sm btn-block shadow-sm btn-loading">
+                                <i class="fas fa-sync-alt mr-1"></i> Thực hiện Tổng hợp
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover table-sm text-dark small" id="historyTable" width="100%">
+                        <thead class="thead-light text-center">
+                            <tr>
+                                <th>Loại BC</th>
+                                <th>Tên Bảng (Tháng)</th>
+                                <th>Loại tiền</th>
+                                <th>Số dòng</th>
+                                <th>Tổng số tiền</th>
+                                <th>Tổng quy đổi</th>
+                                <th>Ngày cập nhật</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in history_results %}
+                            <tr>
+                                <td class="text-center font-weight-bold text-primary">{{ row.LoaiBaoCao }}</td>
+                                <td>{{ row.TenBang }}</td>
+                                <td class="text-center">{{ row.loaitien }}</td>
+                                <td class="text-right">{{ "{:,.0f}".format(row.SoDong|float) if row.SoDong else '0' }}</td>
+                                <td class="text-right">{{ "{:,.2f}".format(row.TongSoTien|float) if row.TongSoTien else '0.00' }}</td>
+                                <td class="text-right font-weight-bold text-success">{{ "{:,.2f}".format(row.TongQuyDoi|float) if row.TongQuyDoi else '0.00' }}</td>
+                                <td class="text-center small">{{ row.ngay_cap_nhat.strftime('%d/%m/%Y %H:%M') if row.ngay_cap_nhat else '' }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="7" class="text-center italic text-muted py-3">Chưa có dữ liệu tổng hợp.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow mb-4">
+            <div class="card-header py-3" style="background: #27ae60; color: white;">
+                <h6 class="m-0 font-weight-bold"><i class="fas fa-search-dollar mr-2"></i>Vấn tin & Xuất báo cáo dữ liệu chi tiết từ bảng tháng</h6>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning border-left-warning shadow-sm small py-2">
+                    <i class="fas fa-exclamation-triangle mr-2"></i> <b>Lưu ý:</b> Để đảm bảo hệ thống không bị treo, chức năng <b>Vấn tin</b> chỉ hiển thị tối đa 2.000 dòng mới nhất. Để lấy đầy đủ hàng triệu dòng, vui lòng sử dụng nút <b>Xuất Excel (CSV)</b>.
+                </div>
+
+                <form method="GET" action="{{ url_for('giaodien_bc48') }}" class="row align-items-end bg-light p-3 rounded border mx-0" id="formSearch">
+                    <input type="hidden" name="view" value="report">
+                    
+                    <div class="col-md-2 form-group mb-0">
+                        <label class="small font-weight-bold">Loại báo cáo:</label>
+                        <select name="loai_bc" class="form-control form-control-sm">
+                            {% for bc in ['CTR', 'DWT', 'EFT', 'PTR'] %}
+                            <option value="{{ bc }}" {% if selected_loai == bc %}selected{% endif %}>{{ bc }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3 form-group mb-0">
+                        <label class="small font-weight-bold">Từ ngày:</label>
+                        <input type="date" name="tu_ngay" class="form-control form-control-sm" value="{{ request.args.get('tu_ngay', current_year ~ '-01-01') }}" required>
+                    </div>
+                    <div class="col-md-3 form-group mb-0">
+                        <label class="small font-weight-bold">Đến ngày:</label>
+                        <input type="date" name="den_ngay" class="form-control form-control-sm" value="{{ request.args.get('den_ngay', current_year ~ '-12-31') }}" required>
+                    </div>
+                    <div class="col-md-4 form-group mb-0">
+                        <div class="btn-group w-100 shadow-sm">
+                            <button type="submit" class="btn btn-success btn-sm btn-loading">
+                                <i class="fas fa-search mr-1"></i> Vấn tin
+                            </button>
+                            <button type="submit" 
+                                    formaction="{{ url_for('export_bc48') }}" 
+                                    formmethod="POST" 
+                                    class="btn btn-outline-success btn-sm" 
+                                    onclick="showExportLoading()">
+                                <i class="fas fa-file-csv mr-1"></i> Xuất Excel CSV (Full)
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                {% if results %}
+                <div class="mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="font-weight-bold text-dark mb-0">Kết quả vấn tin:</h6>
+                        <span class="badge badge-pill badge-primary p-2 shadow-sm">Trang {{ current_page }} / {{ total_pages }}</span>
+                    </div>
+                    
+                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                        <table class="table table-bordered table-hover table-sm small text-dark" id="dataTableDetail" width="100%">
+                            <thead class="bg-secondary text-white text-center" style="position: sticky; top: 0; z-index: 10;">
+                                <tr>
+                                    <th>Thời điểm</th>
+                                    <th>Mã GD</th>
+                                    <th>Loại tiền</th>
+                                    <th>Số tiền</th>
+                                    <th>Quy đổi</th>
+                                    <th>Tên khách hàng</th>
+                                    <th>Lý do / Mục đích</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in results %}
+                                <tr>
+                                    <td class="text-center">{{ item.thoidiem }}</td>
+                                    <td>{{ item.magd }}</td>
+                                    <td class="text-center">{{ item.loaitien }}</td>
+                                    <td class="text-right">{{ "{:,.2f}".format(item.sotien|float) if item.sotien }}</td>
+                                    <td class="text-right font-weight-bold text-primary">{{ "{:,.2f}".format(item.quydoi|float) if item.quydoi }}</td>
+                                    <td>{{ item.tenkh }}</td>
+                                    <td class="small">{{ item.lydomucdich }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <nav class="mt-3">
+                        <ul class="pagination pagination-sm justify-content-center">
+                            <li class="page-item {% if current_page <= 1 %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('giaodien_bc48', view='report', loai_bc=selected_loai, tu_ngay=request.args.get('tu_ngay'), den_ngay=request.args.get('den_ngay'), page=current_page-1) }}">Trước</a>
+                            </li>
+                            <li class="page-item active"><span class="page-link">{{ current_page }}</span></li>
+                            <li class="page-item {% if current_page >= total_pages or total_pages == 0 %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('giaodien_bc48', view='report', loai_bc=selected_loai, tu_ngay=request.args.get('tu_ngay'), den_ngay=request.args.get('den_ngay'), page=current_page+1) }}">Sau</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    
+    {# --- 2. GIAO DIỆN LỊCH SỬ TỔNG HỢP TOÀN HÀNG --- #}
+    {% elif view_mode == 'history_toan_hang' %}
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center bg-success text-white">
+                <h6 class="m-0 font-weight-bold"><i class="fas fa-history mr-2"></i>BC48 Tổng hợp Toàn hàng</h6>
+                <a href="{{ url_for('export_history_bc48', mode='toan_hang') }}" class="btn btn-sm btn-light shadow-sm">
+                    <i class="fas fa-file-excel text-success mr-1"></i> Xuất Excel
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover table-sm small" id="historyToanHang" width="100%">
+                        <thead class="thead-light text-center">
+                            <tr>
+                                <th>Loại BC</th>
+                                <th>Tên Bảng</th>
+                                <th>Loại tiền</th>
+                                <th>Số dòng</th>
+                                <th>Tổng số tiền</th>
+                                <th>Tổng quy đổi</th>
+                                <th>Ngày cập nhật</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in history_results %}
+                            <tr>
+                                <td class="text-center font-weight-bold">{{ row.LoaiBaoCao }}</td>
+                                <td>{{ row.TenBang }}</td>
+                                <td class="text-center">{{ row.loaitien }}</td>
+                                <td class="text-right">{{ "{:,.0f}".format(row.SoDong|float) }}</td>
+                                <td class="text-right">{{ "{:,.0f}".format(row.TongSoTien|float) }}</td>
+                                <td class="text-right font-weight-bold text-success">{{ "{:,.2f}".format(row.TongQuyDoi|float) }}</td>
+                                <td class="text-center">{{ row.ngay_cap_nhat.strftime('%d/%m/%Y %H:%M') if row.ngay_cap_nhat }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    {# --- 3. GIAO DIỆN LỊCH SỬ TỔNG HỢP THEO ĐƠN VỊ --- #}
+    {% elif view_mode == 'history_don_vi' %}
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center bg-primary text-white">
+                <h6 class="m-0 font-weight-bold"><i class="fas fa-university mr-2"></i>BC48 Tổng hợp theo Chi nhánh / Đơn vị</h6>
+                <a href="{{ url_for('export_history_bc48', mode='don_vi') }}" class="btn btn-sm btn-light shadow-sm">
+                    <i class="fas fa-file-excel text-primary mr-1"></i> Xuất Excel
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover table-sm small" id="historyDonViTable" width="100%">
+                        <thead class="thead-light text-center">
+                            <tr>
+                                <th>Cấp 1</th>
+                                <th>Mã Đơn vị</th>
+                                <th>Tên Đơn vị</th>
+                                <th>Mã NH 8 số mới</th> <th>Khu vực</th>
+                                <th>Loại BC</th>
+                                <th>Tiền</th>
+                                <th>Số dòng</th>
+                                <th>Tổng Số Tiền</th>
+                                <th>Tổng Quy Đổi</th>
+                                <th>Ngày cập nhật</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in history_don_vi %}
+                            <tr>
+                                <td class="small">{{ row.ma_hieu_1 }} - {{ row.ten_ma_hieu_1 }}</td>
+                                <td class="text-center">{{ row.ma_hieu_2 }}</td>
+                                <td>{{ row.ten_ma_hieu_2 }}</td>
+                                <td class="text-center">{{ row.manh8so_moi if row.manh8so_moi else '' }}</td> <td>{{ row.ten_khu_vuc }}</td>
+                                <td class="text-center"><span class="badge badge-info">{{ row.LoaiBaoCao }}</span></td>
+                                <td class="text-center">{{ row.loaitien }}</td>
+                                <td class="text-right">{{ "{:,.0f}".format(row.SoDong|float) }}</td>
+                                <td class="text-right">{{ "{:,.2f}".format(row.TongSoTien|float) }}</td>
+                                <td class="text-right font-weight-bold text-primary">{{ "{:,.2f}".format(row.TongQuyDoi|float) }}</td>
+                                <td class="text-center">{{ row.ngay_cap_nhat.strftime('%d/%m/%Y %H:%M') if row.ngay_cap_nhat else '' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% if total_pages > 0 %}
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div class="text-muted small">
+                            Trang <b>{{ current_page }}</b> / <b>{{ total_pages }}</b> 
+                            (Tổng: <b>{{ total_rows }}</b> dòng)
+                        </div>
+
+                        <div class="d-flex align-items-center">
+                            <nav aria-label="Page navigation" class="mr-3">
+                                <ul class="pagination pagination-sm justify-content-center mb-0">
+                                    <li class="page-item {% if current_page == 1 %}disabled{% endif %}">
+                                        <a class="page-link" href="{{ url_for('giaodien_bc48', view='history_don_vi', page=current_page-1, filter_ma=filter_ma) }}">Trước</a>
+                                    </li>
+                                    {% for p in range(1, total_pages + 1) %}
+                                        {% if p >= current_page - 2 and p <= current_page + 2 %}
+                                        <li class="page-item {% if p == current_page %}active{% endif %}">
+                                            <a class="page-link" href="{{ url_for('giaodien_bc48', view='history_don_vi', page=p, filter_ma=filter_ma) }}">{{ p }}</a>
+                                        </li>
+                                        {% endif %}
+                                    {% endfor %}
+                                    <li class="page-item {% if current_page == total_pages %}disabled{% endif %}">
+                                        <a class="page-link" href="{{ url_for('giaodien_bc48', view='history_don_vi', page=current_page+1, filter_ma=filter_ma) }}">Sau</a>
+                                    </li>
+                                </ul>
+                            </nav>
+
+                            <div class="input-group input-group-sm" style="width: 120px;">
+                                <input type="number" id="pageInput" class="form-control" placeholder="Trang" min="1" max="{{ total_pages }}">
+                                <div class="input-group-append">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="goToPage()">Đi</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    {# --- 4. GIAO DIỆN NẠP DỮ LIỆU --- #}
+    {% else %}
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between" style="background: #2c3e50; color: white;">
+                <h6 class="m-0 font-weight-bold"><i class="fas fa-file-upload mr-2"></i>1. Nạp dữ liệu điện tử TXT (CTR, DWT, EFT, PTR)</h6>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('import_bc48_files') }}" method="POST" enctype="multipart/form-data" id="uploadFormTxt">
+                    <div class="form-group">
+                        <label class="font-weight-bold text-dark">Chọn các tệp tin .txt nguồn:</label>
+                        <div class="custom-file">
+                            <input type="file" name="files[]" class="custom-file-input" id="customFileTxt" multiple accept=".txt" required>
+                            <label class="custom-file-label text-truncate" for="customFileTxt" data-browse="Chọn file">Chưa chọn tệp nào...</label>
+                        </div>
+                    </div>
+                    
+                    <div id="progressContainerTxt" class="mt-4" style="display:none;">
+                        <div class="card border-left-info shadow-sm">
+                            <div class="card-body">
+                                <div id="checkFileStep" class="mb-3 p-3 bg-light border-left-warning" style="display:none; border-radius: 4px;">
+                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Bước 0: Kiểm tra cấu trúc tệp</div>
+                                    <div class="row align-items-center">
+                                        <div class="col">
+                                            <div class="small text-dark">
+                                                Tệp đang check: <span id="checkFileName" class="font-weight-bold">...</span><br>
+                                                Khai báo (Dòng 1): <span id="declaredRows" class="text-primary font-weight-bold">0</span> dòng | 
+                                                Thực tế (Data): <span id="actualRows" class="text-success font-weight-bold">0</span> dòng
+                                            </div>
+                                        </div>
+                                        <div class="col-auto text-right">
+                                            <div id="checkResultBadge"></div>
+                                        </div>
+                                    </div>
+                                    <div id="checkResultMessage" class="small mt-1 font-italic"></div>
+                                </div>
+
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                            Đang nạp: <span id="currentFileName" class="text-dark font-weight-bold">...</span>
+                                        </div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                            <span id="rowCount">0</span> / <span id="totalCount">0</span> dòng
+                                        </div>
+                                    </div>
+                                    <div class="col-auto"><i class="fas fa-database fa-2x text-gray-300"></i></div>
+                                </div>
+                                <div class="progress mt-3" style="height: 20px;">
+                                    <div id="realProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-info" role="progressbar" style="width: 0%;">0%</div>
+                                </div>
+                                <div id="statusMessage" class="small font-italic text-muted mt-2 text-center"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-right mt-3">
+                        <button type="submit" class="btn btn-primary px-5 shadow-sm" id="btnSubmitTxt">
+                            <i class="fas fa-upload mr-1"></i> Thực hiện nạp TXT
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow mb-4">
+            <div class="card-header py-3" style="background: #c0392b; color: white;">
+                <h6 class="m-0 font-weight-bold"><i class="fas fa-exclamation-triangle mr-2"></i>2. Nạp dữ liệu CSV (Lỗi Cục PCRT trả lời)</h6>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('import_bc48_csv') }}" method="POST" enctype="multipart/form-data" id="uploadFormCsv">
+                    <div class="form-group">
+                        <label class="font-weight-bold text-danger">Chọn các tệp tin .csv:</label>
+                        <div class="custom-file">
+                            <input type="file" name="files[]" class="custom-file-input" id="customFileCsv" multiple accept=".csv" required>
+                            <label class="custom-file-label text-truncate" for="customFileCsv" data-browse="Chọn file">Chọn CSV...</label>
+                        </div>
+                    </div>
+                    <div class="text-right mt-3">
+                        <button type="submit" class="btn btn-danger px-5 shadow-sm" id="btnSubmitCsv">
+                            <i class="fas fa-file-import mr-1"></i> Thực hiện nạp CSV
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // 1. Cấu hình mặc định cho tất cả DataTable trong hệ thống
+        const commonConfig = {
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/vi.json"
+            },
+            "pageLength": 25,
+            "order": [[4, "desc"]], // Mặc định sắp xếp theo ngày cập nhật hoặc giá trị lớn nhất
+            "dom": "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+                   "<'row'<'col-sm-12'tr>>" +
+                   "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+        };
+
+        // 2. Khởi tạo bảng Tổng hợp Toàn hàng
+        if ($('#historyTable').length) {
+            $('#historyTable').DataTable({
+                ...commonConfig,
+                "columnDefs": [
+                    { 
+                        "className": "text-right", 
+                        "targets": [3], // Cột Số dòng Định dạng số nguyên, có dấu phẩy ngăn cách
+                        "render": function (data, type, row) {
+                            if (type === 'display' && !isNaN(parseFloat(data))) {
+                                return parseFloat(data).toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+                            }
+                            return data;
+                        }
+                    },
+                    { 
+                        "className": "text-right font-weight-bold text-success", 
+                        "targets": [4, 5], // Cột Tổng số tiền và Tổng quy đổi
+                        "render": function (data, type, row) {
+                            if (type === 'display' && !isNaN(parseFloat(data))) {
+                                return parseFloat(data).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                            }
+                            return data;
+                        }
+                    }
+                ]
+            });
+        }
+
+        // 3. Khởi tạo bảng Tổng hợp Đơn vị
+        if ($('#historyDonViTable').length) {
+            $('#historyDonViTable').DataTable({
+                ...commonConfig,
+                "paging": false, // THÊM DÒNG NÀY ĐỂ TẮT THANH PHÂN TRANG CỦA JS
+                "info": false,   // THÊM DÒNG NÀY ĐỂ BỎ DÒNG "SHOWING 1 TO 50..."
+                "pageLength": 50,
+                "columnDefs": [
+                    { "className": "text-right font-weight-bold text-primary", "targets": [4] }, // Cột Tổng quy đổi
+                    { "className": "text-right", "targets": [3] }, // Cột Số dòng
+                    { "render": function ( data, type, row ) {
+                        if (type === 'display' && !isNaN(parseFloat(data))) {
+                            return parseFloat(data).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        }
+                        return data;
+                    }, "targets": [4] }
+                ]
+            });
+        }
+
+        // 4. Khởi tạo bảng Chi tiết (Vấn tin)
+        if ($('#dataTableDetail').length) {
+            $('#dataTableDetail').DataTable({
+                ...commonConfig,
+                "order": [[0, "desc"]], // Sắp xếp theo thời điểm mới nhất
+                "columnDefs": [
+                    { "className": "text-right font-weight-bold", "targets": [3, 4] }
+                ]
+            });
+        }
+
+        // Hiển thị tên file khi chọn
+        $('.custom-file-input').on('change', function() {
+            let files = this.files;
+            let label = $(this).next('.custom-file-label');
+            if (files.length > 1) {
+                label.html(files.length + ' tệp đã chọn');
+            } else if (files.length === 1) {
+                label.html(files[0].name);
+            } else {
+                label.html('Chưa chọn tệp nào...');
+            }
+        });
+
+        // Xử lý nạp TXT bằng Stream JSON
+        $('#uploadFormTxt').on('submit', function(e) {
+            e.preventDefault();
+            const $btn = $('#btnSubmitTxt');
+            const $container = $('#progressContainerTxt');
+            const formData = new FormData(this);
+
+            // Reset UI
+            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Đang nạp...');
+            $container.show();
+            $('#statusMessage').html('');
+            $('#checkFileStep').hide();
+            $('#realProgressBar').css('width', '0%').text('0%');
+            $('#rowCount').text('0');
+            $('#totalCount').text('0');
+
+            window.onbeforeunload = function() { return "Đang nạp dữ liệu, vui lòng không đóng trình duyệt!"; };
+
+            fetch($(this).attr('action'), { method: 'POST', body: formData })
+            .then(response => {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = ""; 
+
+                function processText({ done, value }) {
+                    if (done) {
+                        $('#statusMessage').html('<b class="text-success"><i class="fas fa-check-circle"></i> Hoàn thành nạp dữ liệu!</b>');
+                        window.onbeforeunload = null;
+                        setTimeout(() => location.reload(), 2000);
+                        return;
+                    }
+
+                    buffer += decoder.decode(value, { stream: true });
+                    let chunks = buffer.split('\n\n');
+                    buffer = chunks.pop(); 
+
+                    chunks.forEach(chunk => {
+                        let cleanLine = chunk.trim();
+                        if (!cleanLine.startsWith('data: ')) return;
+
+                        try {
+                            let data = JSON.parse(cleanLine.substring(6));
+                            // PHẦN 0: KIỂM TRA CẤU TRÚC (Cập nhật khớp với error_code từ Python)
+                            if (data.status === 'check') {
+                                $('#checkFileStep').show();
+                                $('#checkFileName').text(data.filename);
+                                $('#declaredRows').text(data.declared.toLocaleString());
+                                $('#actualRows').text(data.actual.toLocaleString());
+                                
+                                // Sửa điều kiện: Nếu không có error_code (None/null) thì coi như khớp
+                                let isMatch = !data.error_code || data.match;
+                                if (isMatch) { 
+                                    $('#checkResultBadge').html('<span class="badge badge-success"><i class="fas fa-check"></i> Khớp</span>');
+                                    $('#checkResultMessage').html('<span class="text-success">Cấu trúc khớp. Đang bắt đầu nạp...</span>');
+                                    // Đợi 5 giây (5000ms) trước khi thực hiện hành động tiếp theo
+                                    setTimeout(function() {
+                                        // Đặt logic nạp dữ liệu hoặc chuyển hướng của bạn ở đây
+                                        console.log("Bắt đầu nạp dữ liệu sau khi người dùng đã đọc thông báo.");
+                                        // Ví dụ: location.reload(); hoặc gọi hàm napDuLieu();
+                                    }, 5000);
+                                } else {
+                                    let errorMsg = data.error_code === 'RE4' ? 'Sai lệch số dòng thực tế!' : 'Sai lệch ngày báo cáo!';
+                                    $('#checkResultBadge').html('<span class="badge badge-danger"><i class="fas fa-times"></i> Lệch (' + data.error_code + ')</span>');
+                                    $('#checkResultMessage').html('<span class="text-danger">Cảnh báo: ' + errorMsg + '</span>');
+                                    // Vẫn tiếp tục nạp cho ACE đối soát nhưng hiển thị cảnh báo lâu hơn
+                                    setTimeout(function() {
+                                        console.log("Tiến trình nạp vẫn tiếp tục để phục vụ đối soát.");
+                                    }, 5000);
+                                }
+                            }
+
+                            // TRẠNG THÁI BẮT ĐẦU FILE
+                            else if (data.status === 'start') {
+                                $('#currentFileName').text(data.filename);
+                                $('#totalCount').text(data.total.toLocaleString());
+                                $('#realProgressBar').css('width', '0%').text('0%');
+                                $('#rowCount').text('0');
+                            } 
+                            
+                            // CẬP NHẬT TIẾN ĐỘ
+                            else if (data.status === 'progress') {
+                                let current = data.current;
+                                let total = parseInt($('#totalCount').text().replace(/,/g, ''));
+                                $('#rowCount').text(current.toLocaleString());
+                                if (total > 0) {
+                                    let pct = Math.round((current / total) * 100);
+                                    $('#realProgressBar').css('width', pct + '%').attr('aria-valuenow', pct).text(pct + '%');
+                                }
+                            }
+
+                            // THÔNG BÁO LỖI
+                            else if (data.status === 'error') {
+                                $('#statusMessage').append('<div class="text-danger small mt-1">⚠️ ' + data.msg + '</div>');
+                            }
+                        } catch (err) {
+                            console.error("Lỗi parse JSON:", err);
+                        }
+                    });
+                    return reader.read().then(processText);
+                }
+                return reader.read().then(processText);
+            })
+            .catch(err => {
+                window.onbeforeunload = null;
+                alert("Lỗi kết nối: " + err.message);
+                $btn.prop('disabled', false).text('Thực hiện nạp lại');
+            });
+        });
+
+        // Xử lý nạp CSV thông thường (Ajax)
+        $('#uploadFormCsv').on('submit', function(e) {
+            e.preventDefault();
+            const $btn = $('#btnSubmitCsv');
+            const formData = new FormData(this);
+            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Đang nạp...');
+            
+            fetch($(this).attr('action'), { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.success.length > 0) alert("Nạp thành công CSV.");
+                if (data.error && data.error.length > 0) alert("Lỗi CSV: " + data.error.join(", "));
+                location.reload();
+            })
+            .catch(err => {
+                alert("Lỗi nạp CSV: " + err);
+                $btn.prop('disabled', false).text('Nạp lại CSV');
+            });
+        });
+    });
+
+    // Hiệu ứng loading chung cho các nút submit
+    // Áp dụng cho tất cả form có class .form-loading
+    $('form.form-loading').on('submit', function() {
+        var $btn = $(this).find('button[type="submit"]');
+        // Chỉ chạy hiệu ứng nếu form hợp lệ (check HTML5 validation)
+        if (this.checkValidity()) {
+            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> Đang xử lý...');
+        }
+    });
+
+    // Thông báo khi xuất file dung lượng lớn (Stream)
+    function showExportLoading() {
+        Swal.fire({
+            title: 'Đang chuẩn bị trích xuất dữ liệu...',
+            text: 'Hệ thống đang tải xuống hàng triệu dòng theo luồng (Stream). Vui lòng không đóng trình duyệt cho đến khi file tải xong.',
+            icon: 'info',
+            toast: true,
+            timer: 5000,
+            showConfirmButton: false,
+            position: 'top-end'
+        });
+    }
+
+    function goToPage() {
+        const pageInput = document.getElementById('pageInput');
+        if (!pageInput) return; // Thoát nếu không tìm thấy ô nhập
+
+        const page = pageInput.value;
+        const total = {{ total_pages }};
+        const filterMa = "{{ filter_ma }}";
+        
+        if (page && page >= 1 && page <= total) {
+            window.location.href = "{{ url_for('giaodien_bc48', view='history_don_vi') }}?page=" + page + "&filter_ma=" + encodeURIComponent(filterMa);
+        } else {
+            alert("Vui lòng nhập số trang từ 1 đến " + total);
+        }
+    }
+    document.addEventListener("DOMContentLoaded", function() {
+        // 1. Định nghĩa hàm goToPage
+        window.goToPage = function() {
+            const pageInput = document.getElementById('pageInput');
+            if (!pageInput) return;
+
+            const pageValue = pageInput.value;
+            const total = {{ total_pages }};
+            
+            // Lấy URL hiện tại để giữ lại các tham số cần thiết
+            const url = new URL(window.location.href);
+            
+            if (pageValue && pageValue >= 1 && pageValue <= total) {
+                // Cập nhật hoặc thêm tham số page
+                url.searchParams.set('page', pageValue);
+                
+                // Đảm bảo view là history_don_vi
+                url.searchParams.set('view', 'history_don_vi');
+                
+                // Nếu filter_ma đang có giá trị thì giữ lại, không thì xóa để URL sạch
+                const currentFilter = "{{ filter_ma }}";
+                if (currentFilter) {
+                    url.searchParams.set('filter_ma', currentFilter);
+                } else {
+                    url.searchParams.delete('filter_ma');
+                }
+                
+                // Chuyển trang
+                window.location.href = url.toString();
+            } else {
+                alert("Vui lòng nhập số trang từ 1 đến " + total);
+            }
+        };
+        // 2. Gán sự kiện nhấn Enter cho ô input
+        // Sử dụng kiểm tra tồn tại trước khi gắn sự kiện
+        const pageInput = document.getElementById('pageInput');
+        if (pageInput) {
+            pageInput.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    goToPage();
+                }
+            });
+        }
+    });
+</script>
+<style>
+    /* Đảm bảo Header bảng luôn nổi khi scroll */
+    #dataTableDetail thead th {
+        background-color: #6c757d !important;
+        box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 #fff;
+    }
+</style>
+{% endblock %}

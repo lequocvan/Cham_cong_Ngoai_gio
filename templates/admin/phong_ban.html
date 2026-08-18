@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block title %}Quản lý Phòng ban{% endblock %}
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="card shadow mb-3">
+        <div class="card-header py-2 bg-light">
+            <h6 class="m-0 font-weight-bold text-dark"><i class="fas fa-filter me-2"></i>Bộ lọc tìm kiếm</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-2">
+                    <input type="text" id="f_ten_pb" class="form-control form-control-sm" placeholder="Tên phòng ban...">
+                </div>
+                <div class="col-md-3">
+                    <input type="text" id="f_ma_hieu_2" class="form-control form-control-sm" placeholder="Mã Đơn vị...">
+                </div>
+                <div class="col-md-3">
+                    <input type="text" id="f_ten_ma_hieu_2" class="form-control form-control-sm" placeholder="Tên Đơn vị...">
+                </div>
+                <div class="col-md-2">
+                    <select id="f_trang_thai" class="form-select form-select-sm">
+                        <option value="">-- Trạng thái --</option>
+                        <option value="Hoạt động">Hoạt động</option>
+                        <option value="Tạm dừng">Tạm dừng</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-success btn-sm w-100" id="btnFilter"><i class="fas fa-search"></i> Tìm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 bg-success text-white d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold"><i class="fas fa-users-cog me-2"></i>DANH MỤC PHÒNG BAN</h6>
+            <button class="btn btn-light btn-sm" onclick="openAddPB()"><i class="fas fa-plus"></i> Thêm phòng ban</button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="tablePhongBanServer" class="table table-bordered table-striped w-100">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Tên Phòng ban</th>
+                            <th>Mã Đơn vị</th>
+                            <th>Tên Đơn vị</th>
+                            <th>Trạng thái ĐV</th>
+                            <th>Ngày tạo</th>
+                            <th class="text-center">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="phongBanModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form action="{{ url_for('save_phong_ban') }}" method="POST" class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="pbModalTitle">Phòng ban</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="id" id="pb_id">
+                <div class="mb-3">
+                    <label class="form-label font-weight-bold">Tên phòng ban</label>
+                    <input type="text" name="ten_phong_ban" id="pb_ten" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label font-weight-bold">Thuộc Đơn vị</label>
+                    <select name="ma_hieu_2" id="pb_ma_hieu_2" class="form-select" required>
+                        <option value="">-- Chọn đơn vị --</option>
+                        {% for dv in danh_sach_dv %}
+                        <option value="{{ dv.ma_hieu_2 }}">{{ dv.ma_hieu_2 }} - {{ dv.ten_ma_hieu_2 }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label font-weight-bold">Mô tả</label>
+                    <textarea name="mo_ta" id="pb_mo_ta" class="form-control" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-success">Lưu thông tin</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Khai báo biến table ở phạm vi ngoài để các hàm khác có thể truy cập
+    var tablePB;
+
+    document.addEventListener("DOMContentLoaded", function() {
+        if (typeof jQuery === 'undefined') {
+            console.error("jQuery is not loaded!");
+            return;
+        }
+
+        // Cấu hình ngôn ngữ tiếng Việt trực tiếp
+        var vietnameseLanguage = {
+            "sProcessing":   "Đang xử lý...",
+            "sLengthMenu":   "Xem _MENU_ mục",
+            "sZeroRecords":  "Không tìm thấy dòng nào phù hợp",
+            "sInfo":         "Đang xem _START_ đến _END_ trong tổng số _TOTAL_ mục",
+            "sInfoEmpty":    "Đang xem 0 đến 0 trong tổng số 0 mục",
+            "sInfoFiltered": "(được lọc từ _MAX_ mục)",
+            "sSearch":       "Tìm nhanh:",
+            "oPaginate": {
+                "sFirst":    "Đầu",
+                "sPrevious": "Trước",
+                "sNext":     "Tiếp",
+                "sLast":     "Cuối"
+            }
+        };
+
+        // Khởi tạo DataTable
+        tablePB = $('#tablePhongBanServer').DataTable({
+            "processing": true,
+            "serverSide": true,
+            "ajax": {
+                "url": "{{ url_for('phong_ban_data') }}",
+                "type": "GET",
+                "data": function (d) {
+                    d.f_ten_pb = $('#f_ten_pb').val();
+                    d.f_ma_hieu_2 = $('#f_ma_hieu_2').val();
+                    d.f_ten_ma_hieu_2 = $('#f_ten_ma_hieu_2').val();
+                    d.f_trang_thai = $('#f_trang_thai').val();
+                },
+                "error": function (xhr, error, thrown) {
+                    console.error("DataTables Error: ", xhr.responseText);
+                }
+            },
+            "columns": [
+                { "data": "id" },
+                { "data": "ten_phong_ban" },
+                { 
+                    "data": "ma_hieu_2",
+                    "render": function(data) {
+                        return `<span class="badge bg-info text-dark">${data || ''}</span>`;
+                    }
+                },
+                { "data": "ten_ma_hieu_2" },
+                { 
+                    "data": "trang_thai_dv",
+                    "render": function(data) {
+                        let cls = (data === 'Hoạt động') ? 'success' : 'secondary';
+                        return `<span class="badge bg-${cls}">${data || 'N/A'}</span>`;
+                    }
+                },
+                { "data": "created_at" },
+                { 
+                    "data": null,
+                    "className": "text-center",
+                    "render": function(data, type, row) {
+                        // Mã hóa an toàn nội dung mô tả
+                        let mo_ta_raw = row.mo_ta || "";
+                        let mo_ta_esc = btoa(unescape(encodeURIComponent(mo_ta_raw)));
+                        
+                        let btnEdit = `<button type="button" class="btn btn-sm btn-primary me-1" 
+                                        onclick="editPB('${row.id}', '${row.ten_phong_ban.replace(/'/g, "\\'")}', '${row.ma_hieu_2}', '${mo_ta_esc}', true)">
+                                        <i class="fas fa-edit"></i></button>`;
+                        
+                        let btnDelete = row.is_admin ? 
+                            `<a href="/admin/phong-ban/delete/${row.id}" class="btn btn-sm btn-danger" 
+                                onclick="return confirm('Bạn có chắc chắn muốn xóa phòng ban này?')">
+                                <i class="fas fa-trash"></i></a>` : '';
+                        
+                        return btnEdit + btnDelete;
+                    }
+                }
+            ],
+            "language": vietnameseLanguage,
+            "pageLength": 10,
+            "order": [[0, "desc"]],
+            "searchDelay": 500
+        });
+
+        // Xử lý sự kiện click nút tìm kiếm
+        $('#btnFilter').on('click', function() {
+            tablePB.ajax.reload();
+        });
+
+        // Cho phép nhấn Enter để tìm kiếm
+        $('.form-control-sm').on('keypress', function(e) {
+            if(e.which === 13) tablePB.ajax.reload();
+        });
+    });
+
+    // Các hàm global gọi từ thuộc tính onclick của HTML
+    function applyFilter() {
+        if(tablePB) tablePB.ajax.reload();
+    }
+
+    function openAddPB() {
+        $('#pbModalTitle').text("Thêm Phòng ban mới");
+        $('#pb_id').val("");
+        $('#phongBanModal form')[0].reset();
+        $('#phongBanModal').modal('show');
+    }
+
+    function editPB(id, ten, ma, mo_ta_base64, is_encoded = false) {
+        let mo_ta = "";
+        try {
+            mo_ta = is_encoded ? decodeURIComponent(escape(atob(mo_ta_base64))) : mo_ta_base64;
+        } catch(e) { console.error("Decode error", e); }
+
+        $('#pbModalTitle').text("Sửa Phòng ban");
+        $('#pb_id').val(id);
+        $('#pb_ten').val(ten);
+        $('#pb_ma_hieu_2').val(ma);
+        $('#pb_mo_ta').val(mo_ta);
+        $('#phongBanModal').modal('show');
+    }
+</script>
+{% endblock %}

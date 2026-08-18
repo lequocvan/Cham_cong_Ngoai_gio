@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block title %}Kết quả dò tìm lỗi BC48{% endblock %}
+
+{% block content %}
+<style>
+    /* Custom CSS xử lý trải nghiệm cuộn và Wrap Text khoa học */
+    .table-responsive-custom {
+        max-height: 650px; 
+        overflow: auto; 
+        border: 1px solid #dee2e6;
+        box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+    }
+    #table_data {
+        width: 4800px; 
+        table-layout: fixed; 
+        font-size: 0.72rem;
+    }
+    #table_data th {
+        background-color: #f8f9fa;
+        color: #495057;
+        font-weight: 700;
+        vertical-align: middle;
+        text-align: center;
+        border-bottom: 2px solid #dee2e6;
+    }
+    .cell-wrap {
+        white-space: normal !important;
+        word-break: break-word !important;
+        vertical-align: top !important;
+    }
+    .cell-nowrap {
+        white-space: nowrap !important;
+        vertical-align: top !important;
+    }
+</style>
+
+<div class="container-fluid mt-4">
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="fas fa-search"></i> KẾT QUẢ DÒ TÌM CHI TIẾT "KIỂM TRA GIAO DỊCH LỖI" & "MA_GIAO_DICH" giữa các bảng _error và bảng _yyyymm </h6>
+        </div>
+
+        <div class="card-body bg-light">
+            <form method="POST" id="form_search">
+                <div class="row align-items-end">
+                    <div class="col-md-3 form-group mb-2">
+                        <label class="small font-weight-bold text-secondary">Loại BC</label>
+                        <select name="loai_bc" class="form-control form-control-sm">
+                            <option value="ALL">-- Tất cả --</option>
+                            {% for opt in ['CTR', 'DWT', 'EFT', 'PTR'] %}
+                                <option value="{{ opt }}" {% if filters.get('loai_bc') == opt %}selected{% endif %}>{{ opt }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-5 form-group mb-2">
+                        <label class="small font-weight-bold text-secondary">Mô tả lỗi</label>
+                        <select name="mota_loi_don_le" class="form-control form-control-sm">
+                            <option value="ALL">-- Tất cả --</option>
+                            {% for err in ds_mota_loi %}
+                                <option value="{{ err }}" {% if filters.get('mota_loi_don_le') == err %}selected{% endif %}>{{ err }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-4 form-group mb-2">
+                        <label class="small font-weight-bold text-secondary">Trạng thái xử lý</label>
+                        <select name="trang_thai_khac_phuc" class="form-control form-control-sm">
+                            <option value="ALL">-- Tất cả --</option>
+                            <option value="0" {% if filters.get('trang_thai_khac_phuc') == '0' %}selected{% endif %}>0: Mới</option>
+                            <option value="1" {% if filters.get('trang_thai_khac_phuc') == '1' %}selected{% endif %}>1: Đã gửi mail</option>
+                            <option value="2" {% if filters.get('trang_thai_khac_phuc') == '2' %}selected{% endif %}>2: CN đã phản hồi</option>
+                            <option value="3" {% if filters.get('trang_thai_khac_phuc') == '3' %}selected{% endif %}>3: Đã khớp/Xong</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row align-items-end mt-1">
+                    <div class="col-md-4 form-group mb-2">
+                        <label class="small font-weight-bold text-secondary">Mã NH 8 số</label>
+                        <input type="text" name="macn" class="form-control form-control-sm" value="{{ filters.get('macn', '') }}" placeholder="Nhập mã đơn vị...">
+                    </div>
+
+                    <div class="col-md-4 form-group mb-2">
+                        <label class="small font-weight-bold text-secondary">Mã Hiệu 1 / 2</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" name="ma_hieu_1" class="form-control" value="{{ filters.get('ma_hieu_1', '') }}" placeholder="MH1">
+                            <input type="text" name="ma_hieu_2" class="form-control" value="{{ filters.get('ma_hieu_2', '') }}" placeholder="MH2">
+                        </div>
+                    </div>
+
+                    <div class="col-md-2 form-group mb-2">
+                        <label class="small font-weight-bold text-primary"><i class="far fa-calendar-alt"></i> Từ ngày</label>
+                        <input type="date" name="tu_ngay" class="form-control form-control-sm border-primary" value="{{ filters.get('tu_ngay', '') }}">
+                    </div>
+
+                    <div class="col-md-2 form-group mb-2">
+                        <label class="small font-weight-bold text-primary"><i class="far fa-calendar-check"></i> Đến ngày</label>
+                        <input type="date" name="den_ngay" class="form-control form-control-sm border-primary" value="{{ filters.get('den_ngay', '') }}">
+                    </div>
+
+                    <!-- Dòng bổ sung tìm kiếm chính xác theo Tên Tệp Tin -->
+                    <div class="row align-items-end mt-1">
+                        <div class="col-md-6 form-group mb-2">
+                            <label class="small font-weight-bold text-secondary">Tên file gốc (Chính xác)</label>
+                            <input type="text" name="ten_file_goc" class="form-control form-control-sm" value="{{ filters.get('ten_file_goc', '') }}" placeholder="Dán chính xác toàn bộ tên file gốc...">
+                        </div>
+                        <div class="col-md-6 form-group mb-2">
+                            <label class="small font-weight-bold text-secondary">Tên file error (Chính xác)</label>
+                            <input type="text" name="ten_file_error" class="form-control form-control-sm" value="{{ filters.get('ten_file_error', '') }}" placeholder="Dán chính xác toàn bộ tên file error...">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-2 border-top pt-3 align-items-center">
+                    <div class="col-md-3 form-group mb-0">
+                        <label class="small font-weight-bold text-success"><i class="fas fa-key"></i> Cơ chế mật khẩu ZIP</label>
+                        <select name="loai_mat_khau" class="form-control form-control-sm">
+                            <option value="fixed" {% if filters.get('loai_mat_khau') == 'fixed' %}selected{% endif %}>Mật khẩu cố định (Mặc định)</option>
+                            <option value="random" {% if filters.get('loai_mat_khau') == 'random' %}selected{% endif %}>Mật khẩu ngẫu nhiên</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-6 d-flex mb-0 align-self-end evaluation-buttons">
+                        <button type="submit" class="btn btn-sm btn-dark mr-2 shadow-sm"><i class="fas fa-filter"></i> Lọc số liệu</button>
+                        <a href="{{ url_for('xoa_loc_bc48') }}" class="btn btn-sm btn-outline-secondary mr-3 shadow-sm" title="Xóa bộ lọc"><i class="fas fa-times"></i></a>
+
+                        <button type="submit" formaction="{{ url_for('export_sao_ke') }}" class="btn btn-sm btn-warning mr-2 shadow-sm text-dark font-weight-bold" title="Xuất dữ liệu duy nhất theo Ma_GD">
+                            <i class="fas fa-file-excel"></i> Xuất Sao Kê
+                        </button>
+
+                        <button type="submit" formaction="{{ url_for('xu_ly_xuat_csv_zip') }}" class="btn btn-sm btn-success mr-2 flex-grow-1 shadow-sm">
+                            <i class="fas fa-file-archive"></i> 1. Xuất tệp ZIP
+                        </button>
+                        
+                        <button type="submit" formaction="{{ url_for('gui_mail_sau_xuat') }}" class="btn btn-sm btn-info flex-grow-1 shadow-sm"
+                                {% if not session.get('files_to_send') %} disabled title="Vui lòng thực hiện bước 1 trước" {% endif %}>
+                            <i class="fas fa-envelope"></i> 2. Gửi Mail CN
+                        </button>
+
+                        <button type="submit" formaction="{{ url_for('tach_rieng_macn') }}" class="btn btn-sm btn-danger flex-grow-1 shadow-sm">
+                            <i class="fas fa-layer-group"></i> 3. Tách riêng theo macn
+                        </button>
+
+                        <button type="submit" formaction="{{ url_for('tach_rieng_macn_loi2') }}" class="btn btn-sm btn-dark flex-grow-1 shadow-sm" style="background-color: #343a40; border-color: #343a40;">
+                            <i class="fas fa-cubes"></i> 4. Tách riêng theo macn từ ket_qua_do_tim_loi_2 (app Dung)
+                        </button>
+                    </div>
+                    
+                    <div class="col-md-3 text-right small text-muted">
+                        <i class="fas fa-info-circle"></i> Đường dẫn lưu: <br>
+                        <span class="badge badge-secondary p-1 font-weight-normal">Downloads/BaoCao_Loi_CSV_Mahoa</span>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center border-bottom">
+            <span class="text-secondary small font-weight-bold">
+                <i class="fas fa-list-ol"></i> Danh sách chi tiết lỗi mã giao dịch
+            </span>
+
+            <div class="col-md-5">
+                <div class="input-group input-group-sm">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text bg-light text-secondary border-right-0">
+                            <i class="fas fa-search-plus"></i>
+                        </span>
+                    </div>
+                    <input type="text" id="quick_search" class="form-control form-control-sm border-left-0" 
+                           placeholder="Tìm nhanh trong trang hiện tại (Mã NH, Tên KH, Số GT, File...)">
+                </div>
+            </div>
+
+            <span class="badge badge-info p-2 shadow-sm">
+                <i class="fas fa-database"></i> Tổng số bản ghi: <strong>{{ "{:,.0f}".format(pagination.get('total', 0)).replace(',', '.') }}</strong> trong ket_qua_do_tim_loi
+            </span>
+        </div>
+        
+        <div class="table-container table-responsive-custom">
+            <table id="table_data" class="table table-hover table-bordered table-sm mb-0">
+                <thead style="position: sticky; top: 0; z-index: 5;">
+                    <tr>
+                        <th style="width: 45px;">STT</th>
+                        <th style="width: 80px;">Ngày BC</th>
+                        <th style="width: 70px;">Loại BC</th>
+                        <th style="width: 140px;">Mã GD</th>
+                        <th style="width: 80px;">Mã NH</th>
+                        <th style="width: 150px;">Mã Hiệu 1 (Tên)</th>
+                        <th style="width: 150px;">Mã Hiệu 2 (Tên)</th>
+                        <th style="width: 350px;">Mô tả lỗi</th>
+                        <th style="width: 135px;">Trạng thái xử lý</th>
+                        <th style="width: 120px;">Số tiền</th>
+                        <th style="width: 70px;">Loại tiền</th>
+                        <th style="width: 110px;">Mã lỗi F ảo</th>
+                        <th style="width: 120px;">DS Mã NV</th>
+                        <th style="width: 300px;">DS Tên NV</th>
+                        <th style="width: 150px;">DS Cột SQL</th>
+                        <th style="width: 80px;">DS Mã QyĐ</th>
+                        <th style="width: 100px;">Kiểu KH</th>
+                        <th style="width: 250px;">Tên KH</th>
+                        <th style="width: 70px;">Loại GT</th>
+                        <th style="width: 120px;">Số GT</th>
+                        <th style="width: 250px;">File gốc</th>
+                        <th style="width: 250px;">File error</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in chi_tiet_data %}
+                    <tr>
+                        <td class="text-center cell-nowrap text-secondary">{{ (pagination.get('page', 1) - 1) * pagination.get('per_page', 30) + loop.index }}</td>
+                        <td class="text-center cell-nowrap font-weight-bold text-dark">{{ row.ngay_baocao.strftime('%d/%m/%Y') if row.ngay_baocao }}</td>
+                        <td class="text-center cell-nowrap"><span class="badge badge-secondary px-2">{{ row.loai_bc }}</span></td>
+                        <td class="cell-wrap text-monospace font-weight-bold text-primary">{{ row.ma_giao_dich }}</td>
+                        <td class="text-center cell-nowrap">{{ row.macn }}</td>
+                        
+                        <td class="cell-wrap">
+                            <strong class="text-dark">{{ row.ma_hieu_1 }}</strong>
+                            {% if row.ten_ma_hieu_1 %}<div class="text-muted small mt-1">{{ row.ten_ma_hieu_1 }}</div>{% endif %}
+                        </td>
+                        <td class="cell-wrap">
+                            <strong class="text-dark">{{ row.ma_hieu_2 }}</strong>
+                            {% if row.ten_ma_hieu_2 %}<div class="text-muted small mt-1">{{ row.ten_ma_hieu_2 }}</div>{% endif %}
+                        </td>
+                        
+                        <td class="cell-wrap text-danger font-weight-bold">{{ row.mota_loi_don_le }}</td>
+                        
+                        <td class="text-center align-middle cell-nowrap">
+                            {% set status_val = row.get('trang_thai_khac_phuc', row.get('TRANG_THAI_KHAC_PHUC', 0)) | int %}
+                            {% if status_val == 0 %}
+                                <span class="badge badge-danger p-1 w-100"><i class="fas fa-plus-circle"></i> 0: Mới</span>
+                            {% elif status_val == 1 %}
+                                <span class="badge badge-warning p-1 w-100 text-dark"><i class="fas fa-paper-plane"></i> 1: Đã gửi mail</span>
+                            {% elif status_val == 2 %}
+                                <span class="badge badge-info p-1 w-100"><i class="fas fa-reply"></i> 2: CN phản hồi</span>
+                            {% elif status_val == 3 %}
+                                <span class="badge badge-success p-1 w-100"><i class="fas fa-check-double"></i> 3: Đã khớp/Xong</span>
+                            {% else %}
+                                <span class="badge badge-secondary p-1 w-100">{{ row.get('trang_thai_khac_phuc', '') }}</span>
+                            {% endif %}
+                        </td>
+                        
+                        <td class="text-right cell-nowrap font-weight-bold text-dark">{{ "{:,.0f}".format(row.sotien or 0).replace(',', '.') }}</td>
+                        <td class="text-center cell-nowrap text-muted">{{ row.loaitien }}</td>
+                        <td class="cell-wrap small text-dark text-monospace">{{ row.ma_loi_f_ao if row.ma_loi_f_ao else '' }}</td>
+                        
+                        <td class="cell-wrap text-monospace small text-secondary">{{ row.ds_ma_nghiep_vu }}</td>
+                        <td class="cell-wrap small text-dark">{{ row.ds_ten_nghiep_vu }}</td>
+                        <td class="cell-wrap small text-purple text-monospace" style="color: #6f42c1;">{{ row.ds_ten_cot_sql }}</td>
+                        <td class="cell-wrap text-center small">{{ row.ds_ma_quy_dinh }}</td>
+
+                        <td class="text-center cell-nowrap">{{ row.kieukh if row.kieukh else '' }}</td>
+                        <td class="cell-wrap font-weight-bold text-uppercase text-dark">{{ row.tenkh }}</td>
+                        <td class="text-center cell-nowrap">{{ row.loaigt if row.loaigt else '' }}</td>
+                        <td class="text-center cell-nowrap text-monospace">{{ row.sogt }}</td>
+                        
+                        <td class="cell-wrap small text-muted text-break">{{ row.ten_file_goc }}</td>
+                        <td class="cell-wrap small text-muted text-break">{{ row.ten_file_error }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div> <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2 border-top">
+            <div class="small text-muted">
+                Hiển thị từ bản ghi <strong>{{ (pagination.get('page', 1) - 1) * pagination.get('per_page', 30) + 1 }}</strong> 
+                đến <strong>{{ min(pagination.get('page', 1) * pagination.get('per_page', 30), pagination.get('total', 0)) if min is defined else pagination.get('page', 1) * pagination.get('per_page', 30) }}</strong> 
+                trong tổng số <strong>{{ "{:,.0f}".format(pagination.get('total', 0)).replace(',', '.') }}</strong> bản ghi.
+            </div>
+
+            <nav aria-label="Page navigation">
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if pagination.get('page', 1) == 1 %}disabled{% endif %}" title="Trang đầu">
+                        <a class="page-link" href="{{ url_for('giaodien_gui_mail_chi_nhanh', page=1, **filters) }}"><i class="fas fa-angle-double-left"></i></a>
+                    </li>
+
+                    <li class="page-item {% if not pagination.get('has_prev') %}disabled{% endif %}" title="Trang trước">
+                        <a class="page-link" href="{{ url_for('giaodien_gui_mail_chi_nhanh', page=pagination.get('prev_num', 1), **filters) }}"><i class="fas fa-angle-left"></i></a>
+                    </li>
+
+                    {% set current_page = pagination.get('page', 1) %}
+                    {% set total_pages = pagination.get('pages', 1) %}
+                    {% set window = 2 %}
+
+                    {% for p in range(1, total_pages + 1) %}
+                        {% if p == 1 or p == total_pages or (p >= current_page - window and p <= current_page + window) %}
+                            <li class="page-item {% if p == current_page %}active aria-current='page'{% endif %}">
+                                <a class="page-link font-weight-bold" href="{{ url_for('giaodien_gui_mail_chi_nhanh', page=p, **filters) }}">{{ p }}</a>
+                            </li>
+                        {% elif p == current_page - window - 1 or p == current_page + window + 1 %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    <li class="page-item {% if not pagination.get('has_next') %}disabled{% endif %}" title="Trang sau">
+                        <a class="page-link" href="{{ url_for('giaodien_gui_mail_chi_nhanh', page=pagination.get('next_num', 1), **filters) }}"><i class="fas fa-angle-right"></i></a>
+                    </li>
+
+                    <li class="page-item {% if pagination.get('page', 1) == total_pages %}disabled{% endif %}" title="Trang cuối">
+                        <a class="page-link" href="{{ url_for('giaodien_gui_mail_chi_nhanh', page=total_pages, **filters) }}"><i class="fas fa-angle-double-right"></i></a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function(){
+    $("#quick_search").on("keyup", function() {
+        var value = $(this).val().toLowerCase().trim();
+        $("#table_data tbody tr").each(function() {
+            if (value === "") {
+                $(this).show();
+            } else {
+                var textMatch = $(this).text().toLowerCase();
+                if (textMatch.indexOf(value) > -1) {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

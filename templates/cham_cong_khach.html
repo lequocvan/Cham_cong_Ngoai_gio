@@ -1,0 +1,462 @@
+{% extends "base.html" %}
+
+{% block title %}Chấm Công Khách (Nhanh){% endblock %}
+
+{% block content %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+    :root {
+        --font-size-table: 12px;
+        --col-day-width: 26px;
+        --w-stt: 40px;
+        --w-ma: 70px;
+        --w-ten: 150px;
+    }
+
+    .container-fluid { font-size: 13px; }
+
+    /* TOOLBAR */
+    .toolbar-card {
+        background: #fff; padding: 10px 15px; border-radius: 8px;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1);
+        position: relative; 
+        z-index: 1001;
+    }
+    .toolbar-container { display: flex; align-items: center; gap: 15px; flex-wrap: nowrap; }
+    .form-group-inline { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+
+    .quick-fill-group { position: relative; z-index: 1002; }
+
+    /* CHÚ GIẢI (LEGEND) - CHIA 3 CỘT, CỘT GIỮA TRỐNG */
+    .legend-box {
+        background: #f8f9fc;
+        border: 1px solid #e3e6f0;
+        border-radius: 8px;
+        padding: 10px 15px;
+        margin-bottom: 15px;
+    }
+    .legend-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr; 
+        gap: 10px 20px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+    .badge-code {
+        width: 24px; height: 18px; display: flex; align-items: center; justify-content: center;
+        background: #4e73df; color: white; border-radius: 3px; font-weight: bold; font-size: 10px;
+    }
+
+    /* TABLE CONFIG */
+    .table-responsive { 
+        max-height: 60vh; overflow: auto; border: 1px solid #d1d3e2; border-radius: 4px;
+        position: relative; z-index: 1;
+    }
+    table#attendanceTable { 
+        table-layout: fixed; width: 1700px; 
+        border-collapse: separate; border-spacing: 0; font-size: var(--font-size-table);
+    }
+    .table-attendance th, .table-attendance td {
+        padding: 0 !important; height: 32px; vertical-align: middle;
+        border: 1px solid #d1d3e2 !important; text-align: center;
+    }
+
+    /* STICKY COLUMNS */
+    .sticky-stt { position: sticky; left: 0; z-index: 9; background: #f8f9fc !important; width: var(--w-stt); }
+    .sticky-ma { position: sticky; left: var(--w-stt); z-index: 9; background: #fff !important; width: var(--w-ma); }
+    .sticky-ten { 
+        position: sticky; left: calc(var(--w-stt) + var(--w-ma)); z-index: 9; background: #fff !important; 
+        width: var(--w-ten); border-right: 2px solid #4e73df !important; 
+    }
+
+    .sticky-right-3 { position: sticky; right: 130px; z-index: 8; background: #f8f9fc !important; width: 50px; border-left: 2px solid #4e73df !important; }
+    .sticky-right-2 { position: sticky; right: 65px; z-index: 8; background: #f8f9fc !important; width: 65px; }
+    .sticky-right-1 { position: sticky; right: 0; z-index: 8; background: #f8f9fc !important; width: 65px; }
+
+    thead th { position: sticky; top: 0; z-index: 10; background-color: #f8f9fc; }
+
+    .day-input {
+        width: 100%; height: 100%; border: none; text-align: center;
+        background: transparent; outline: none; font-weight: bold; text-transform: uppercase;
+    }
+    .day-input:focus { background-color: #e8f0fe; }
+    .day-input:disabled { cursor: not-allowed; background: #eaecf4; }
+
+    .btn-add-staff { background: #f39c12; color: white; border: none; border-radius: 4px; }
+    .btn-remove { color: #e74c3c; cursor: pointer; border: none; background: transparent; transition: 0.2s; }
+    .btn-remove:hover { transform: scale(1.2); }
+</style>
+
+<div class="container-fluid">
+    <div class="toolbar-card mb-3 mt-2">
+        <div class="toolbar-container">
+            <div class="form-group-inline">
+                <label class="mb-0 font-weight-bold">Tháng:</label>
+                <input type="number" id="inputMonth" value="{{ month }}" min="1" max="12" class="form-control form-control-sm" style="width: 60px;">
+            </div>
+            <div class="form-group-inline">
+                <label class="mb-0 font-weight-bold">Năm:</label>
+                <input type="number" id="inputYear" value="{{ year }}" class="form-control form-control-sm" style="width: 80px;">
+            </div>
+            
+            <div class="btn-group ml-3 shadow-sm">
+                <button type="button" class="btn btn-add-staff btn-sm px-3" onclick="addNewStaff()">
+                    <i class="fas fa-user-plus mr-1"></i> Thêm NV
+                </button>
+                <button type="button" class="btn btn-outline-danger btn-sm px-2" onclick="clearAllStaff()" title="Xóa tất cả nhân viên">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+
+            <div class="form-group-inline ml-3 border-left pl-3 quick-fill-group">
+                <label class="mb-0 small text-muted">Điền nhanh:</label>
+                <select id="quickFillValue" class="form-control form-control-sm" style="width: 80px;">
+                    <option value="X">X</option>
+                    <option value="SC">SC</option>
+                    <option value="B">B</option>
+                    <option value="P">P</option>
+                    <option value="V">V</option>
+                    <option value="L">L</option>
+                    <option value="C">C</option>
+                    <option value="T">T</option>
+                    <option value="S">S</option>
+                    <option value="H">H</option>
+                    <option value="M">M</option>
+                    <option value="D">D</option>
+                    <option value="K">K</option>
+                </select>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="applyQuickFill()">Áp dụng</button>
+            </div>
+
+            <button type="button" onclick="submitGuestExport()" class="btn btn-success btn-sm px-4 ml-auto font-weight-bold shadow-sm">
+                <i class="fas fa-file-excel mr-1"></i> XUẤT EXCEL
+            </button>
+
+            <button type="button" onclick="downloadBackup()" class="btn btn-outline-secondary btn-sm px-2 ml-2" title="Lưu dữ liệu">
+                <i class="fas fa-download"></i>
+            </button>
+            <button type="button" onclick="document.getElementById('importFile').click()" class="btn btn-outline-secondary btn-sm px-2 ml-1" title="Mở dữ liệu">
+                <i class="fas fa-upload"></i>
+            </button>
+            <input type="file" id="importFile" style="display:none" accept=".json" onchange="importBackup(this)">
+        </div>
+    </div>
+
+    <div class="legend-box shadow-sm">
+        <div class="legend-grid" id="legendGrid"></div>
+    </div>
+
+    <form id="guestForm">
+        <div class="table-responsive shadow-sm bg-white">
+            <table class="table table-bordered table-attendance" id="attendanceTable">
+                <thead>
+                    <tr>
+                        <th class="sticky-stt">STT</th>
+                        <th class="sticky-ma">Mã NV</th>
+                        <th class="sticky-ten">Họ Tên</th>
+                        {% for d in range(1, 32) %}
+                        <th class="day-header" data-day="{{ d }}" style="width: 26px;">{{ d }}</th>
+                        {% endfor %}
+                        <th class="sticky-right-3">CÔNG</th>
+                        <th class="sticky-right-2">LƯƠNG</th>
+                        <th class="sticky-right-1">ĂN CA</th>
+                        <th style="width: 40px;">Xóa</th>
+                    </tr>
+                </thead>
+                <tbody id="attendanceBody"></tbody>
+            </table>
+        </div>
+    </form>
+</div>
+
+<script>
+    const attendanceRules = {
+        'X':  { label: 'Đi làm (1 công; 1 lương; 1 ăn ca)', cong: 1.0, luong: 1.0, anca: 1.0 },
+        'SC': { label: 'Chấm công sáng chiều (0,5 công; 0,5 lương; 0,5 ăn ca)', cong: 0.5, luong: 0.5, anca: 0.5 },
+        'B':  { label: 'Đi công tác (1 công; 1 lương; 1 ăn ca)', cong: 1.0, luong: 1.0, anca: 1.0 },
+        'P':  { label: 'Nghỉ phép (0 công; 1 lương; 0 ăn ca)', cong: 0.0, luong: 1.0, anca: 0.0 },
+        'V':  { label: 'Nghỉ hiếu (0 công; 1 lương; 0 ăn ca)', cong: 0.0, luong: 1.0, anca: 0.0 },
+        'L':  { label: 'Nghỉ Lễ (0 công; 1 lương; 0 ăn ca)', cong: 0.0, luong: 0.0, anca: 0.0 },
+        'C':  { label: 'Nghỉ hỷ (0 công; 1 lương; 0 ăn ca)', cong: 0.0, luong: 1.0, anca: 0.0 },
+        'T':  { label: 'Nghỉ thai sản (0 công; 0 lương; 0 ăn ca)', cong: 0.0, luong: 0.0, anca: 0.0 },
+        'S':  { label: 'Nghỉ ốm dài ngày (0 công; 0 lương; 0 ăn ca)', cong: 0.0, luong: 0.0, anca: 0.0 },
+        'H':  { label: 'Nghỉ đi học (0 công; 1 lương; 0 ăn ca)', cong: 0.0, luong: 1.0, anca: 0.0 },
+        'M':  { label: 'Nghỉ dưỡng sức (0 công; 1 lương; 0 ăn ca)', cong: 0.0, luong: 1.0, anca: 0.0 },
+        'D':  { label: 'Nghỉ tự do (0 công; 0 lương; 0 ăn ca)', cong: 0.0, luong: 0.0, anca: 0.0 },
+        'N':  { label: 'Nghỉ không (0 công; 0 lương; 0 ăn ca)', cong: 0.0, luong: 0.0, anca: 0.0 },
+        'K':  { label: 'Nghỉ khác (0 công; 0 lương; 0 ăn ca)', cong: 0.0, luong: 0.0, anca: 0.0 }
+    };
+
+    let staffCount = 0;
+
+    function renderLegend() {
+        const grid = document.getElementById('legendGrid');
+        const keys = Object.keys(attendanceRules);
+        let html = '';
+        const half = Math.ceil(keys.length / 2);
+        
+        for (let i = 0; i < half; i++) {
+            // Cột 1
+            html += `<div class="legend-item"><span class="badge-code">${keys[i]}</span><span>${attendanceRules[keys[i]].label}</span></div>`;
+            // Cột 2 (Để trống)
+            html += `<div></div>`;
+            // Cột 3
+            if (keys[i + half]) {
+                html += `<div class="legend-item"><span class="badge-code">${keys[i + half]}</span><span>${attendanceRules[keys[i + half]].label}</span></div>`;
+            } else {
+                html += `<div></div>`;
+            }
+        }
+        grid.innerHTML = html;
+    }
+
+    function updateSTT() {
+        document.querySelectorAll('#attendanceBody tr').forEach((row, index) => {
+            row.querySelector('.stt-cell').innerText = index + 1;
+        });
+    }
+
+    function updateCalendarView() {
+        const month = parseInt(document.getElementById('inputMonth').value);
+        const year = parseInt(document.getElementById('inputYear').value);
+        const lastDay = new Date(year, month, 0).getDate();
+
+        document.querySelectorAll('.day-header').forEach(header => {
+            const day = parseInt(header.getAttribute('data-day'));
+            const date = new Date(year, month - 1, day);
+            const isWeekend = (date.getDay() === 0 || date.getDay() === 6);
+            const inputs = document.querySelectorAll(`input[name^="d${day}_"]`);
+
+            if (day > lastDay) {
+                header.style.opacity = "0.2";
+                inputs.forEach(el => { el.value = ""; el.disabled = true; el.parentElement.style.background = "#f4f6f9"; });
+            } else {
+                header.style.opacity = "1";
+                header.style.background = isWeekend ? "#ffeeba" : "#f8f9fc";
+                inputs.forEach(el => { 
+                    el.disabled = false; 
+                    if(el.value === "") el.value = "X";
+                    el.parentElement.style.background = isWeekend ? "#fff9e6" : "transparent";
+                });
+            }
+        });
+        document.querySelectorAll('#attendanceBody tr').forEach(row => calculateRowTotals(row));
+    }
+
+    function addNewStaff() {
+        staffCount++;
+        const rowId = Date.now();
+        const tbody = document.getElementById('attendanceBody');
+        const tr = document.createElement('tr');
+        
+        let daysHtml = '';
+        for(let d=1; d<=31; d++) {
+            daysHtml += `<td class="day-cell"><input type="text" name="d${d}_${rowId}" class="day-input" value="X"></td>`;
+        }
+
+        tr.innerHTML = `
+            <td class="sticky-stt stt-cell"></td>
+            <td class="sticky-ma"><input type="text" name="ma_nv_${rowId}" value="NV${staffCount}" class="day-input font-weight-bold"></td>
+            <td class="sticky-ten"><input type="text" name="ho_ten_${rowId}" placeholder="Họ tên..." class="day-input text-left px-2"></td>
+            ${daysHtml}
+            <td class="sticky-right-3 text-primary font-weight-bold total-cong">0</td>
+            <td class="sticky-right-2 text-success font-weight-bold total-luong">0</td>
+            <td class="sticky-right-1 text-warning font-weight-bold total-anca">0</td>
+            <td><button type="button" class="btn-remove" onclick="removeStaffAndSave(this)"><i class="fas fa-trash"></i></button></td>
+        `;
+        tbody.appendChild(tr);
+        bindEvents(tr);
+        updateSTT();
+        updateCalendarView();
+        saveToLocalStorage();
+    }
+
+    function calculateRowTotals(row) {
+        let tc = 0, tl = 0, ta = 0;
+        row.querySelectorAll('.day-input').forEach(inp => {
+            if (inp.name.startsWith('d') && !inp.disabled) {
+                const val = inp.value.trim().toUpperCase();
+                if (attendanceRules[val]) {
+                    tc += attendanceRules[val].cong; tl += attendanceRules[val].luong; ta += attendanceRules[val].anca;
+                } else if (!isNaN(val) && val !== "") {
+                    const n = parseFloat(val); tc += n; tl += n; ta += (n >= 0.5 ? 1 : 0);
+                }
+            }
+        });
+        row.querySelector('.total-cong').innerText = tc.toFixed(1);
+        row.querySelector('.total-luong').innerText = tl.toFixed(1);
+        row.querySelector('.total-anca').innerText = ta.toFixed(1);
+    }
+
+    function bindEvents(row) {
+        row.querySelectorAll('.day-input').forEach(input => {
+            input.addEventListener('input', function() {
+                this.value = this.value.toUpperCase();
+                calculateRowTotals(row);
+                saveToLocalStorage();
+            });
+        });
+    }
+
+    function applyQuickFill() {
+        const fillVal = document.getElementById('quickFillValue').value;
+        if (!confirm(`Điền toàn bộ ô ngày thành "${fillVal}"?`)) return;
+        document.querySelectorAll('.day-input').forEach(inp => {
+            if (inp.name.startsWith('d') && !inp.disabled) { inp.value = fillVal; }
+        });
+        document.querySelectorAll('#attendanceBody tr').forEach(row => calculateRowTotals(row));
+        saveToLocalStorage();
+    }
+
+    function clearAllStaff() {
+        if (confirm("Xóa sạch toàn bộ bảng?")) {
+            document.getElementById('attendanceBody').innerHTML = "";
+            localStorage.removeItem('attendanceData_Guest');
+            staffCount = 0;
+            saveToLocalStorage();
+        }
+    }
+
+    // HÀM XUẤT EXCEL KHÔNG QUA SERVER
+    function submitGuestExport() {
+        const month = document.getElementById('inputMonth').value;
+        const year = document.getElementById('inputYear').value;
+        const rows = document.querySelectorAll('#attendanceBody tr');
+        
+        if (rows.length === 0) return alert("Không có dữ liệu!");
+
+        const excelData = [];
+        const headers = ["STT", "Mã NV", "Họ Tên"];
+        for (let d = 1; d <= 31; d++) headers.push(d.toString());
+        headers.push("CÔNG", "LƯƠNG", "ĂN CA");
+        excelData.push(headers);
+
+        rows.forEach((row, idx) => {
+            const maInput = row.querySelector('input[name^="ma_nv_"]');
+            if (!maInput) return;
+            const rowId = maInput.name.split('_')[2];
+            
+            const rowData = [
+                idx + 1,
+                maInput.value,
+                row.querySelector(`input[name="ho_ten_${rowId}"]`).value
+            ];
+
+            for (let d = 1; d <= 31; d++) {
+                const inp = row.querySelector(`input[name="d${d}_${rowId}"]`);
+                rowData.push(inp && !inp.disabled ? inp.value : "");
+            }
+
+            rowData.push(
+                row.querySelector('.total-cong').innerText,
+                row.querySelector('.total-luong').innerText,
+                row.querySelector('.total-anca').innerText
+            );
+            excelData.push(rowData);
+        });
+
+        const worksheet = XLSX.utils.aoa_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "ChamCong");
+        XLSX.writeFile(workbook, `ChamCong_Khach_T${month}_${year}.xlsx`);
+    }
+
+    function saveToLocalStorage() {
+        const data = {
+            month: document.getElementById('inputMonth').value,
+            year: document.getElementById('inputYear').value,
+            staffList: []
+        };
+        document.querySelectorAll('#attendanceBody tr').forEach(row => {
+            const maInput = row.querySelector('input[name^="ma_nv_"]');
+            if(!maInput) return;
+            const rowId = maInput.name.split('_')[2];
+            const staff = {
+                rowId: rowId,
+                ma_nv: maInput.value,
+                ho_ten: row.querySelector(`input[name="ho_ten_${rowId}"]`).value,
+                days: {}
+            };
+            for (let d = 1; d <= 31; d++) {
+                const inp = row.querySelector(`input[name="d${d}_${rowId}"]`);
+                if (inp) staff.days[`d${d}`] = inp.value;
+            }
+            data.staffList.push(staff);
+        });
+        localStorage.setItem('attendanceData_Guest', JSON.stringify(data));
+    }
+
+    function loadFromLocalStorage() {
+        const savedData = localStorage.getItem('attendanceData_Guest');
+        if (!savedData) { addNewStaff(); return; }
+        const data = JSON.parse(savedData);
+        document.getElementById('inputMonth').value = data.month;
+        document.getElementById('inputYear').value = data.year;
+        const tbody = document.getElementById('attendanceBody');
+        tbody.innerHTML = "";
+        data.staffList.forEach(staff => {
+            const tr = document.createElement('tr');
+            const rowId = staff.rowId;
+            let daysHtml = '';
+            for (let d = 1; d <= 31; d++) {
+                daysHtml += `<td class="day-cell"><input type="text" name="d${d}_${rowId}" class="day-input" value="${staff.days[`d${d}`] || ""}"></td>`;
+            }
+            tr.innerHTML = `
+                <td class="sticky-stt stt-cell"></td>
+                <td class="sticky-ma"><input type="text" name="ma_nv_${rowId}" value="${staff.ma_nv}" class="day-input font-weight-bold"></td>
+                <td class="sticky-ten"><input type="text" name="ho_ten_${rowId}" value="${staff.ho_ten}" class="day-input text-left px-2"></td>
+                ${daysHtml}
+                <td class="sticky-right-3 text-primary font-weight-bold total-cong">0</td>
+                <td class="sticky-right-2 text-success font-weight-bold total-luong">0</td>
+                <td class="sticky-right-1 text-warning font-weight-bold total-anca">0</td>
+                <td><button type="button" class="btn-remove" onclick="removeStaffAndSave(this)"><i class="fas fa-trash"></i></button></td>
+            `;
+            tbody.appendChild(tr);
+            bindEvents(tr);
+        });
+        updateSTT();
+        updateCalendarView();
+    }
+
+    function removeStaffAndSave(btn) {
+        if (confirm("Xóa nhân viên này?")) { 
+            btn.closest('tr').remove(); 
+            updateSTT();
+            saveToLocalStorage(); 
+        }
+    }
+
+    function attachAutoSave() {
+        document.getElementById('inputMonth').addEventListener('change', () => { updateCalendarView(); saveToLocalStorage(); });
+        document.getElementById('inputYear').addEventListener('change', () => { updateCalendarView(); saveToLocalStorage(); });
+        document.getElementById('attendanceBody').addEventListener('input', saveToLocalStorage);
+    }
+
+    function downloadBackup() {
+        const data = localStorage.getItem('attendanceData_Guest');
+        if (!data) return alert("Không có dữ liệu!");
+        const blob = new Blob([data], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `Backup_ChamCong_T${document.getElementById('inputMonth').value}.json`;
+        a.click();
+    }
+
+    function importBackup(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            try { JSON.parse(e.target.result); localStorage.setItem('attendanceData_Guest', e.target.result); location.reload(); }
+            catch(err) { alert("File không hợp lệ!"); }
+        };
+        reader.readAsText(file);
+    }
+
+    window.onload = function() {
+        renderLegend();
+        loadFromLocalStorage();
+        attachAutoSave();
+    };
+</script>
+{% endblock %}

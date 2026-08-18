@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tạo mã QR chuyển khoản</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f7f9;
+        }
+        .container {
+            max-width: 900px; /* Tăng kích thước tối đa để chứa 2 cột */
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            
+            /* Bổ sung để chia cột */
+            display: flex;
+            gap: 30px; /* Khoảng cách giữa 2 cột */
+            align-items: flex-start; /* Giúp các cột bắt đầu từ đầu */
+        }
+
+        /* Đảm bảo mỗi cột chiếm một phần bằng nhau */
+        .left-column, .right-column {
+            flex: 1; /* Mỗi cột chiếm 50% không gian */
+            min-width: 350px; /* Đảm bảo nội dung không bị ép quá nhỏ */
+        }
+        
+        /* Điều chỉnh cho phần Ủng hộ */
+        .donation-section {
+            /* ... (Giữ nguyên các thuộc tính cũ) ... */
+            margin-bottom: 0; /* Bỏ margin-bottom vì nó đã nằm trong cột riêng */
+            height: 100%; /* Đảm bảo nó chiếm hết chiều cao của cột */
+        }
+        .donation-section h1 {
+            color: #d63031; /* Màu đỏ nổi bật cho tiêu đề */
+            margin-top: 0;
+            font-size: 1.5em;
+        }
+        .donation-section p {
+            color: #2d3436;
+            margin-bottom: 15px;
+        }
+        .donation-section img {
+            max-width: 250px; /* Giảm kích thước ảnh để cân đối */
+            height: auto;
+            border: 5px solid white; /* Viền trắng để nổi bật QR */
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        /* --- Hết: Bố cục mới cho phần ủng hộ --- */
+
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box; 
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #2ecc71; /* Màu xanh lá cây */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #27ae60;
+        }
+        .qr-output {
+            margin-top: 20px;
+            text-align: center;
+            padding: 15px;
+            border: 2px dashed #bdc3c7;
+            border-radius: 4px;
+            min-height: 100px;
+        }
+        .qr-output img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #eee;
+        }
+        .error-message {
+            color: #e74c3c;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .download-link {
+            display: block;
+            margin-top: 15px;
+            background-color: #3498db; 
+            color: white;
+            text-decoration: none;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.3s;
+            text-align: center;
+        }
+        .download-link:hover {
+            background-color: #2980b9;
+        }
+        .amount-in-words {
+            font-style: italic;
+            color: #34495e;
+            margin-top: -10px;
+            margin-bottom: 15px;
+            padding: 5px;
+            background-color: #ecf0f1;
+            border-radius: 4px;
+        }
+        .nav-link {
+            list-style: none; /* Bỏ dấu chấm của li */
+            padding: 0;
+            margin-top: 20px;
+            text-align: center;
+        }
+        .nav-link a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="left-column">
+            <div class="donation-section">
+                <h1>Ủng hộ cafe, bánh ngọt! ☕🍰</h1>
+                <p>Nếu bạn yêu thích nội dung, những gì tôi đang làm, bạn hãy ủng hộ một ly cafe và bánh ngọt thông qua mã QR dưới đây. Sự ủng hộ là động lực to lớn giúp tôi tiếp tục sáng tạo và phát triển!</p>
+                
+                <img src="{{ url_for('static', filename='Ungho_Cafe_LeQuocVan_BIDV.png') }}" alt="Mã QR ủng hộ cafe và bánh ngọt">
+                
+                <p class="note">Cảm ơn bạn rất nhiều vì sự hào phóng!</p>
+            </div>
+        </div>
+        <div class="nav-link">
+            <li><a href="{{ url_for('simple_info') }}">Trang Chủ</a></li>
+        </div>
+
+        <div class="right-column">
+            <h2>Tạo mã VietQR Chuyển Khoản</h2>
+
+            <label for="bankSelect">Tên Ngân hàng (BIN - Batch Identifier Number):</label>
+            <select id="bankSelect">
+                <option value="">-- Chọn Ngân hàng --</option>
+                <option value="970405">Agribank</option>
+                <option value="970418">BIDV</option>
+                <option value="970422">MBBank</option>
+                <option value="970403">Sacombank</option>
+                <option value="970407">Techcombank</option>
+                <option value="970423">TPBank</option>
+                <option value="970408">VIB</option>
+                <option value="970436">Vietcombank</option>
+                <option value="970415">VietinBank</option>
+                </select>
+
+            <label for="accountNumber">Số Tài khoản:</label>
+            <input type="text" id="accountNumber" placeholder="Nhập số tài khoản" maxlength="20">
+
+            <label for="accountName">Tên Chủ Tài khoản:</label>
+            <input type="text" id="accountName" placeholder="Tên chủ tài khoản (Không dấu, IN HOA)">
+            
+            <label for="transferAmountInput">Số Tiền (Tùy chọn):</label>
+            <input type="text" id="transferAmountInput" placeholder="Số tiền chuyển (để trống nếu không cố định)">
+            <div class="amount-in-words" id="amountInWords"></div>
+            
+            <label for="description">Nội dung (Tùy chọn):</label>
+            <input type="text" id="description" placeholder="Chi tien cho uong cafe (Không dấu, IN HOA)">
+
+            <button id="createQrButton">Tạo Mã QR (https://img.vietqr.io/)</button>
+
+            <div class="qr-output" id="qrOutput">
+                <p>Mã QR sẽ xuất hiện ở đây.</p>
+            </div>
+            
+            <div class="error-message" id="errorMessage"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- CÁC HÀM HỖ TRỢ MỚI ---
+        
+        // Hàm loại bỏ dấu tiếng Việt và chuyển sang IN HOA
+        function removeVietnameseSignsAndToUpperCase(str) {
+            str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g,"a");
+            str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g,"e");
+            str = str.replace(/ì|í|ị|ỉ|ĩ/g,"i");
+            str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g,"o");
+            str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g,"u");
+            str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g,"y");
+            str = str.replace(/đ/g,"d");
+            str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g,"A");
+            str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g,"E");
+            str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g,"I");
+            str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g,"O");
+            str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g,"U");
+            str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g,"Y");
+            str = str.replace(/Đ/g,"D");
+            return str.toUpperCase();
+        }
+
+        // Hàm đọc số thành chữ (Tiếng Việt)
+        function docso(sotien) {
+            // Đã lược bỏ code hàm phức tạp, chỉ để lại kết quả mong muốn
+            // Trong môi trường thực tế cần có hàm đầy đủ.
+            // Giả định đơn giản cho ví dụ:
+            if (sotien === 0) return 'Không đồng';
+            // Chuyển đổi số sang chuỗi và thêm ' đồng'
+            let s = String(sotien).replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1,');
+            return `*Giá trị cần có hàm đọc số đầy đủ* (${s} đồng)`;
+        }
+        
+        // Hàm định dạng số (thêm dấu phân cách)
+        function formatAndReadAmount(inputElement, displayElement) {
+            // Lấy giá trị *không* có dấu phân cách
+            let cleanValue = inputElement.value.replace(/[^0-9]/g, ''); 
+
+            if (!cleanValue) {
+                inputElement.value = '';
+                displayElement.textContent = '';
+                return;
+            }
+
+            // Giới hạn tối đa (ví dụ 18 chữ số)
+            cleanValue = cleanValue.substring(0, 18);
+            
+            // Chuyển sang số nguyên
+            const numberValue = parseInt(cleanValue, 10);
+            
+            // Định dạng lại input với dấu phẩy
+            const formattedValue = new Intl.NumberFormat('vi-VN').format(numberValue);
+            inputElement.value = formattedValue;
+
+            // Đọc số tiền
+            displayElement.textContent = docso(numberValue);
+        }
+        
+        // Hàm tự động xử lý Tên và Nội dung
+        function handleTextInputs(inputElement) {
+            let originalValue = inputElement.value;
+            // Bỏ dấu và IN HOA
+            let processedValue = removeVietnameseSignsAndToUpperCase(originalValue);
+            // Cập nhật lại giá trị trên input field (tránh lỗi lặp vô hạn của input event)
+            if (originalValue !== processedValue) {
+                const start = inputElement.selectionStart;
+                const end = inputElement.selectionEnd;
+                inputElement.value = processedValue;
+                inputElement.setSelectionRange(start, end);
+            }
+        }
+
+        // --- GẮN SỰ KIỆN TỰ ĐỘNG XỬ LÝ ---
+        
+        const accountNameInput = document.getElementById('accountName');
+        const descriptionInput = document.getElementById('description');
+        const transferAmountInput = document.getElementById('transferAmountInput');
+        const amountInWordsDisplay = document.getElementById('amountInWords');
+
+        // Gắn sự kiện cho Tên Chủ Tài khoản
+        accountNameInput.addEventListener('input', function() {
+            handleTextInputs(accountNameInput);
+        });
+
+        // Gắn sự kiện cho Nội dung
+        descriptionInput.addEventListener('input', function() {
+            handleTextInputs(descriptionInput);
+        });
+
+        // Gắn sự kiện cho Số Tiền
+        transferAmountInput.addEventListener('input', function() {
+            formatAndReadAmount(transferAmountInput, amountInWordsDisplay);
+        });
+        // --- KẾT THÚC CÁC HÀM HỖ TRỢ MỚI ---
+
+        document.getElementById('createQrButton').addEventListener('click', function() {
+            const bankId = document.getElementById('bankSelect').value;
+            const accountNo = document.getElementById('accountNumber').value.trim();
+            
+            // Lấy giá trị đã được xử lý (IN HOA, không dấu) từ input
+            let accountName = accountNameInput.value.trim(); 
+            let description = descriptionInput.value.trim();
+            
+            // Lấy số tiền *đã được làm sạch* (chỉ số, không dấu phân cách)
+            const rawAmount = transferAmountInput.value.replace(/[^0-9]/g, '');
+            
+            const qrOutput = document.getElementById('qrOutput');
+            const errorMessage = document.getElementById('errorMessage');
+
+            errorMessage.textContent = ''; 
+            qrOutput.innerHTML = '<p>Mã QR sẽ xuất hiện ở đây.</p>'; 
+
+            // 1. Kiểm tra dữ liệu bắt buộc
+            if (!bankId || !accountNo || !accountName) {
+                errorMessage.textContent = 'Vui lòng điền đầy đủ Tên Ngân hàng, Số Tài khoản và Tên Chủ tài khoản.';
+                return;
+            }
+            
+            // 2. Chuẩn hóa dữ liệu cho URL (URL Encoding) - Dữ liệu đã được chuẩn hóa IN HOA/Không dấu qua event listener
+            // Thay thế khoảng trắng bằng dấu gạch chân trong Nội dung
+            let cleanDescription = description.replace(/\s+/g, '_');
+
+            // Tên tài khoản nên được mã hóa URL để xử lý các ký tự đặc biệt
+            const encodedAccountName = encodeURIComponent(accountName);
+            // Nội dung đã được làm sạch và thay thế khoảng trắng, không cần mã hóa toàn bộ 
+            // vì URLSearchParams sẽ tự động mã hóa các ký tự đặc biệt còn lại.
+            
+            // 3. Xây dựng URL tạo mã QR (theo cú pháp của img.vietqr.io)
+            const baseUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact.png`;
+            const params = new URLSearchParams();
+
+            if (rawAmount) {
+                params.append('amount', rawAmount);
+            }
+            if (cleanDescription) {
+                // VietQR sử dụng 'addInfo' cho Nội dung chuyển khoản
+                params.append('addInfo', cleanDescription); // SỬ DỤNG BIẾN ĐÃ THAY KHOẢNG TRẮNG
+            }
+            
+            // accountName là tùy chọn nhưng nên thêm vào để hiển thị tên trên ảnh QR
+            params.append('accountName', encodedAccountName); 
+            
+            const qrImageUrl = `${baseUrl}?${params.toString()}`;
+
+            // 4. Hiển thị mã QR
+            const qrImage = document.createElement('img');
+            qrImage.src = qrImageUrl;
+            qrImage.alt = 'Mã QR chuyển khoản';
+            
+            // Thêm nút tải xuống
+            const downloadLink = document.createElement('a');
+            downloadLink.href = qrImageUrl;
+            downloadLink.download = `VietQR_${accountNo}_${bankId}.png`;
+            downloadLink.textContent = 'Tải xuống Mã QR';
+            downloadLink.className = 'download-link'; 
+
+            qrOutput.innerHTML = ''; 
+            qrOutput.appendChild(qrImage);
+            qrOutput.appendChild(downloadLink);
+            
+            // Thêm thông báo thành công
+            const successMessage = document.createElement('p');
+            successMessage.textContent = 'Đã tạo mã QR thành công!';
+            successMessage.style.color = '#27ae60';
+            qrOutput.prepend(successMessage);
+        });
+    </script>
+</body>
+</html>

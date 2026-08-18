@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+
+{% block title %}Quản lý Danh mục Giấy tờ{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb bg-white shadow-sm border-left-primary">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}"><i class="fas fa-home"></i> Trang chủ</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Quản trị Danh mục Giấy tờ</li>
+        </ol>
+    </nav>
+
+    <div class="card shadow mb-3 border-0">
+        <div class="card-body py-3">
+            <form method="GET" action="{{ url_for('admin_giay_to') }}" class="row align-items-end">
+                <div class="col-md-4 form-group mb-0">
+                    <label class="small font-weight-bold">Lọc theo Nhóm hồ sơ:</label>
+                    <select name="nhom_id" class="form-control form-control-sm select2">
+                        <option value="">-- Tất cả các nhóm --</option>
+                        {% for n in ds_nhom %}
+                        <option value="{{ n.id }}" {{ 'selected' if current_nhom|string == n.id|string }}>{{ n.ten_nhom_ho_so }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 form-group mb-0">
+                    <label class="small font-weight-bold">Trạng thái:</label>
+                    <select name="trang_thai" class="form-control form-control-sm">
+                        <option value="">-- Tất cả --</option>
+                        <option value="1" {{ 'selected' if current_status == '1' }}>Đang hiệu lực</option>
+                        <option value="0" {{ 'selected' if current_status == '0' }}>Đã ngừng</option>
+                    </select>
+                </div>
+                <div class="col-md-5 mb-0 text-right">
+                    <button type="submit" class="btn btn-sm btn-info px-3 shadow-sm">
+                        <i class="fas fa-filter"></i> Lọc dữ liệu
+                    </button>
+                    <a href="{{ url_for('admin_giay_to') }}" class="btn btn-sm btn-secondary px-3 shadow-sm">
+                        <i class="fas fa-sync"></i> Làm mới
+                    </a>
+                    <a href="{{ url_for('export_giay_to') }}" class="btn btn-sm btn-success px-3 shadow-sm ml-2">
+                        <i class="fas fa-file-excel"></i> Xuất Excel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4 border-0">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center bg-white border-bottom">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="fas fa-file-alt mr-2"></i>QUẢN LÝ DANH MỤC GIẤY TỜ
+            </h6>
+            <button class="btn btn-primary btn-sm rounded-pill shadow-sm px-3" data-toggle="modal" data-target="#modalThemGiayTo">
+                <i class="fas fa-plus-circle mr-1"></i> Thêm loại giấy tờ
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="tableAdminGiayTo" width="100%" cellspacing="0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Tên giấy tờ</th>
+                            <th>Thuộc Nhóm</th>
+                            <th class="text-center">Ngày quy định</th>
+                            <th class="text-center">Tệp mẫu</th>
+                            <th>Thời gian hiệu lực</th>
+                            <th class="text-center">Trạng thái</th>
+                            <th class="text-center">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for gt, nhom in ds_giay_to %}
+                        <tr id="row-giayto-{{ gt.id }}" class="{{ 'table-light text-muted italic' if not gt.trang_thai }}">
+                            <td class="align-middle font-weight-bold">
+                                {{ gt.ten_giay_to }}
+                                {% if gt.la_bat_buoc %}
+                                    <span class="text-danger ml-1" title="Bắt buộc">*</span>
+                                {% endif %}
+                            </td>
+                            <td class="align-middle">
+                                <span class="badge badge-info px-2 py-1">{{ nhom.ten_nhom_ho_so if nhom else 'N/A' }}</span>
+                            </td>
+                            <td class="align-middle text-center">{{ gt.so_ngay_quy_dinh }} ngày</td>
+                            <td class="align-middle text-center">
+                                {% if gt.file_mau %}
+                                <a href="{{ url_for('static', filename='uploads/file_mau/' + gt.file_mau) }}" target="_blank" class="btn btn-sm btn-circle btn-outline-primary" title="Tải file mẫu">
+                                    <i class="fas fa-download"></i>
+                                </a>
+                                {% else %}
+                                <span class="text-muted small">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td class="align-middle">
+                                <small class="d-block text-muted">
+                                    <i class="far fa-calendar-alt"></i> Từ: {{ gt.ngay_bat_dau.strftime('%d/%m/%Y') if gt.ngay_bat_dau }}
+                                </small>
+                                <small class="d-block text-muted">
+                                    <i class="far fa-calendar-times"></i> Đến: {{ gt.ngay_ket_thuc.strftime('%d/%m/%Y') if gt.ngay_ket_thuc else 'Vô thời hạn' }}
+                                </small>
+                            </td>
+                            <td class="align-middle text-center">
+                                {% if gt.trang_thai %}
+                                    <span class="badge badge-success px-3">Đang hiệu lực</span>
+                                {% else %}
+                                    <span class="badge badge-danger px-3">Đã ngừng</span>
+                                {% endif %}
+                            </td>
+                            <td class="align-middle text-center">
+                                <button class="btn btn-sm btn-outline-info btn-edit-giayto shadow-sm mr-1" data-id="{{ gt.id }}" title="Chỉnh sửa">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm {{ 'btn-outline-warning' if gt.trang_thai else 'btn-outline-success' }} btn-toggle-status shadow-sm" 
+                                        data-id="{{ gt.id }}" 
+                                        data-type="giayto"
+                                        title="{{ 'Ngừng kích hoạt' if gt.trang_thai else 'Kích hoạt lại' }}">
+                                    <i class="fas fa-power-off"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalThemGiayTo" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg border-0" role="document">
+        <div class="modal-content border-0 shadow-lg">
+            <form id="formThemGiayTo" enctype="multipart/form-data">
+                <div class="modal-header bg-primary text-white font-weight-bold">
+                    <h5 class="modal-title"><i class="fas fa-plus-circle mr-2"></i>Thêm loại giấy tờ mới</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body bg-light">
+                    <div class="row">
+                        <div class="col-md-12 form-group">
+                            <label class="font-weight-bold text-dark small text-uppercase">Tên loại giấy tờ <span class="text-danger">*</span></label>
+                            <input type="text" name="ten_giay_to" class="form-control border-primary" placeholder="VD: Báo cáo thành tích cá nhân" required>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="font-weight-bold text-dark small text-uppercase">Thuộc Nhóm hồ sơ <span class="text-danger">*</span></label>
+                            <select name="nhom_id" class="form-control" required>
+                                <option value="">-- Chọn nhóm --</option>
+                                {% for nhom in ds_nhom %}
+                                <option value="{{ nhom.id }}">{{ nhom.ten_nhom_ho_so }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="font-weight-bold text-dark small text-uppercase">Số ngày quy định <span class="text-danger">*</span></label>
+                            <input type="number" name="so_ngay_quy_dinh" class="form-control" value="30" min="1" required>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="font-weight-bold text-dark small text-uppercase">Ngày bắt đầu áp dụng <span class="text-danger">*</span></label>
+                            <input type="date" name="ngay_bat_dau" class="form-control" value="{{ now_date }}" required>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="font-weight-bold text-dark small text-uppercase">Ngày kết thúc:</label>
+                            <input type="date" name="ngay_ket_thuc" class="form-control">
+                        </div>
+                        <div class="col-md-12 form-group">
+                            <label class="font-weight-bold text-dark small text-uppercase">Đính kèm tệp mẫu (Max 10MB):</label>
+                            <div class="custom-file">
+                                <input type="file" name="file_mau" class="custom-file-input" id="file_mau" accept=".doc,.docx,.pdf,.xls,.xlsx">
+                                <label class="custom-file-label" for="file_mau">Chọn file Word, PDF, Excel...</label>
+                            </div>
+                        </div>
+                        <div class="col-md-12 mt-2">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" name="la_bat_buoc" class="custom-control-input" id="checkBatBuoc" checked>
+                                <label class="custom-control-label font-weight-bold" for="checkBatBuoc">Đây là giấy tờ bắt buộc trong hồ sơ</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="progress mt-3 d-none" style="height: 25px; border-radius: 15px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 0%;">0%</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-dismiss="modal">Hủy</button>
+                    <button type="submit" id="btnSaveGiayTo" class="btn btn-primary px-4 rounded-pill shadow-sm">Lưu thông tin</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalSuaGiayTo" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg border-0" role="document">
+        <div class="modal-content border-0 shadow-lg">
+            <form id="formSuaGiayTo" enctype="multipart/form-data">
+                <input type="hidden" name="giayto_id" id="edit_id">
+                <div class="modal-header bg-info text-white font-weight-bold">
+                    <h5 class="modal-title"><i class="fas fa-edit mr-2"></i>Chỉnh sửa loại giấy tờ</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body bg-light">
+                    <div class="row">
+                        <div class="col-md-12 form-group">
+                            <label class="font-weight-bold text-dark small text-uppercase">Tên loại giấy tờ <span class="text-danger">*</span></label>
+                            <input type="text" name="ten_giay_to" id="edit_ten" class="form-control border-info" required>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="font-weight-bold text-dark small text-uppercase">Thuộc Nhóm hồ sơ <span class="text-danger">*</span></label>
+                            <select name="nhom_id" id="edit_nhom" class="form-control" required>
+                                {% for nhom in ds_nhom %}
+                                <option value="{{ nhom.id }}">{{ nhom.ten_nhom_ho_so }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="font-weight-bold text-dark small text-uppercase">Số ngày quy định <span class="text-danger">*</span></label>
+                            <input type="number" name="so_ngay_quy_dinh" id="edit_so_ngay" class="form-control" min="1" required>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="font-weight-bold text-dark small text-uppercase">Ngày bắt đầu <span class="text-danger">*</span></label>
+                            <input type="date" name="ngay_bat_dau" id="edit_ngay_bd" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="font-weight-bold text-dark small text-uppercase">Ngày kết thúc:</label>
+                            <input type="date" name="ngay_ket_thuc" id="edit_ngay_kt" class="form-control">
+                        </div>
+                        <div class="col-md-12 form-group">
+                            <label class="font-weight-bold text-dark small text-uppercase">Thay đổi tệp mẫu (Để trống nếu giữ nguyên):</label>
+                            <div class="custom-file">
+                                <input type="file" name="file_mau" class="custom-file-input" id="edit_file_input" accept=".doc,.docx,.pdf,.xls,.xlsx">
+                                <label class="custom-file-label" for="edit_file_input">Chọn file mới...</label>
+                            </div>
+                            <small id="edit_file_current" class="text-primary d-block mt-2 font-italic"></small>
+                        </div>
+                        <div class="col-md-12 mt-2">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" name="la_bat_buoc" class="custom-control-input" id="edit_la_bat_buoc">
+                                <label class="custom-control-label font-weight-bold" for="edit_la_bat_buoc">Đây là giấy tờ bắt buộc trong hồ sơ</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="progress mt-3 d-none" style="height: 25px; border-radius: 15px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" role="progressbar" style="width: 0%;">0%</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-dismiss="modal">Hủy</button>
+                    <button type="submit" id="btnUpdateGiayTo" class="btn btn-info px-4 rounded-pill shadow-sm text-white">Cập nhật dữ liệu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+        // --- VALIDATION & FILE INPUT ---
+        $(document).on('change', '.custom-file-input', function() {
+            let file = this.files[0];
+            let $label = $(this).next('.custom-file-label');
+            if (file) {
+                if (file.size > MAX_FILE_SIZE) {
+                    Swal.fire('File quá lớn', 'Dung lượng tối đa là 10MB', 'warning');
+                    $(this).val('');
+                    $label.html('Chọn file...');
+                    return;
+                }
+                $label.html(file.name);
+            }
+        });
+
+        // DataTable - Đã sửa lỗi CORS bằng cách khai báo trực tiếp
+        $('#tableAdminGiayTo').DataTable({
+            "language": {
+                "sProcessing":   "Đang xử lý...",
+                "sLengthMenu":   "Xem _MENU_ mục",
+                "sZeroRecords":  "Không tìm thấy dòng nào phù hợp",
+                "sInfo":         "Hiển thị _START_ đến _END_ trong tổng số _TOTAL_ mục",
+                "sInfoEmpty":    "Hiển thị 0 đến 0 trong tổng số 0 mục",
+                "sInfoFiltered": "(được lọc từ _MAX_ mục)",
+                "sInfoPostFix":  "",
+                "sSearch":       "Tìm kiếm:",
+                "sUrl":          "",
+                "oPaginate": {
+                    "sFirst":    "Đầu",
+                    "sPrevious": "Trước",
+                    "sNext":     "Tiếp",
+                    "sLast":     "Cuối"
+                }
+            },
+            "order": [[0, "asc"]]
+        });
+
+        // Hàm hỗ trợ Ajax Upload với Progress Bar
+        function ajaxUpload(url, formData, $form, $btn, successMsg) {
+            const $progressContainer = $form.find('.progress');
+            const $progressBar = $form.find('.progress-bar');
+            
+            $progressContainer.removeClass('d-none');
+            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Đang tải...');
+
+            $.ajax({
+                url: url,
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                xhr: function() {
+                    let xhr = new window.XMLHttpRequest();
+                    xhr.upload.addEventListener("progress", function(evt) {
+                        if (evt.lengthComputable) {
+                            let percent = Math.round((evt.loaded / evt.total) * 100);
+                            $progressBar.css('width', percent + '%').html(percent + '%');
+                        }
+                    }, false);
+                    return xhr;
+                },
+                success: function(res) {
+                    if(res.status === 'success') {
+                        Swal.fire({ icon: 'success', title: successMsg, timer: 1500, showConfirmButton: false })
+                        .then(() => location.reload());
+                    } else {
+                        Swal.fire('Thất bại', res.message, 'error');
+                        resetState($btn, $progressContainer, $progressBar);
+                    }
+                },
+                error: function() {
+                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ', 'error');
+                    resetState($btn, $progressContainer, $progressBar);
+                }
+            });
+        }
+
+        function resetState($btn, $container, $bar) {
+            $btn.prop('disabled', false).html($btn.data('original-text') || 'Lưu lại');
+            $container.addClass('d-none');
+            $bar.css('width', '0%').html('0%');
+        }
+
+        // --- XỬ LÝ FORM THÊM ---
+        $('#formThemGiayTo').on('submit', function(e) {
+            e.preventDefault();
+            const $btn = $('#btnSaveGiayTo');
+            $btn.data('original-text', 'Lưu thông tin');
+            ajaxUpload('/api/admin/them-giay-to', new FormData(this), $(this), $btn, 'Đã thêm giấy tờ mới');
+        });
+
+        // --- XỬ LÝ FORM SỬA ---
+        $(document).on('click', '.btn-edit-giayto', function() {
+            const id = $(this).data('id');
+            if(!id) return; // Bảo vệ nếu id rỗng
+
+            // Reset form trước khi đổ dữ liệu mới
+            $('#formSuaGiayTo')[0].reset();
+            $('#edit_file_input').next('.custom-file-label').html('Chọn file mới...');
+
+            $.get(`/api/admin/get-giay-to/${id}`, function(data) {
+                $('#edit_id').val(data.id);
+                $('#edit_ten').val(data.ten_giay_to);
+                $('#edit_nhom').val(data.nhom_id);
+                $('#edit_so_ngay').val(data.so_ngay_quy_dinh);
+                $('#edit_ngay_bd').val(data.ngay_bat_dau);
+                $('#edit_ngay_kt').val(data.ngay_ket_thuc);
+                $('#edit_la_bat_buoc').prop('checked', data.la_bat_buoc);
+                $('#edit_file_current').html(data.file_mau ? `<i class="fas fa-file-download"></i> Hiện có: ${data.file_mau}` : 'Chưa có tệp mẫu');
+                $('#modalSuaGiayTo').modal('show');
+            }).fail(function() {
+                Swal.fire('Lỗi', 'Không thể lấy dữ liệu giấy tờ', 'error');
+            });
+        });
+
+        $('#formSuaGiayTo').on('submit', function(e) {
+            e.preventDefault();
+            const id = $('#edit_id').val();
+            const $btn = $('#btnUpdateGiayTo');
+            $btn.data('original-text', 'Cập nhật dữ liệu');
+            ajaxUpload(`/api/admin/sua-giay-to/${id}`, new FormData(this), $(this), $btn, 'Cập nhật thành công');
+        });
+
+        // --- ĐỔI TRẠNG THÁI ---
+        $(document).on('click', '.btn-toggle-status', function() {
+            const id = $(this).data('id');
+            const type = $(this).data('type');
+            Swal.fire({
+                title: 'Xác nhận?',
+                text: "Thay đổi trạng thái hiệu lực của mục này.",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#4e73df',
+                confirmButtonText: 'Đồng ý'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.post(`/api/admin/toggle-status/${type}/${id}`, function(res) {
+                        if(res.status === 'success') location.reload();
+                    });
+                }
+            });
+        });
+    });
+    
+
+    $(document).on('click', '[data-dismiss="modal"]', function() {
+        $('.modal').modal('hide');
+    });
+</script>
+
+<style>
+    .italic { font-style: italic; }
+    .table-light.text-muted td { color: #858796 !important; }
+    .border-left-primary { border-left: 0.25rem solid #4e73df !important; }
+    .btn-circle { width: 30px; height: 30px; border-radius: 50%; padding: 0; line-height: 30px; }
+    .progress { background-color: #eaecf4; }
+    .progress-bar { font-weight: bold; font-size: 0.85rem; }
+</style>
+{% endblock %}

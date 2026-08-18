@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+{% block title %}Quản lý Danh mục Đơn vị{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="card mb-3 shadow-sm border-left-primary">
+        <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-filter mr-2"></i>Bộ lọc nâng cao</h6>
+            <button class="btn btn-sm btn-outline-secondary" onclick="resetFilter()"><i class="fas fa-undo"></i> Làm mới</button>
+        </div>
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-2 mb-2"><input type="text" id="f_ma_hieu_2" class="form-control form-control-sm" placeholder="Mã hiệu 2"></div>
+                <div class="col-md-2 mb-2"><input type="text" id="f_ten_ma_hieu_2" class="form-control form-control-sm" placeholder="Tên đơn vị"></div>
+                <div class="col-md-2 mb-2"><input type="text" id="f_ten_ma_hieu_cu" class="form-control form-control-sm" placeholder="Tên mã hiệu cũ"></div>
+                <div class="col-md-2 mb-2">
+                    <select id="f_trang_thai" class="form-control form-control-sm">
+                        <option value="">-- Trạng thái --</option>
+                        <option value="Hoạt động">Hoạt động</option>
+                        <option value="Tạm dừng">Tạm dừng</option>
+                    </select>
+                </div>
+
+
+
+                <div class="col-md-2 mb-2"><input type="text" id="f_tsc" class="form-control form-control-sm" placeholder="TSC Loại I/II"></div>
+                <div class="col-md-2 mb-2"><input type="text" id="f_khu_vuc" class="form-control form-control-sm" placeholder="Khu vực"></div>
+                
+                <div class="col-md-2 mb-2"><input type="text" id="f_ktgsnb" class="form-control form-control-sm" placeholder="Khu vực KTGSNB"></div>
+                <div class="col-md-2 mb-2"><input type="text" id="f_manh8" class="form-control form-control-sm" placeholder="Mã NH 8 số"></div>
+                <div class="col-md-2 mb-2"><input type="text" id="f_manh8_moi" class="form-control form-control-sm" placeholder="Mã NH 8 số mới"></div>
+                <div class="col-md-2 mb-2"><input type="text" id="f_ptgd_khkd" class="form-control form-control-sm" placeholder="Phó TGĐ PT KHKD"></div>
+                <div class="col-md-2 mb-2"><input type="text" id="f_nhom_khcl" class="form-control form-control-sm" placeholder="Nhóm KHCL"></div>
+                <div class="col-md-2 mb-2"><input type="text" id="f_hang_khcl" class="form-control form-control-sm" placeholder="Hạng KHCL"></div>
+                
+                <div class="col-md-2 mb-2"><input type="text" id="f_xhrr_chung" class="form-control form-control-sm" placeholder="XHRR Chung"></div>
+                <div class="col-md-2 mb-2"><input type="text" id="f_xhrr_td" class="form-control form-control-sm" placeholder="XHRR Tín dụng"></div>
+                <div class="col-md-2 mb-2"><input type="text" id="f_xhrr_ntd" class="form-control form-control-sm" placeholder="XHRR Ngoài TD"></div>
+                
+                <div class="col-md-2">
+                    <button class="btn btn-primary btn-sm w-100" onclick="reloadTable()">
+                        <i class="fas fa-search"></i> Tìm kiếm
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between bg-primary text-white align-items-center">
+            <h6 class="m-0 font-weight-bold"><i class="fas fa-table mr-2"></i>DANH MỤC ĐƠN VỊ CHI TIẾT</h6>
+
+            <div class="d-flex align-items-center">
+                <div id="btnExcelGroup" class="mr-2"></div>
+                <button class="btn btn-light btn-sm" onclick="openAddModal()"><i class="fas fa-plus"></i> Thêm mới</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="tableDonVi" class="table table-bordered table-hover w-100" style="font-size: 10px; white-space: nowrap;">
+                    <thead class="table-light text-center">
+                        <tr>
+                            <th>Mã hiệu 2</th>
+                            <th>Tên Đơn vị</th>
+                            <th>Tên mã cũ</th>
+                            <th>Trạng thái</th>
+                            <th>TSC Loại I/II</th>
+                            <th>Khu vực</th>
+                            <th>Khu vực KTGSNB</th>
+                            <th>Mã NH 8 số</th>
+                            <th>Mã NH 8 số mới</th>
+                            <th>Phó TGĐ PT KHKD</th>
+                            <th>Nhóm KHCL</th>
+                            <th>Hạng KHCL</th>
+                            <th>XHRR Chung</th>
+                            <th>XHRR TD</th>
+                            <th>XHRR Ngoài TD</th>
+                            <th width="80px">Thao tác</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="donViModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <form id="formDonVi" action="{{ url_for('save_don_vi') }}" method="POST" class="modal-content">
+            <div class="modal-header bg-dark text-white text-center">
+                <h5 class="modal-title w-100" id="modalTitle">Thông tin Đơn vị</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" name="is_edit" id="is_edit">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="font-weight-bold text-primary">Mã hiệu 2 (Khóa chính)</label>
+                        <input type="text" name="ma_hieu_2" id="m_ma_hieu_2" class="form-control border-primary" required>
+                    </div>
+                    <div class="col-md-8 mb-3">
+                        <label class="font-weight-bold text-primary">Tên Đơn vị hiện tại</label>
+                        <input type="text" name="ten_ma_hieu_2" id="m_ten_ma_hieu_2" class="form-control border-primary" required>
+                    </div>
+
+                    <div class="col-md-12 mb-3">
+                        <label class="text-danger">Tên mã hiệu cũ</label>
+                        <input type="text" name="ten_ma_hieu_cu" id="m_ten_ma_hieu_cu" class="form-control border-danger">
+                    </div>
+                    
+                    <div class="col-md-4 mb-3"><label>TSC Loại I/II/Xóa bỏ</label><input type="text" name="TSC_Loai_I_Loai_II_Xoa_bo" id="m_tsc" class="form-control"></div>
+                    <div class="col-md-4 mb-3"><label>Tên khu vực</label><input type="text" name="ten_khu_vuc" id="m_ten_khu_vuc" class="form-control"></div>
+                    <div class="col-md-4 mb-3"><label>Khu vực KTGSNB</label><input type="text" name="ten_khu_vuc_KTGSNB" id="m_ktgsnb" class="form-control"></div>
+                    
+                    <div class="col-md-3 mb-3"><label>Mã NH 8 số cũ</label><input type="text" name="MaNH8so" id="m_manh8" class="form-control"></div>
+                    <div class="col-md-3 mb-3"><label class="font-weight-bold text-primary">Mã NH 8 số mới</label><input type="text" name="MaNH8so_moi" id="m_manh8_moi" class="form-control border-primary"></div>
+                    <div class="col-md-3 mb-3"><label>Mã số thuế</label><input type="text" name="MST" id="m_MST" class="form-control"></div>
+                    <div class="col-md-3 mb-3"><label>Email</label><input type="email" name="mail" id="m_mail" class="form-control"></div>
+
+                    <div class="col-12"><hr></div>
+
+                    <div class="col-md-6 mb-3">
+                        <label class="text-danger font-weight-bold">Phó TGĐ phụ trách KHKD</label>
+                        <input type="text" name="pho_tong_giam_doc_phu_trach_KHKD" id="m_ptgd_khkd" class="form-control border-danger">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="text-danger">Nhóm KHCL</label>
+                        <input type="text" name="nhom_KHCL" id="m_nhom_khcl" class="form-control border-danger">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="text-danger">Hạng KHCL</label>
+                        <input type="text" name="hang_KHCL" id="m_hang_khcl" class="form-control border-danger">
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="text-danger">XHRR Chung (KTGSNB)</label>
+                        <input type="text" name="XHRR_Chung_KTGSNB" id="m_xhrr_chung" class="form-control border-danger">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="text-danger">XHRR Tín dụng (KTGSNB)</label>
+                        <input type="text" name="XHRR_TD_KTGSNB" id="m_xhrr_td" class="form-control border-danger">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="text-danger">XHRR Ngoài Tín dụng (KTGSNB)</label>
+                        <input type="text" name="XHRR_NTD_KTGSNB" id="m_xhrr_ntd" class="form-control border-danger">
+                    </div>
+
+                    <div class="col-md-4 mb-3"><label>Mã hiệu 1</label><input type="text" name="ma_hieu_1" id="m_ma_hieu_1" class="form-control"></div>
+                    <div class="col-md-8 mb-3"><label>Tên mã hiệu 1</label><input type="text" name="ten_ma_hieu_1" id="m_ten_ma_hieu_1" class="form-control"></div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary px-4 shadow">Lưu dữ liệu</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    var table = $('#tableDonVi').DataTable({
+        "processing": true,
+        "serverSide": true,
+        "scrollX": true,
+        "lengthMenu": [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Tất cả"]],
+        "pageLength": 10,
+        "ajax": {
+            "url": "{{ url_for('don_vi_data') }}",
+            "data": function (d) {
+                d.f_ma_hieu_2 = $('#f_ma_hieu_2').val();
+                d.f_ten_ma_hieu_2 = $('#f_ten_ma_hieu_2').val();
+                d.f_ten_ma_hieu_cu = $('#f_ten_ma_hieu_cu').val();
+                d.f_trang_thai = $('#f_trang_thai').val();
+                d.f_tsc = $('#f_tsc').val();
+                d.f_khu_vuc = $('#f_khu_vuc').val();
+                d.f_ktgsnb = $('#f_ktgsnb').val();
+                d.f_manh8 = $('#f_manh8').val();
+                d.f_manh8_moi = $('#f_manh8_moi').val();
+                d.f_ptgd_khkd = $('#f_ptgd_khkd').val();
+                d.f_nhom_khcl = $('#f_nhom_khcl').val();
+                d.f_hang_khcl = $('#f_hang_khcl').val();
+                d.f_xhrr_chung = $('#f_xhrr_chung').val();
+                d.f_xhrr_td = $('#f_xhrr_td').val();
+                d.f_xhrr_ntd = $('#f_xhrr_ntd').val();
+            }
+        },
+        "dom": "Brtip",
+        "buttons": [
+            {
+                extend: 'excelHtml5',
+                text: '<i class="fas fa-file-excel"></i> Xuất Excel',
+                className: 'btn btn-success btn-sm',
+                title: 'DANH_MUC_DON_VI',
+                exportOptions: { 
+                    columns: ':not(:last-child)' // Không xuất cột "Thao tác"
+                },
+                action: function (e, dt, node, config) {
+                    var self = this;
+                    var oldStart = dt.settings()[0]._iDisplayStart;
+                    var oldLength = dt.settings()[0]._iDisplayLength;
+
+                    // Hiển thị thông báo đang xử lý vì lấy tất cả dữ liệu có thể mất thời gian
+                    dt.one('preXhr', function (e, s, data) {
+                        data.start = 0;
+                        data.length = -1; // Yêu cầu Server trả về toàn bộ kết quả theo bộ lọc hiện tại
+                    });
+
+                    dt.one('draw', function () {
+                        // Thực hiện hàm xuất Excel mặc định của DataTables
+                        $.fn.dataTable.ext.buttons.excelHtml5.action.call(self, e, dt, node, config);
+
+                        // Sau khi xuất xong, trả bảng về trạng thái phân trang cũ
+                        dt.one('preXhr', function (e, s, data) {
+                            data.start = oldStart;
+                            data.length = oldLength;
+                        });
+                        setTimeout(function() {
+                            dt.draw();
+                        }, 500);
+                    });
+
+                    // Kích hoạt vẽ lại bảng để trigger việc lấy dữ liệu toàn bộ
+                    dt.draw();
+                }
+            }
+        ],
+        "columns": [
+            { "data": "ma_hieu_2" },
+            { "data": "ten_ma_hieu_2" },
+            { "data": "ten_ma_hieu_cu", "defaultContent": "" },
+            { 
+                "data": "trang_thai",
+                "className": "text-center",
+                "render": function(data) {
+                    let val = (data === null || data === '') ? 'Hoạt động' : data;
+                    let color = val === 'Hoạt động' ? 'success' : 'danger';
+                    return `<span class="badge bg-${color}">${val}</span>`;
+                }
+            },
+            { "data": "TSC_Loai_I_Loai_II_Xoa_bo", "defaultContent": "" },
+            { "data": "ten_khu_vuc", "defaultContent": "" },
+            { "data": "ten_khu_vuc_KTGSNB", "defaultContent": "" },
+            { "data": "MaNH8so", "defaultContent": "" },
+            { "data": "MaNH8so_moi", "defaultContent": "" },
+            { "data": "pho_tong_giam_doc_phu_trach_KHKD", "defaultContent": "" },
+            { "data": "nhom_KHCL", "defaultContent": "" },
+            { "data": "hang_KHCL", "defaultContent": "" },
+            { "data": "XHRR_Chung_KTGSNB", "defaultContent": "" },
+            { "data": "XHRR_TD_KTGSNB", "defaultContent": "" },
+            { "data": "XHRR_NTD_KTGSNB", "defaultContent": "" },
+            { 
+                "data": null,
+                "className": "text-center",
+                "orderable": false,
+                "render": function(data, type, row) {
+                    // Truyền trực tiếp ma_hieu_2 vào hàm sửa
+                    return `
+                        <button class="btn btn-sm btn-info text-white" onclick="editDV('${row.ma_hieu_2}')" title="Sửa">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <a href="/admin/don-vi/toggle/${row.ma_hieu_2}" class="btn btn-sm btn-warning text-white" title="Đổi trạng thái">
+                            <i class="fas fa-sync-alt"></i>
+                        </a>
+                    `;
+                }
+            }
+        ],
+        "language": {
+            "url": "{{ url_for('static', filename='js/Vietnamese.json') }}",
+            // Ghi đè dòng này để hiện chữ "Tất cả" theo ý muốn
+            "lengthMenu": "Xem _MENU_ mục" 
+        },
+    });
+
+    table.buttons().container().appendTo('#btnExcelGroup');
+});
+
+function reloadTable() { $('#tableDonVi').DataTable().ajax.reload(); }
+
+function resetFilter() {
+    $('.card-body input, .card-body select').val('');
+    reloadTable();
+}
+
+function openAddModal() {
+    $('#modalTitle').text("Thêm Đơn vị mới");
+    $('#is_edit').val("0");
+    $('#m_ma_hieu_2').prop('readonly', false);
+    $('#formDonVi')[0].reset();
+    $('#donViModal').modal('show');
+}
+
+/**
+ * Hàm sửa đơn vị - Lấy dữ liệu trực tiếp từ Table thay vì Base64
+ */
+function editDV(ma_hieu) {
+    try {
+        // Tìm dòng dữ liệu trong cache của DataTable
+        let table = $('#tableDonVi').DataTable();
+        let rowData = table.rows().data().toArray().find(x => x.ma_hieu_2 == ma_hieu);
+        
+        if (!rowData) {
+            alert("Không tìm thấy dữ liệu dòng này!");
+            return;
+        }
+
+        $('#modalTitle').text("Sửa Đơn vị: " + rowData.ma_hieu_2);
+        $('#is_edit').val("1");
+        
+        // Gán dữ liệu vào Modal (Thêm || "" để tránh hiện chữ null)
+        $('#m_ma_hieu_2').val(rowData.ma_hieu_2).prop('readonly', true);
+        $('#m_ten_ma_hieu_2').val(rowData.ten_ma_hieu_2 || "");
+        $('#m_ma_hieu_1').val(rowData.ma_hieu_1 || "");
+        $('#m_ten_ma_hieu_1').val(rowData.ten_ma_hieu_1 || "");
+        $('#m_tsc').val(rowData.TSC_Loai_I_Loai_II_Xoa_bo || "");
+        $('#m_ten_khu_vuc').val(rowData.ten_khu_vuc || "");
+        $('#m_ktgsnb').val(rowData.ten_khu_vuc_KTGSNB || "");
+        $('#m_manh8').val(rowData.MaNH8so || "");
+        $('#m_manh8_moi').val(rowData.MaNH8so_moi || "");
+        $('#m_MST').val(rowData.MST || "");
+        $('#m_mail').val(rowData.mail || "");
+        $('#m_ten_ma_hieu_cu').val(rowData.ten_ma_hieu_cu || "");
+        $('#m_ptgd_khkd').val(rowData.pho_tong_giam_doc_phu_trach_KHKD || "");
+        $('#m_nhom_khcl').val(rowData.nhom_KHCL || "");
+        $('#m_hang_khcl').val(rowData.hang_KHCL || "");
+        $('#m_xhrr_chung').val(rowData.XHRR_Chung_KTGSNB || "");
+        $('#m_xhrr_td').val(rowData.XHRR_TD_KTGSNB || "");
+        $('#m_xhrr_ntd').val(rowData.XHRR_NTD_KTGSNB || "");
+
+        $('#donViModal').modal('show');
+    } catch (e) {
+        console.error("Lỗi edit:", e);
+        alert("Lỗi khi mở form sửa.");
+    }
+}
+</script>
+{% endblock %}

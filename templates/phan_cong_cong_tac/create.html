@@ -1,0 +1,359 @@
+{% extends 'base.html' %}
+
+{% block title %}Thêm mới Phân công công tác{% endblock %}
+
+{% block styles %}
+<style>
+    /* 1. Giao diện Ô chứa Tags (Select2 Multiple) tự co giãn và có cuộn khi chọn nhiều */
+    .select2-container--bootstrap4 .select2-selection--multiple {
+        min-height: 45px !important;
+        max-height: 180px !important; /* Giới hạn chiều cao tối đa để không bể giao diện */
+        overflow-y: auto !important;   /* Tự động hiện thanh cuộn khi chọn nhiều/tất cả */
+        height: auto !important;
+        border: 1px solid #ced4da !important;
+        border-radius: 6px !important;
+        padding: 5px !important;
+        background-color: #ffffff;
+        transition: all 0.2s ease;
+    }
+    
+    .select2-container--bootstrap4 .select2-selection--multiple:focus-within {
+        border-color: #80bdff !important;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important;
+    }
+
+    /* 2. Hiển thị Chip/Tag rộng rãi, rõ chữ */
+    .select2-container--bootstrap4 .select2-selection--multiple .select2-selection__choice {
+        background-color: #e8f4fd !important;
+        border: 1px solid #b8daff !important;
+        color: #004085 !important;
+        font-size: 14px !important;
+        padding: 6px 10px !important;
+        margin: 4px !important;
+        border-radius: 6px !important;
+        display: inline-flex;
+        align-items: center;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    .select2-container--bootstrap4 .select2-selection--multiple .select2-selection__choice__remove {
+        color: #dc3545 !important;
+        margin-right: 8px !important;
+        font-weight: 700 !important;
+        font-size: 16px;
+    }
+
+    .select2-container--bootstrap4 .select2-search--inline .select2-search__field {
+        margin-top: 6px !important;
+        font-size: 15px;
+    }
+
+    /* 3. Dropdown danh sách xổ xuống */
+    .select2-dropdown {
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+        border: 1px solid #80bdff !important;
+        border-radius: 6px !important;
+    }
+    
+    .select2-results__option {
+        padding: 8px 14px !important;
+        font-size: 14px !important;
+        border-bottom: 1px solid #f8f9fa;
+    }
+
+    /* 4. Nút thao tác nhanh */
+    .action-links {
+        display: flex;
+        gap: 10px;
+    }
+    .action-links .btn {
+        transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+        font-size: 12px !important;
+        padding: 4px 12px;
+    }
+    .action-links .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 900px;">
+    <!-- NÚT QUAY LẠI & TIÊU ĐỀ -->
+    <div class="d-flex align-items-center mb-4">
+        <a href="{{ url_for('phan_cong.index') }}" class="btn btn-outline-secondary mr-3 text-nowrap">
+            <i class="fas fa-arrow-left mr-1"></i> Quay lại
+        </a>
+        <h4 class="m-0 text-primary font-weight-bold uppercase">
+            THÊM MỚI PHÂN CÔNG CÔNG TÁC
+        </h4>
+    </div>
+
+    <!-- KHUNG FORM NHẬP LIỆU -->
+    <div class="card shadow-sm border-0 rounded-lg">
+        <div class="card-body p-4 p-md-5">
+            <form id="formTaoPhanCong" action="{{ url_for('phan_cong.create') }}" method="POST">
+                {% if csrf_token %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>{% endif %}
+                
+                <!-- KHỐI 1: CÁN BỘ & ĐỊA ĐIỂM -->
+                <h5 class="text-info font-weight-bold border-bottom pb-2 mb-4">
+                    <i class="fas fa-user-tag mr-2"></i> 1. Thông tin Nhân sự & Địa điểm
+                </h5>
+                <div class="form-row mb-4">
+                    <div class="form-group col-12 mb-4">
+                        <div class="d-flex justify-content-between align-items-end mb-2">
+                            <label class="font-weight-bold text-uppercase m-0">Cán bộ đi công tác <span class="text-danger">*</span></label>
+                            <div class="action-links">
+                                <button type="button" class="btn btn-sm btn-primary rounded-pill font-weight-bold" id="btn_select_all_can_bo">
+                                    <i class="fas fa-check-double mr-1"></i> Chọn tất cả
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger rounded-pill font-weight-bold" id="btn_deselect_all_can_bo">
+                                    <i class="fas fa-times mr-1"></i> Bỏ chọn
+                                </button>
+                            </div>
+                        </div>
+                        <select name="ma_nhan_vien" id="select_ma_nhan_vien" class="form-control select2" multiple="multiple" style="width: 100%;" required></select>
+                    </div>
+
+                    <div class="form-group col-12 mb-0">
+                        <label class="font-weight-bold text-uppercase">Nơi công tác <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text bg-white text-danger"><i class="fas fa-map-marker-alt"></i></span>
+                            </div>
+                            <input type="text" name="noi_cong_tac" class="form-control form-control-lg" placeholder="Nhập tên đơn vị, tỉnh/thành phố..." required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KHỐI 2: LĨNH VỰC & NỘI DUNG -->
+                <h5 class="text-info font-weight-bold border-bottom pb-2 mb-4 mt-5">
+                    <i class="fas fa-tasks mr-2"></i> 2. Nội dung nhiệm vụ
+                </h5>
+                <div class="form-row mb-4">
+                    <div class="form-group col-12 mb-4">
+                        <div class="d-flex justify-content-between align-items-end mb-2">
+                            <label class="font-weight-bold text-uppercase m-0">Lĩnh vực phụ trách</label>
+                            <div class="action-links">
+                                <button type="button" class="btn btn-sm btn-primary rounded-pill font-weight-bold" id="btn_select_all_linh_vuc">
+                                    <i class="fas fa-check-double mr-1"></i> Chọn tất cả
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger rounded-pill font-weight-bold" id="btn_deselect_all_linh_vuc">
+                                    <i class="fas fa-times mr-1"></i> Bỏ chọn
+                                </button>
+                            </div>
+                        </div>
+                        <select name="linh_vuc" id="select_linh_vuc" class="form-control select2" multiple="multiple" style="width: 100%;"></select>
+                    </div>
+
+                    <div class="form-group col-12 mb-0">
+                        <label class="font-weight-bold text-uppercase">Nội dung chi tiết bổ sung</label>
+                        <textarea name="noi_dung_bo_sung" class="form-control" rows="3" placeholder="Mô tả cụ thể nhiệm vụ trong chuyến công tác (không bắt buộc)..."></textarea>
+                    </div>
+                </div>
+
+                <!-- KHỐI 3: THỜI GIAN & KINH PHÍ -->
+                <h5 class="text-info font-weight-bold border-bottom pb-2 mb-4 mt-5">
+                    <i class="fas fa-calendar-alt mr-2"></i> 3. Lịch trình & Hậu cần
+                </h5>
+                <div class="form-row">
+                    <div class="form-group col-md-6 mb-4">
+                        <label class="font-weight-bold text-uppercase">Từ ngày <span class="text-danger">*</span></label>
+                        <input type="date" name="ngay_bat_dau" class="form-control form-control-lg" required>
+                    </div>
+                    <div class="form-group col-md-6 mb-4">
+                        <label class="font-weight-bold text-uppercase">Đến ngày <span class="text-danger">*</span></label>
+                        <input type="date" name="ngay_ket_thuc" class="form-control form-control-lg" required>
+                    </div>
+                    <div class="form-group col-md-6 mb-4">
+                        <label class="font-weight-bold text-uppercase">Phương tiện</label>
+                        <select name="phuong_tien" class="form-control form-control-lg">
+                            <option value="Ô tô">Ô tô / Xe khách</option>
+                            <option value="Máy bay">Máy bay</option>
+                            <option value="Tàu hỏa">Tàu hỏa</option>
+                            <option value="Xe máy">Xe máy</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-md-6 mb-4">
+                        <label class="font-weight-bold text-uppercase">Dự trù kinh phí (VNĐ)</label>
+                        <input type="number" name="kinh_phi_du_tru" class="form-control form-control-lg" value="0" step="100000" min="0">
+                    </div>
+                    <div class="form-group col-12 mb-0">
+                        <label class="font-weight-bold text-uppercase">Ghi chú</label>
+                        <input type="text" name="ghi_chu" class="form-control form-control-lg" placeholder="Ghi chú thêm...">
+                    </div>
+                </div>
+
+                <hr class="my-5">
+                
+                <!-- NÚT LƯU TRỮ -->
+                <div class="text-right">
+                    <a href="{{ url_for('phan_cong.index') }}" class="btn btn-lg btn-light border px-5 mr-2 font-weight-bold">Hủy bỏ</a>
+                    <button type="submit" id="btnSubmitForm" class="btn btn-lg btn-primary px-5 font-weight-bold shadow-sm">
+                        <i class="fas fa-save mr-2"></i> Lưu phân công
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    /* 1. SETUP AJAX CSRF */
+    var csrf_token = $('input[name="csrf_token"]').val();
+    if (csrf_token) {
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                    xhr.setRequestHeader("X-CSRFToken", csrf_token);
+                }
+            }
+        });
+    }
+
+    /* 2. FORMAT HIỂN THỊ DROPDOWN VỚI CHECKBOX */
+    function formatStateWithCheckbox(state) {
+        if (!state.id) return state.text;
+        var isSelected = state.selected ? 'checked' : '';
+        return $('<div class="d-flex align-items-center" style="cursor:pointer;">' +
+                    '<input type="checkbox" class="mr-3" style="pointer-events: none; transform: scale(1.2);" ' + isSelected + '/>' +
+                    '<span>' + state.text + '</span>' +
+                 '</div>');
+    }
+
+    /* 3. KHỞI TẠO SELECT2 CÁN BỘ */
+    $('#select_ma_nhan_vien').select2({
+        theme: 'bootstrap4',
+        placeholder: '-- Gõ tên hoặc mã cán bộ để tìm kiếm --',
+        allowClear: true,
+        closeOnSelect: false,
+        templateResult: formatStateWithCheckbox,
+        ajax: {
+            url: "{{ url_for('phan_cong.search_can_bo') }}",
+            dataType: 'json',
+            delay: 250,
+            data: function (params) { return { q: params.term || '', page: params.page || 1 }; },
+            processResults: function (data, params) {
+                params.page = params.page || 1;
+                return { results: data.items, pagination: { more: data.has_more } };
+            },
+            cache: true
+        }
+    });
+
+    /* 4. KHỞI TẠO SELECT2 LĨNH VỰC */
+    $('#select_linh_vuc').select2({
+        theme: 'bootstrap4',
+        placeholder: '-- Gõ tên lĩnh vực để tìm kiếm --',
+        allowClear: true,
+        closeOnSelect: false,
+        templateResult: formatStateWithCheckbox,
+        ajax: {
+            url: "{{ url_for('phan_cong.search_linh_vuc') }}",
+            dataType: 'json',
+            delay: 300,
+            data: function (params) { return { q: params.term || '', page: params.page || 1 }; },
+            processResults: function (data, params) {
+                params.page = params.page || 1;
+                return { results: data.items, pagination: { more: data.has_more } };
+            },
+            cache: true
+        }
+    });
+
+    /* 5. NÚT CHỌN TẤT CẢ / BỎ CHỌN (Hỗ trợ gọi AJAX lấy toàn bộ danh sách) */
+    $('#btn_select_all_can_bo').on('click', function() {
+        $.ajax({
+            url: "{{ url_for('phan_cong.search_can_bo') }}",
+            dataType: 'json',
+            data: { q: '', page: 1 },
+            success: function(res) {
+                var allValues = [];
+                var select = $('#select_ma_nhan_vien');
+                if (res.items) {
+                    res.items.forEach(function(item) {
+                        if (!select.find("option[value='" + item.id + "']").length) {
+                            var newOption = new Option(item.text, item.id, true, true);
+                            select.append(newOption);
+                        }
+                        allValues.push(item.id);
+                    });
+                }
+                select.val(allValues).trigger('change');
+            }
+        });
+    });
+
+    $('#btn_deselect_all_can_bo').on('click', function() { 
+        $('#select_ma_nhan_vien').val(null).trigger('change'); 
+    });
+
+    $('#btn_select_all_linh_vuc').on('click', function() {
+        $.ajax({
+            url: "{{ url_for('phan_cong.search_linh_vuc') }}",
+            dataType: 'json',
+            data: { q: '', page: 1 },
+            success: function(res) {
+                var allValues = [];
+                var select = $('#select_linh_vuc');
+                if (res.items) {
+                    res.items.forEach(function(item) {
+                        if (!select.find("option[value='" + item.id + "']").length) {
+                            var newOption = new Option(item.text, item.id, true, true);
+                            select.append(newOption);
+                        }
+                        allValues.push(item.id);
+                    });
+                }
+                select.val(allValues).trigger('change');
+            }
+        });
+    });
+
+    $('#btn_deselect_all_linh_vuc').on('click', function() { 
+        $('#select_linh_vuc').val(null).trigger('change'); 
+    });
+
+    /* 6. AUTO LOAD LĨNH VỰC THEO CÁN BỘ */
+    $('#select_ma_nhan_vien').on('change', function() {
+        var maNvs = $(this).val();
+        if (maNvs && maNvs.length > 0) {
+            var lastMaNv = maNvs[maNvs.length - 1];
+            $.ajax({
+                url: "{{ url_for('phan_cong.get_linh_vuc_can_bo', ma_nv='') }}" + lastMaNv,
+                type: 'GET',
+                success: function(res) {
+                    if (res.success && res.linh_vuc && res.linh_vuc.length > 0) {
+                        var currentSelected = $('#select_linh_vuc').val() || [];
+                        res.linh_vuc.forEach(function(item) {
+                            if (!$('#select_linh_vuc').find("option[value='" + item.id + "']").length) {
+                                $('#select_linh_vuc').append(new Option(item.text, item.id, true, true));
+                            }
+                            if (!currentSelected.includes(item.id)) currentSelected.push(item.id);
+                        });
+                        $('#select_linh_vuc').val(currentSelected).trigger('change');
+                    }
+                }
+            });
+        }
+    });
+
+    /* 7. RÀNG BUỘC NGÀY VÀ NÚT SUBMIT */
+    $('input[name="ngay_bat_dau"]').on('change', function() {
+        var tuNgay = $(this).val();
+        var denNgayInput = $('input[name="ngay_ket_thuc"]');
+        denNgayInput.attr('min', tuNgay);
+        if (denNgayInput.val() && denNgayInput.val() < tuNgay) denNgayInput.val(tuNgay);
+    });
+
+    $('#formTaoPhanCong').on('submit', function() {
+        $('#btnSubmitForm').prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i> Đang lưu...');
+    });
+});
+</script>
+{% endblock %}
+```[cite: 9]

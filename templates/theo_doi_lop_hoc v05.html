@@ -1,0 +1,670 @@
+{% extends "base.html" %}
+
+{% block title %}Theo dõi Lớp học - Quản lý Đào tạo{% endblock %}
+
+{% block content %}
+<div class="container-fluid animate__animated animate__fadeIn">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h4 mb-0 text-gray-800 uppercase font-weight-bold">
+            <i class="fas fa-graduation-cap mr-2 text-primary"></i>Quản lý Theo dõi Đào tạo
+        </h1>
+    </div>
+
+    {% if current_user.is_admin or current_user.role == 'LAP_BANG' %}
+    <div class="card shadow mb-4 border-left-primary">
+        <div class="card-header py-3 bg-white d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-plus-circle mr-2"></i>Thêm Lớp học mới</h6>
+            <span class="badge badge-info font-italic"><i class="fas fa-info-circle mr-1"></i> Chọn mã hiệu để tự động điền dữ liệu</span>
+        </div>
+        <div class="card-body py-4">
+            <form action="{{ url_for('add_lop_hoc') }}" method="POST" id="formLopHoc">
+                <div class="row align-items-end mb-4">
+                    <div class="col-md-3">
+                        <div class="form-group mb-0">
+                            <label class="small font-weight-bold text-danger"><i class="fas fa-university mr-1"></i>1. Đơn vị quản lý:</label>
+                            <select id="select_don_vi" class="form-control form-control-sm select2-ajax-donvi" 
+                                {% if not current_user.is_admin %} disabled {% endif %}>
+                                {% if user_ma_hieu_2 %}
+                                    <option value="{{ user_ma_hieu_2 }}" selected>{{ user_ma_hieu_2 }}</option>
+                                {% endif %}
+                            </select>
+                            {% if not current_user.is_admin %}
+                                <input type="hidden" name="ma_hieu_2_hidden" value="{{ user_ma_hieu_2 }}">
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="form-group mb-0">
+                            <label class="small font-weight-bold text-danger"><i class="fas fa-sitemap mr-1"></i>2. Phòng ban:</label>
+                            <select id="select_phong_ban" class="form-control form-control-sm select2-basic"
+                                {% if not is_admin_or_th %} readonly {% endif %}>
+                                <option value="">-- Tất cả phòng ban --</option>
+                                {% for pb in phong_bans %}
+                                    <option value="{{ pb.id }}" {% if pb.id|string == user_ma_pb %}selected{% endif %}>
+                                        {{ pb.ten_phong_ban }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group mb-0">
+                            <label class="small font-weight-bold text-primary"><i class="fas fa-users mr-1"></i>3. Nhân viên (Chọn nhiều):</label>
+                            <select name="ma_nhan_vien[]" id="select_nhan_vien" class="form-control select2" required multiple="multiple">
+                                {% for nv in all_employees %}
+                                    <option value="{{ nv.ma_nhan_vien }}">[{{ nv.ma_nhan_vien }}] - {{ nv.ho_ten }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row align-items-start mb-4">
+                    <div class="col-md-3">
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold text-dark"><i class="fas fa-tag mr-1"></i>4. Mã hiệu lớp:</label>
+                            <select name="ma_hieu" id="ma_hieu_select" class="form-control select2-mahieu" required>
+                                <option value="">-- Tìm mã hoặc tên lớp --</option>
+                                {% for mh in all_ma_hieu %}
+                                <option value="{{ mh.ma_hieu }}" 
+                                        data-ten="{{ mh.ten_lop_hoc }}" 
+                                        data-noidung="{{ mh.noi_dung_hoc | default('', true) }}">
+                                    {{ mh.ma_hieu }} | {{ mh.ten_lop_hoc }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold text-muted">Tên lớp (Tự động):</label>
+                            <textarea id="auto_ten_lop" class="form-control form-control-sm bg-light custom-readonly" readonly rows="1" placeholder="Tự động..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="col-md-5">
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold text-muted">Nội dung (Tự động):</label>
+                            <textarea id="auto_noi_dung" class="form-control form-control-sm bg-light custom-readonly" readonly rows="1" placeholder="Tự động..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="separator-text mb-4 text-primary font-weight-bold small">THÔNG TIN CHI TIẾT ĐÀO TẠO</div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold">Lĩnh vực:</label>
+                            <select name="linh_vuc" class="form-control form-control-sm custom-select-sm" required>
+                                <option value="">-- Chọn lĩnh vực --</option>
+                                {% for lv in all_linh_vuc %}
+                                <option value="{{ lv.ten_linh_vuc }}">{{ lv.ten_linh_vuc }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold">Đơn vị đầu mối:</label>
+                            <input type="text" name="don_vi_dau_moi" class="form-control form-control-sm" placeholder="Phòng HCNS...">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold">Đơn vị tổ chức:</label>
+                            <input type="text" name="don_vi_to_chuc" class="form-control form-control-sm" placeholder="Trung tâm đào tạo...">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold">Nguồn kinh phí:</label>
+                            <input type="text" name="nguon_kinh_phi" class="form-control form-control-sm" placeholder="Chi phí nghiệp vụ...">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold text-info">Trạng thái:</label>
+                            <select name="trang_thai" class="form-control form-control-sm border-info-light">
+                                <option value="Hoàn thành">Hoàn thành</option>
+                                <option value="Đang học">Đang học</option>
+                                <option value="Xin không tham gia">Xin không tham gia</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row align-items-end">
+                    <div class="col-md-2">
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold">Hình thức:</label>
+                            <select name="hinh_thuc_hoc" id="hinh_thuc_hoc" class="form-control form-control-sm">
+                                <option value="Trực tiếp">Trực tiếp</option>
+                                <option value="Trực tuyến">Trực tuyến</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold text-danger">Từ ngày:</label>
+                            <input type="date" name="tu_ngay" id="tu_ngay" class="form-control form-control-sm border-danger-light" required>
+                        </div>
+                    </div>
+                    <div class="col-md-1">
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold">Số ngày:</label>
+                            <input type="number" step="0.5" min="0.5" name="so_ngay" id="so_ngay" class="form-control form-control-sm text-center font-weight-bold text-primary" value="1" required>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold">Đến ngày:</label>
+                            <input type="date" name="den_ngay" id="den_ngay" class="form-control form-control-sm" required>
+                        </div>
+                    </div>
+
+                    <div class="col-md-2">
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold" id="label_dia_diem">Địa điểm học:</label>
+                            <input type="text" name="dia_diem" id="dia_diem" class="form-control form-control-sm" placeholder="Phòng họp...">
+                        </div>
+                    </div>
+                    <div class="col-md-1">
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold">Ghi chú (Lý do):</label>
+                            <input type="text" name="ly_do" class="form-control form-control-sm" placeholder="Lý do nghỉ/hoãn...">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group mb-2">
+                            <button type="submit" class="btn btn-primary btn-sm btn-block shadow-sm font-weight-bold py-2">
+                                <i class="fas fa-save mr-1"></i> LƯU DỮ LIỆU
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card shadow mb-4 overflow-visible">
+        <div class="card-header py-3 bg-white d-flex flex-column flex-md-row justify-content-between align-items-center">
+            <div class="mb-2 mb-md-0">
+                <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-list mr-2"></i>Danh sách đào tạo</h6>
+                <small class="text-muted">
+                    <i class="fas fa-filter mr-1"></i>Phạm vi: 
+                    {% if current_user.is_admin %}
+                        <span class="badge badge-warning">Toàn hệ thống</span>
+                    {% elif user_ma_pb == '2' %}
+                        <span class="badge badge-info">Toàn đơn vị {{ user_ma_hieu_2 }}</span>
+                    {% else %}
+                        <span class="badge badge-secondary">Phòng ban nội bộ</span>
+                    {% endif %}
+                </small>
+            </div>
+            
+            <form method="GET" action="{{ url_for('theo_doi_lop_hoc') }}" class="d-flex align-items-center flex-wrap justify-content-end">
+                <div class="input-group input-group-sm mr-2 mb-1" style="width: auto;">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text bg-light">Từ</span>
+                    </div>
+
+                    <input type="date" name="tu_ngay" id="export_tu_ngay_val" value="{{ tu_ngay_val }}" class="form-control">
+
+                    <div class="input-group-prepend input-group-append">
+                        <span class="input-group-text bg-light">đến</span>
+                    </div>
+                    <input type="date" name="den_ngay" id="export_den_ngay_val" value="{{ den_ngay_val }}" class="form-control">
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-sm shadow-sm mb-1 ml-1">
+                    <i class="fas fa-filter mr-1"></i> Lọc dữ liệu
+                </button>
+
+                <button type="button" onclick="exportExcelWithFilter()" class="btn btn-success btn-sm shadow-sm mb-1 ml-1">
+                    <i class="fas fa-file-excel mr-1"></i> Xuất Excel
+                </button>
+            </form>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table id="tableLopHoc" class="table table-sm table-bordered table-hover w-100 mb-0">
+                    <thead class="bg-light text-center small text-uppercase font-weight-bold">
+                        <tr>
+                            <th class="align-middle">Nhân viên</th>
+                            <th class="align-middle">Lĩnh vực</th>
+                            <th class="align-middle">Mã hiệu / Tên lớp học</th>
+                            <th class="align-middle">Hình thức</th>
+                            <th class="align-middle">Thời gian</th>
+                            <th class="align-middle">Số ngày</th>
+                            <th class="align-middle">Trạng thái</th> <th class="align-middle">Chi tiết</th>
+                            <th class="align-middle" style="width: 80px;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody class="small">
+                        {% for lop in ds_lop_hoc %}
+                        <tr class="{% if lop.hinh_thuc_hoc == 'Trực tuyến' %}bg-light-info{% endif %}">
+                            <td class="pl-3">
+                                <b class="text-primary">{{ lop.ma_nhan_vien }}</b><br>
+                                <span class="text-dark font-weight-bold">{{ lop.fullname_display }}</span>
+                            </td>
+                            <td class="text-center">{{ lop.linh_vuc or '-' }}</td>
+                            <td>
+                                <span class="badge badge-secondary">{{ lop.ma_hieu or '-' }}</span><br>
+                                <div class="text-wrap" style="max-width: 250px;">{{ lop.ten_lop_hoc }}</div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge badge-pill badge-{{ 'success' if lop.hinh_thuc_hoc == 'Trực tiếp' else 'info' }}">
+                                    <i class="fas fa-{{ 'user-tie' if lop.hinh_thuc_hoc == 'Trực tiếp' else 'laptop' }} mr-1"></i>
+                                    {{ lop.hinh_thuc_hoc }}
+                                </span>
+                            </td>
+                            <td class="text-center font-weight-bold" data-sort="{{ lop.tu_ngay }}">
+                                <span class="text-danger">{{ lop.tu_ngay.strftime('%d/%m/%Y') }}</span><br>
+                                <span class="text-muted small">đến</span><br>
+                                <span class="text-danger">{{ lop.den_ngay.strftime('%d/%m/%Y') }}</span>
+                            </td>
+                            <td class="text-center font-weight-bold text-dark bg-light">
+                                {{ lop.so_ngay }}
+                            </td>
+                            <td class="text-center">
+                                {% if lop.trang_thai == 'Hoàn thành' %}
+                                    <span class="badge badge-success">Hoàn thành</span>
+                                {% elif lop.trang_thai == 'Xin không tham gia' %}
+                                    <span class="badge badge-danger">Xin không tham gia</span>
+                                {% else %}
+                                    <span class="badge badge-warning text-dark">{{ lop.trang_thai or 'Đang học' }}</span>
+                                {% endif %}
+                                {% if lop.ly_do %}<br><small class="text-muted italic">Lý do: {{ lop.ly_do }}</small>{% endif %}
+                            </td>
+                            <td>
+                                <div class="small">
+                                    <p class="mb-0 text-truncate"><i class="fas fa-map-marker-alt mr-1 text-danger"></i>{{ lop.dia_diem or '-' }}</p>
+                                    <p class="mb-0 text-truncate"><b>Đầu mối:</b> {{ lop.don_vi_dau_moi or '-' }}</p>
+                                    <p class="mb-0 text-truncate"><b>Tổ chức:</b> {{ lop.don_vi_to_chuc or '-' }}</p>
+                                </div>
+                            </td>
+                            <td class="text-center align-middle">
+                                {% if current_user.is_admin or (current_user.role == 'LAP_BANG' and lop.can_edit) %}
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary btn-edit" 
+                                       data-id="{{ lop.id }}"
+                                       data-manv="{{ lop.ma_nhan_vien }}"
+                                       data-mahieu="{{ lop.ma_hieu }}"
+                                       data-hinhthuc="{{ lop.hinh_thuc_hoc }}"
+                                       data-tungay="{{ lop.tu_ngay.strftime('%Y-%m-%d') }}"
+                                       data-denngay="{{ lop.den_ngay.strftime('%Y-%m-%d') }}"
+                                       data-songay="{{ lop.so_ngay }}"
+                                       data-diadiem="{{ lop.dia_diem or '' }}"
+                                       data-ghichu="{{ lop.ghi_chu or '' }}"
+                                       data-linhvuc="{{ lop.linh_vuc or '' }}"
+                                       data-daumoi="{{ lop.don_vi_dau_moi or '' }}"
+                                       data-tochuc="{{ lop.don_vi_to_chuc or '' }}"
+                                       data-kinhphi="{{ lop.nguon_kinh_phi or '' }}"
+                                       data-trangthai="{{ lop.trang_thai or 'Hoàn thành' }}"
+                                       data-lydo="{{ lop.ly_do or '' }}"
+                                       title="Chỉnh sửa">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <a href="{{ url_for('delete_lop_hoc', id=lop.id) }}" class="btn btn-outline-danger" 
+                                       onclick="return confirm('Xóa bản ghi này?')" title="Xóa (quyền Admin)">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                                {% else %}
+                                    <span class="badge badge-light text-muted"><i class="fas fa-lock"></i></span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg shadow-lg" role="document">
+        <div class="modal-content border-0">
+            <form id="editForm" method="POST">
+                <div class="modal-header bg-primary text-white py-3">
+                    <h5 class="modal-title font-weight-bold" id="editModalLabel"><i class="fas fa-user-edit mr-2"></i>CẬP NHẬT THÔNG TIN ĐÀO TẠO</h5>
+                    <button type="button" class="close text-white outline-none" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body p-4 bg-light font-12">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="small font-weight-bold text-uppercase">Nhân viên:</label>
+                            <select name="ma_nhan_vien" id="edit_ma_nhan_vien" class="form-control select2-edit" required>
+                                {% for nv in all_employees %}
+                                <option value="{{ nv.ma_nhan_vien }}">{{ nv.ma_nhan_vien }} - {{ nv.ho_ten }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="small font-weight-bold text-uppercase">Mã hiệu lớp:</label>
+                            <select name="ma_hieu" id="edit_ma_hieu" class="form-control select2-edit" required>
+                                {% for mh in all_ma_hieu %}
+                                <option value="{{ mh.ma_hieu }}">{{ mh.ma_hieu }} | {{ mh.ten_lop_hoc }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="small font-weight-bold text-uppercase text-primary">Trạng thái:</label>
+                            <select name="trang_thai" id="edit_trang_thai" class="form-control form-control-sm border-primary">
+                                <option value="Hoàn thành">Hoàn thành</option>
+                                <option value="Đang học">Đang học</option>
+                                <option value="Xin không tham gia">Xin không tham gia</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="small font-weight-bold text-uppercase">Lĩnh vực:</label>
+                            <select name="linh_vuc" id="edit_linh_vuc" class="form-control form-control-sm">
+                                {% for lv in all_linh_vuc %}
+                                <option value="{{ lv.ten_linh_vuc }}">{{ lv.ten_linh_vuc }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="small font-weight-bold text-uppercase">Nguồn kinh phí:</label>
+                            <input type="text" name="nguon_kinh_phi" id="edit_nguon_kinh_phi" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="small font-weight-bold text-uppercase text-muted">Đơn vị đầu mối:</label>
+                            <input type="text" name="don_vi_dau_moi" id="edit_don_vi_dau_moi" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="small font-weight-bold text-uppercase text-muted">Đơn vị tổ chức:</label>
+                            <input type="text" name="don_vi_to_chuc" id="edit_don_vi_to_chuc" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                    <div class="card p-3 mb-3 border-0 shadow-sm bg-white">
+                        <div class="row text-center">
+                            <div class="col-md-3">
+                                <label class="small font-weight-bold">Hình thức:</label>
+                                <select name="hinh_thuc_hoc" id="edit_hinh_thuc" class="form-control form-control-sm">
+                                    <option value="Trực tiếp">Trực tiếp</option>
+                                    <option value="Trực tuyến">Trực tuyến</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="small font-weight-bold text-danger">Từ ngày:</label>
+                                <input type="date" name="tu_ngay" id="edit_tu_ngay" class="form-control form-control-sm" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="small font-weight-bold">Số ngày:</label>
+                                <input type="number" step="0.5" min="0.5" name="so_ngay" id="edit_so_ngay" class="form-control form-control-sm font-weight-bold text-primary" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="small font-weight-bold text-danger">Đến ngày:</label>
+                                <input type="date" name="den_ngay" id="edit_den_ngay" class="form-control form-control-sm" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="small font-weight-bold" id="edit_label_dia_diem">Địa điểm học:</label>
+                            <input type="text" name="dia_diem" id="edit_dia_diem" class="form-control form-control-sm border-warning-light">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="small font-weight-bold">Lý do (Ghi chú):</label>
+                            <input type="text" name="ly_do" id="edit_ly_do" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-3 border-top">
+                    <button type="button" class="btn btn-secondary btn-sm px-4" data-dismiss="modal">Hủy bỏ</button>
+                    <button type="submit" class="btn btn-primary btn-sm px-4 font-weight-bold">CẬP NHẬT DỮ LIỆU</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+    $(document).ready(function() {
+    // Khởi tạo DataTable
+    const table = $('#tableLopHoc').DataTable({
+        "language": { "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Vietnamese.json" },
+        "order": [[4, "desc"]],
+        "pageLength": 25,
+        "dom": "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>t<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+        "drawCallback": function() { $('.pagination').addClass('pagination-sm'); }
+    });
+
+    // Hàm tiện ích khởi tạo Select2
+    function initSelect2(selector, parent = 'body') {
+        $(selector).select2({ width: '100%', dropdownParent: $(parent) });
+    }
+
+    initSelect2('.select2-mahieu');
+    initSelect2('.select2-basic');
+
+    // Khởi tạo Select2 cho nhân viên (chọn nhiều)
+    $('#select_nhan_vien').select2({
+        width: '100%',
+        placeholder: "-- Chọn nhân viên (có thể chọn nhiều) --",
+        allowClear: true
+    });
+
+    // Cấu hình Select2 AJAX cho Đơn vị quản lý
+    $('#select_don_vi').select2({
+        ajax: {
+            url: '/api/search_don_vi', 
+            dataType: 'json', 
+            delay: 250,
+            data: (params) => ({ q: params.term }),
+            processResults: (data) => ({ results: data.results })
+        },
+        placeholder: "-- Tìm đơn vị --", 
+        allowClear: true, 
+        width: '100%'
+    });
+
+    // Hàm tải danh sách nhân viên động dựa trên lọc
+    function reloadNhanVien() {
+        const maDonVi = $('#select_don_vi').val();
+        const maPB = $('#select_phong_ban').val();
+        const $nvSelect = $('#select_nhan_vien');
+
+        // Hiển thị trạng thái đang tải
+        $nvSelect.empty().append('<option value="">Đang tải...</option>').trigger('change');
+
+        $.getJSON('/api/get_nhan_vien_dynamic', {
+            ma_hieu_2: maDonVi || '',
+            ma_pb: maPB || ''
+        }, function(data) {
+            $nvSelect.empty(); // Xóa trắng để nạp dữ liệu mới
+            if (data.length === 0) {
+                $nvSelect.append('<option value="">Không có nhân viên phù hợp</option>');
+            } else {
+                data.forEach(nv => {
+                    const newOption = new Option(nv.ten + " (" + nv.ma + ")", nv.ma, false, false);
+                    $nvSelect.append(newOption);
+                });
+            }
+            $nvSelect.trigger('change');
+        });
+    }
+
+    // 4. Logic cascading dropdowns
+    // Khi thay đổi Đơn vị
+    $('#select_don_vi').on('change', function() {
+        const maDonVi = $(this).val();
+        const $pbSelect = $('#select_phong_ban');
+        
+        $pbSelect.empty().append('<option value="">-- Tất cả phòng ban --</option>');
+        
+        if (maDonVi) {
+            $.getJSON(`/api/get_phong_ban/${maDonVi}`, function(data) {
+                data.forEach(item => $pbSelect.append(new Option(item.ten, item.id)));
+                $pbSelect.trigger('change');
+            });
+        } else {
+            // Nếu xóa đơn vị, load lại nhân viên (theo quyền hạn user ở server)
+            reloadNhanVien();
+        }
+    });
+
+    // Khi thay đổi Phòng ban
+    $('#select_phong_ban').on('change', function() {
+        reloadNhanVien(); // Gọi hàm tải lại nhân viên mỗi khi phòng ban thay đổi
+    });
+
+    // Các logic hỗ trợ khác
+    $('#ma_hieu_select').on('change', function() {
+        const opt = $(this).find(':selected');
+        $('#auto_ten_lop').val(opt.data('ten'));
+        $('#auto_noi_dung').val(opt.data('noidung') || '---');
+    });
+
+    function calculateDenNgay(prefix = '') {
+        const tuNgayVal = $(`#${prefix}tu_ngay`).val();
+        const soNgay = parseFloat($(`#${prefix}so_ngay`).val());
+        if (tuNgayVal && !isNaN(soNgay)) {
+            let date = new Date(tuNgayVal);
+            date.setDate(date.getDate() + Math.ceil(soNgay) - 1);
+            $(`#${prefix}den_ngay`).val(date.toISOString().split('T')[0]);
+        }
+    }
+    $('#tu_ngay, #so_ngay').on('input change', () => calculateDenNgay(''));
+    $('#edit_tu_ngay, #edit_so_ngay').on('input change', () => calculateDenNgay('edit_'));
+
+    $(document).on('click', '.btn-edit', function(e) {
+        e.preventDefault();
+        const d = $(this).data();
+        $('#editForm').attr('action', '/edit_lop_hoc/' + d.id);
+        $('#edit_ma_nhan_vien').val(d.manv).trigger('change');
+        $('#edit_ma_hieu').val(d.mahieu).trigger('change');
+        $('#edit_tu_ngay').val(d.tungay);
+        $('#edit_so_ngay').val(d.songay);
+        $('#edit_den_ngay').val(d.denngay);
+        $('#edit_dia_diem').val(d.diadiem);
+        $('#edit_ghi_chu').val(d.ghichu);
+        $('#edit_linh_vuc').val(d.linhvuc);
+        $('#edit_don_vi_dau_moi').val(d.daumoi);
+        $('#edit_don_vi_to_chuc').val(d.tochuc);
+        $('#edit_nguon_kinh_phi').val(d.kinhphi);
+        $('#edit_hinh_thuc').val(d.hinhthuc).trigger('change');
+        $('#edit_trang_thai').val(d.trangthai);
+        $('#edit_ly_do').val(d.lydo);
+
+        $('.select2-edit').select2({ dropdownParent: $('#editModal'), width: '100%' });
+        $('#editModal').modal('show');
+    });
+
+    // Khởi tạo lần đầu nếu đã có giá trị sẵn
+    if($('#select_don_vi').val()) {
+        $('#select_don_vi').trigger('change');
+    } else {
+        reloadNhanVien(); // Load nhân viên mặc định theo quyền user khi mới vào trang
+    }
+});
+
+// Hàm thực hiện lọc dữ liệu trên Table
+function filterByDate() {
+    const tuNgay = $('input[name="tu_ngay"]').last().val(); // Lấy input cuối cùng (trong form lọc)
+    const denNgay = $('input[name="den_ngay"]').last().val();
+
+    if (!tuNgay && !denNgay) {
+        alert("Vui lòng chọn khoảng thời gian để lọc!");
+        return;
+    }
+
+    $.fn.dataTable.ext.search.push(
+        function(settings, data, dataIndex) {
+            const rowDateRaw = $(settings.aoData[dataIndex].anCells[4]).attr('data-sort');
+            if (!rowDateRaw) return true;
+
+            const rowDate = new Date(rowDateRaw);
+            const startDate = tuNgay ? new Date(tuNgay) : null;
+            const endDate = denNgay ? new Date(denNgay) : null;
+
+            if (
+                (!startDate || rowDate >= startDate) &&
+                (!endDate || rowDate <= endDate)
+            ) {
+                return true;
+            }
+            return false;
+        }
+    );
+
+    const table = $('#tableLopHoc').DataTable();
+    table.draw();
+    $.fn.dataTable.ext.search.pop(); 
+}
+
+// Lắng nghe sự thay đổi trên các ô lọc ngày tháng (dùng selector [name] thay vì ID sai)
+$('input[name="tu_ngay"], input[name="den_ngay"]').on('change', function() {
+    const tuVal = $('input[name="tu_ngay"]').last().val();
+    const denVal = $('input[name="den_ngay"]').last().val();
+    
+    if (!tuVal && !denVal) {
+        const table = $('#tableLopHoc').DataTable();
+        table.draw();
+    }
+});
+
+function exportExcelWithFilter() {
+    // Lấy chính xác theo ID vừa đặt
+    const tuNgay = $('#export_tu_ngay_val').val();
+    const denNgay = $('#export_den_ngay_val').val();
+    
+    // Kiểm tra xem console log có ra đúng ngày bạn chọn không
+    console.log("Ngày lọc:", tuNgay, denNgay);
+    
+    let url = "{{ url_for('export_lop_hoc_excel') }}";
+    const params = new URLSearchParams();
+    
+    if (tuNgay) params.append('tu_ngay', tuNgay);
+    if (denNgay) params.append('den_ngay', denNgay);
+    
+    // Lấy thêm các bộ lọc khác
+    const maHieu2 = $('#select_don_vi').val();
+    const maPB = $('#select_phong_ban').val();
+    if (maHieu2) params.append('ma_hieu_2', maHieu2);
+    if (maPB) params.append('ma_pb', maPB);
+
+    if (params.toString()) {
+        url += "?" + params.toString();
+    }
+    
+    window.location.href = url;
+}
+</script>
+
+<style>
+    /* GIỮ NGUYÊN TOÀN BỘ CSS GỐC CỦA BẠN */
+    :root { --primary-soft: #f0f2f9; --border-color: #d1d3e2; }
+    .uppercase { text-transform: uppercase; letter-spacing: 0.5px; }
+    .font-12 { font-size: 12px; }
+    .custom-readonly { background-color: #f8f9fc !important; border: 1px dashed var(--border-color) !important; resize: none; overflow: hidden; font-size: 0.85rem; }
+    .separator-text { display: flex; align-items: center; text-align: center; }
+    .separator-text::before, .separator-text::after { content: ''; flex: 1; border-bottom: 1px solid #e3e6f0; }
+    .separator-text:not(:empty)::before { margin-right: 1rem; }
+    .separator-text:not(:empty)::after { margin-left: 1rem; }
+    .select2-container--default .select2-selection--single, .select2-container--default .select2-selection--multiple { border: 1px solid var(--border-color) !important; min-height: 31px !important; border-radius: 4px !important; }
+    .select2-container--open { z-index: 9999999 !important; }
+    #tableLopHoc thead th { background: #f8f9fc; color: #4e73df; font-size: 0.75rem; }
+    .overflow-visible { overflow: visible !important; }
+</style>
+{% endblock %}

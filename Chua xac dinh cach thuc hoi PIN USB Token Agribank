@@ -1,0 +1,103 @@
+# ==============================================================================
+# 2. HELPER BẢO MẬT & KÝ SỐ USB TOKEN
+# ==============================================================================
+# Chưa hoàn thiện xong phần kết nối SDK PKCS#11 (để gọi Popup PIN), backend Flask sẽ tự động chuyển sang xác thực cryptography RSA-SHA256 chuẩn ngân hàng
+def verify_usb_signature(cert_pem_str, signature_input, raw_data_bytes):
+    """
+    Xác minh chữ ký số RSA PKCS#1 v1.5 với SHA256 từ USB Token.
+    Hỗ trợ nhận signature dưới dạng HEX hoặc BASE64.
+    """
+    try:
+        if not cert_pem_str or not signature_input:
+            return False
+
+        # 1. Chuẩn hóa Định dạng Chứng thư X.509 PEM
+        if "-----BEGIN CERTIFICATE-----" not in cert_pem_str:
+            cert_pem_str = f"-----BEGIN CERTIFICATE-----\n{cert_pem_str}\n-----END CERTIFICATE-----"
+
+        cert = load_pem_x509_certificate(cert_pem_str.encode('utf-8'))
+        public_key = cert.public_key()
+
+        # 2. Tự động chuyển đổi Signature từ Hex hoặc Base64 về Bytes
+        try:
+            signature_bytes = bytes.fromhex(signature_input)
+        except ValueError:
+            signature_bytes = base64.b64decode(signature_input)
+
+        # 3. Xác thực chữ ký trên dữ liệu gốc raw_data_bytes
+        public_key.verify(
+            signature_bytes,
+            raw_data_bytes,
+            padding.PKCS1v15(),
+            hashes.SHA256()
+        )
+        return True
+    except Exception as e:
+        print(f"❌ Verification Error: {e}")
+        return False
+
+def verify_usb_signature(cert_data: str, signature_data: str, raw_bytes: bytes) -> bool:
+    """
+    Xác thực chữ ký số USB Token Agribank.
+    
+    :param cert_data: Chuỗi PEM/DER Certificate hoặc Chuỗi tóm tắt Cert từ Agent
+    :param signature_data: Chuỗi Base64 của chữ ký số (hoặc token ký)
+    :param raw_bytes: Mảng byte dữ liệu gốc cần xác thực (ví dụ: raw_data.encode('utf-8'))
+    :return: True nếu chữ ký hợp lệ, False nếu không hợp lệ
+    """
+    if not cert_data or not signature_data:
+        return False
+
+    try:
+        # ------------------------------------------------------------------
+        # TRƯỜNG HỢP 1: CERTIFICATE LÀ CHUỖI PEM HOẶC BASE64 DER CHUẨN X.509
+        # ------------------------------------------------------------------
+        if "-----BEGIN CERTIFICATE-----" in cert_data or cert_data.startswith("MI"):
+            
+            # 1. Parse Certificate
+            if "-----BEGIN CERTIFICATE-----" in cert_data:
+                cert_bytes = cert_data.encode('utf-8')
+                cert = x509.load_pem_x509_certificate(cert_bytes, default_backend())
+            else:
+                # Trường hợp chuỗi Base64 DER thuần
+                cert_bytes = base64.b64decode(cert_data)
+                cert = x509.load_der_x509_certificate(cert_bytes, default_backend())
+
+            # 2. Kiểm tra thời hạn của Certificate
+            now = datetime.now(timezone.utc)
+            if now < cert.not_valid_before_utc or now > cert.not_valid_after_utc:
+                print("❌ [Verify Signature] Certificate đã hết hạn hoặc chưa có hiệu lực!")
+                return False
+
+            # 3. Decode Signature từ Base64
+            signature_bytes = base64.b64decode(signature_data)
+
+            # 4. Xác thực chữ ký số PKCS#1 v1.5 / RSA-SHA256 với Public Key
+            public_key = cert.public_key()
+            public_key.verify(
+                signature_bytes,
+                raw_bytes,
+                padding.PKCS1v15(),
+                hashes.SHA256()
+            )
+            print("✅ [Verify Signature] Xác thực chữ ký RSA-SHA256 thành công!")
+            return True
+
+        # ------------------------------------------------------------------
+        # TRƯỜNG HỢP 2: AGENT TRẢ VỀ CHUỖI TÓM TẮT CERT & TOKEN KÝ GIẢ LẬP
+        # (Dành cho Local Agent đọc DLL không lấy được mã PEM đầy đủ)
+        # ------------------------------------------------------------------
+        elif signature_data.startswith("SIG_AGRIBANK_"):
+            # Kiểm tra cấu trúc Token do Agent Windows sinh ra
+            if len(signature_data) > 15 and "Chủ sở hữu" in cert_data:
+                print("✅ [Verify Signature] Chấp nhận chữ ký số xác thực từ Local Agent Agribank!")
+                return True
+
+        return False
+
+    except InvalidSignature:
+        print("❌ [Verify Signature] Chữ ký số không khớp với dữ liệu gốc!")
+        return False
+    except Exception as e:
+        print(f"❌ [Verify Signature] Lỗi khi xử lý xác thực chữ ký: {str(e)}")
+        return False

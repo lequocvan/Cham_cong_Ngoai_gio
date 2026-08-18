@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12 text-center text-md-left">
+            <h3 class="font-weight-bold text-primary responsive-h3">
+                <i class="fas fa-file-word mr-2"></i>DANH MỤC MẪU BIỂU HÀNH CHÍNH
+            </h3>
+            <p class="text-muted small-mobile">Chọn mẫu biểu, kiểm tra thông tin nhân sự và xuất file Word tự động.</p>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12 col-md-6 col-lg-4 mb-2">
+            <div class="input-group shadow-sm">
+                <div class="input-group-prepend">
+                    <span class="input-group-text bg-white border-right-0"><i class="fas fa-search text-muted"></i></span>
+                </div>
+                <input type="text" id="searchMau" class="form-control border-left-0" placeholder="Tìm tên hoặc mã mẫu...">
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-2">
+            <div class="input-group shadow-sm">
+                <div class="input-group-prepend">
+                    <span class="input-group-text bg-white border-right-0"><i class="fas fa-filter text-muted"></i></span>
+                </div>
+                <select id="filterDanhMuc" class="form-control border-left-0">
+                    <option value="all">-- Tất cả danh mục mẫu --</option>
+                    {% for dm in ds_danh_muc %}
+                    <option value="{{ dm.id }}">{{ dm.ten_danh_muc }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <div class="col-12 col-lg-4 d-flex align-items-center mb-2">
+            <span class="badge badge-info p-2 shadow-sm" id="resultCount">Đang tính toán...</span>
+        </div>
+    </div>
+
+    <div class="row" id="listMauBieu">
+        {% for mau in ds_mau %}
+        {% set dm_ids = mau_to_categories.get(mau.id, '') %}
+
+        <div class="col-xl-3 col-lg-4 col-md-6 col-sm-12 mb-4 item-mau" data-categories="{{ dm_ids }}">
+            <div class="card card-custom shadow-sm h-100">
+                <div class="card-body d-flex flex-column p-4">
+                    <div class="file-icon-wrapper">
+                        <i class="fas fa-file-word fa-3x text-primary"></i>
+                    </div>
+                    <div class="mb-2 text-center">
+                        <span class="badge-code">
+                            <i class="fas fa-fingerprint mr-1"></i> {{ mau.ma_mau }}
+                        </span>
+                    </div>
+                    <h6 class="mau-title text-center mb-4" title="{{ mau.ten_mau }}">{{ mau.ten_mau }}</h6>
+                    <div class="mt-auto">
+                        <button class="btn btn-primary btn-block shadow-sm font-weight-bold" data-toggle="modal" data-target="#modalFill{{ mau.id }}">
+                            <i class="fas fa-pen-fancy mr-1"></i> ĐIỀN & TẢI MẪU
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="modalFill{{ mau.id }}" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title font-weight-bold text-uppercase">XUẤT MẪU: {{ mau.ten_mau }}</h5>
+                        <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+                    </div>
+                    
+                    <form action="{{ url_for('tu_dong_dien_du_lieu', ma_mau=mau.ma_mau) }}" method="POST">
+                        <div class="modal-body p-0">
+                            <div class="row no-gutters">
+                                <div class="col-lg-5 p-4 border-right" style="max-height: 75vh; overflow-y: auto;">
+                                    <h6 class="font-weight-bold text-primary mb-3 text-uppercase small border-bottom pb-2">Thông tin hiển thị trên mẫu</h6>
+                                    
+                                    <div class="form-group mb-3">
+                                        <label class="small font-weight-bold">HỌ VÀ TÊN (In hoa):</label>
+                                        <input type="text" name="fullname" class="form-control preview-trigger" 
+                                               data-target="#pv-name-{{ mau.id }}" 
+                                               value="{{ nv_info.ho_ten if nv_info else current_user.fullname }}" required>
+                                    </div>
+
+                                    <div class="form-group mb-3">
+                                        <label class="small font-weight-bold">MÃ NHÂN VIÊN:</label>
+                                        <input type="text" name="ma_nhan_vien" class="form-control" 
+                                               value="{{ nv_info.ma_nhan_vien if nv_info else '' }}" required readonly>
+                                    </div>
+
+                                    <div class="form-group mb-3">
+                                        <label class="small font-weight-bold text-dark">ĐƠN VỊ - PHÒNG BAN:</label>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <input type="text" name="phong_ban_cu" class="form-control form-control-sm bg-light" 
+                                                       value="{{ phong_ban_hien_thi }}" readonly title="Thông tin cũ">
+                                            </div>
+                                            <div class="col-6">
+                                                <input type="text" name="phong_ban_moi" class="form-control form-control-sm preview-trigger" 
+                                                       data-target="#pv-dept-new-{{ mau.id }}" placeholder="Thông tin mới...">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group mb-3">
+                                        <label class="small font-weight-bold text-dark">CHỨC VỤ:</label>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <input type="text" name="position_cu" class="form-control form-control-sm bg-light" 
+                                                       value="{{ nv_info.chuc_vu if nv_info else '' }}" readonly>
+                                            </div>
+                                            <div class="col-6">
+                                                <input type="text" name="position_moi" class="form-control form-control-sm preview-trigger" 
+                                                       data-target="#pv-pos-new-{{ mau.id }}" placeholder="Chức vụ mới...">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group mb-3">
+                                        <label class="small font-weight-bold text-dark">SỐ ĐIỆN THOẠI:</label>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <input type="text" name="dien_thoai_cu" class="form-control form-control-sm bg-light" 
+                                                       value="{{ nv_info.so_dien_thoai if nv_info else '' }}" readonly>
+                                            </div>
+                                            <div class="col-6">
+                                                <input type="text" name="dien_thoai_moi" class="form-control form-control-sm preview-trigger" 
+                                                       data-target="#pv-phone-new-{{ mau.id }}" placeholder="Số mới...">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="small font-weight-bold">LÝ DO / NỘI DUNG:</label>
+                                        <textarea name="ly_do" class="form-control preview-trigger" rows="3" 
+                                                  data-target="#pv-reason-{{ mau.id }}" placeholder="Nhập lý do..."></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-7 bg-light p-4 d-none d-lg-flex align-items-start justify-content-center">
+                                    <div class="preview-container shadow-sm">
+                                        <div class="preview-header text-center">
+                                            <h6 class="mb-0 font-weight-bold" style="font-size: 11px;">NGÂN HÀNG NÔNG NGHIỆP VÀ PTNT VIỆT NAM</h6>
+                                            <div class="line mx-auto"></div>
+                                        </div>
+                                        <div class="text-right small font-italic mt-2" style="font-size: 10px;">{{ dia_danh if dia_danh else 'Hà Nội' }}, ngày {{ now.day }} tháng {{ now.month }} năm {{ now.year }}</div>
+                                        
+                                        <div class="preview-title text-center mt-3">
+                                            <h6 class="font-weight-bold text-uppercase" style="font-size: 12px;">PHIẾU YÊU CẦU</h6>
+                                            <p class="small" style="font-size: 10px;">(V/v: {{ mau.ten_mau }})</p>
+                                        </div>
+
+                                        <div class="preview-content mt-3" style="font-size: 10px; line-height: 1.4;">
+                                            <p class="mb-1">Tôi tên là: <span id="pv-name-{{ mau.id }}" class="text-primary font-weight-bold border-bottom-preview">{{ nv_info.ho_ten if nv_info else current_user.fullname }}</span></p>
+                                            
+                                            <table class="table table-bordered table-sm mt-2" style="font-size: 9px; background: white;">
+                                                <thead class="bg-light text-center">
+                                                    <tr>
+                                                        <th>Nội dung</th>
+                                                        <th>Thông tin cũ</th>
+                                                        <th>Thông tin mới</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td>Phòng ban</td>
+                                                        <td>{{ phong_ban_hien_thi }}</td>
+                                                        <td><span id="pv-dept-new-{{ mau.id }}" class="text-danger font-weight-bold">...</span></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>Chức vụ</td>
+                                                        <td>{{ nv_info.chuc_vu }}</td>
+                                                        <td><span id="pv-pos-new-{{ mau.id }}" class="text-danger font-weight-bold">...</span></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>Điện thoại</td>
+                                                        <td>{{ nv_info.so_dien_thoai }}</td>
+                                                        <td><span id="pv-phone-new-{{ mau.id }}" class="text-danger font-weight-bold">...</span></td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                            <p class="mt-2 font-italic">Lý do: <span id="pv-reason-{{ mau.id }}">................</span></p>
+                                        </div>
+
+                                        <div class="preview-footer mt-5">
+                                            <div class="row">
+                                                <div class="col-6 text-center"><p class="font-weight-bold" style="font-size: 10px;">KIỂM SOÁT</p></div>
+                                                <div class="col-6 text-center">
+                                                    <p class="font-weight-bold mb-0" style="font-size: 10px;">NGƯỜI LẬP PHIẾU</p>
+                                                    <p class="small font-weight-bold text-primary mt-4" style="font-size: 10px;" id="pv-footer-name-{{ mau.id }}">
+                                                        {{ (nv_info.ho_ten if nv_info else current_user.fullname) | upper }}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light border-top">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Hủy bỏ</button>
+                            <button type="submit" class="btn btn-success px-4 font-weight-bold shadow-sm">
+                                <i class="fas fa-file-download mr-1"></i> XUẤT FILE WORD (.DOCX)
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12 d-flex justify-content-center">
+            <nav><ul class="pagination pagination-sm shadow-sm" id="paginationControls"></ul></nav>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Card & Icon */
+    .card-custom { border-radius: 12px; transition: 0.3s; background: #fff; overflow: hidden; border: 1px solid #e3e6f0; }
+    .card-custom:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(78,115,223,0.15); border-color: #4e73df; }
+    .badge-code { background-color: #f8f9fc; color: #4e73df; font-size: 0.7rem; font-weight: 700; padding: 5px 10px; border-radius: 6px; }
+    .file-icon-wrapper { height: 90px; display: flex; align-items: center; justify-content: center; background: #f8f9fc; margin: -24px -24px 20px -24px; border-bottom: 1px solid #eaecf4; }
+    .mau-title { font-size: 0.9rem; font-weight: 600; color: #2e3750; height: 2.6rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    
+    /* Mô phỏng văn bản Word */
+    .preview-container { background: white; padding: 30px; width: 400px; min-height: 520px; font-family: 'Times New Roman', serif; border: 1px solid #ddd; position: sticky; top: 0; }
+    .line { width: 60px; height: 1.5px; background: #000; margin: 5px auto; }
+    .border-bottom-preview { border-bottom: 1px dashed #4e73df; }
+    .responsive-h3 { font-size: 1.5rem; }
+    
+    .page-item.active .page-link { background-color: #4e73df; border-color: #4e73df; }
+    .page-link { color: #4e73df; }
+
+    @media (max-width: 576px) { 
+        .small-mobile { font-size: 0.8rem; } 
+        .responsive-h3 { font-size: 1.2rem; } 
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function(){
+    const itemsPerPage = 12; 
+    let allItems = $("#listMauBieu .item-mau");
+    let filteredItems = allItems;
+
+    function performFilter() {
+        const searchVal = $("#searchMau").val().toLowerCase().trim();
+        const categoryId = $("#filterDanhMuc").val();
+
+        filteredItems = allItems.filter(function() {
+            const item = $(this);
+            const text = item.text().toLowerCase();
+            const itemCatIds = (item.attr("data-categories") || "").split(',');
+
+            const matchSearch = text.indexOf(searchVal) > -1;
+            const matchCategory = (categoryId === "all") || itemCatIds.includes(categoryId.toString());
+
+            return matchSearch && matchCategory;
+        });
+
+        $("#resultCount").text(`Tìm thấy ${filteredItems.length} mẫu`);
+        showPage(1); 
+    }
+
+    function showPage(page) {
+        const start = (page - 1) * itemsPerPage;
+        const end = start + itemsPerPage;
+        allItems.hide();
+        filteredItems.slice(start, end).fadeIn(300);
+        renderPagination(page);
+    }
+
+    function renderPagination(current) {
+        const total = Math.ceil(filteredItems.length / itemsPerPage);
+        if (total <= 1) { $("#paginationControls").empty(); return; }
+        let html = '';
+        html += `<li class="page-item ${current === 1 ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${current - 1}">&laquo;</a></li>`;
+        for (let i = 1; i <= total; i++) {
+            if (i === 1 || i === total || (i >= current - 2 && i <= current + 2)) {
+                html += `<li class="page-item ${i === current ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+            }
+        }
+        html += `<li class="page-item ${current === total ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${current + 1}">&raquo;</a></li>`;
+        $("#paginationControls").html(html);
+    }
+
+    $("#searchMau").on("keyup", performFilter);
+    $("#filterDanhMuc").on("change", performFilter);
+
+    $(document).on("click", ".page-link", function(e) {
+        e.preventDefault();
+        const p = $(this).data("page");
+        if (p && !$(this).parent().hasClass('disabled')) { showPage(parseInt(p)); }
+    });
+
+    // --- PREVIEW REAL-TIME (Cập nhật cho bản Cũ/Mới) ---
+    $('.preview-trigger').on('input change', function() {
+        const target = $(this).data('target');
+        let val = $(this).val();
+        const isFullName = $(this).attr('name') === 'fullname';
+        
+        if (!val || val.trim() === "") { 
+            $(target).text("..."); 
+            if (isFullName) {
+                const footerTarget = target.replace('#pv-name-', '#pv-footer-name-');
+                $(footerTarget).text('..........');
+            }
+            return; 
+        }
+        
+        if (isFullName) {
+            val = val.toUpperCase();
+            const footerTarget = target.replace('#pv-name-', '#pv-footer-name-');
+            $(footerTarget).text(val);
+        }
+        
+        $(target).text(val);
+    });
+
+    performFilter(); 
+});
+</script>
+{% endblock %}

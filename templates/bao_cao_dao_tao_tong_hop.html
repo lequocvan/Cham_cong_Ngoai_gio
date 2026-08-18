@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="h4 mb-4 text-gray-800 font-weight-bold uppercase">BÁO CÁO ĐÀO TẠO THEO NGƯỜI HỌC</h2>
+
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('bao_cao_tong_hop_dao_tao') }}" class="form-inline">
+                <label class="mr-2 font-weight-bold">Từ ngày:</label>
+                <input type="date" name="tu_ngay" class="form-control form-control-sm mr-3" value="{{ tu_ngay }}">
+                
+                <label class="mr-2 font-weight-bold">Đến ngày:</label>
+                <input type="date" name="den_ngay" class="form-control form-control-sm mr-3" value="{{ den_ngay }}">
+                
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fas fa-filter mr-1"></i> Lọc dữ liệu
+                </button>
+
+                <a href="{{ url_for('bao_cao_tong_hop_dao_tao', export='excel', tu_ngay=tu_ngay, den_ngay=den_ngay) }}" 
+                   class="btn btn-success btn-sm ml-2">
+                    <i class="fas fa-file-excel mr-1"></i> Xuất Excel
+                </a>
+
+                <a href="{{ url_for('bao_cao_tong_hop_dao_tao') }}" class="btn btn-secondary btn-sm ml-2">Làm mới</a>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header bg-dark text-white py-2">
+            <h6 class="m-0 font-weight-bold small"><i class="fas fa-th mr-1"></i> BẢNG MA TRẬN CHI TIẾT ĐÀO TẠO THEO NHÂN VIÊN</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered dataTableCustom w-100">
+                    <thead class="thead-light text-center small">
+                        <tr>
+                            <th rowspan="2" style="vertical-align: middle; width: 40px;">STT</th>
+                            <th rowspan="2" style="vertical-align: middle;">Mã NV</th>
+                            <th rowspan="2" style="vertical-align: middle;">Họ tên</th>
+                            <th rowspan="2" style="vertical-align: middle;">Phòng ban</th>
+                            <th rowspan="2" style="vertical-align: middle;">Chức vụ</th>
+                            
+                            <th colspan="{{ classes_truc_tiep|length }}" class="bg-primary text-white">TRỰC TIẾP</th>
+                            <th colspan="{{ classes_truc_tuyen|length }}" class="bg-info text-white">TRỰC TUYẾN</th>
+                            
+                            <th colspan="3" class="bg-warning text-dark">TỔNG SỐ LỚP</th>
+                            <th colspan="3" class="bg-success text-white">TỔNG SỐ NGÀY</th>
+                        </tr>
+                        <tr>
+                            {% for ten, ma in classes_truc_tiep %}
+                            <th class="th-vertical">
+                                <div class="vertical-wrapper">
+                                    <span class="class-name">{{ ten }}</span>
+                                    <span class="class-code">({{ ma }})</span>
+                                </div>
+                            </th>
+                            {% endfor %}
+
+                            {% for ten, ma in classes_truc_tuyen %}
+                            <th class="th-vertical">
+                                <div class="vertical-wrapper">
+                                    <span class="class-name">{{ ten }}</span>
+                                    <span class="class-code">({{ ma }})</span>
+                                </div>
+                            </th>
+                            {% endfor %}
+
+                            <th class="bg-light">T.Tiếp</th>
+                            <th class="bg-light">T.Tuyến</th>
+                            <th class="bg-warning text-dark">Tổng</th>
+
+                            <th class="bg-light">T.Tiếp</th>
+                            <th class="bg-light">T.Tuyến</th>
+                            <th class="bg-success text-white">Tổng</th>
+                        </tr>
+                    </thead>
+                    <tbody class="small">
+                        {% for person in pivot_data %}
+                        <tr>
+                            <td class="text-center">{{ loop.index }}</td>
+                            <td class="font-weight-bold text-primary">{{ person.ma_nv }}</td>
+                            <td class="text-nowrap">{{ person.ho_ten }}</td>
+                            <td>{{ person.phong_ban }}</td>
+                            <td>{{ person.chuc_vu }}</td>
+
+                            {% for c_tuple in classes_truc_tiep %}
+                            <td class="text-center">
+                                {% if c_tuple in person.user_classes %}
+                                    <i class="fas fa-check text-success"></i>
+                                {% else %}
+                                    <span class="text-light">-</span>
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+
+                            {% for c_tuple in classes_truc_tuyen %}
+                            <td class="text-center">
+                                {% if c_tuple in person.user_classes %}
+                                    <i class="fas fa-check text-success"></i>
+                                {% else %}
+                                    <span class="text-light">-</span>
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+
+                            <td class="text-center bg-light">{{ person.tong_lop_ttiep }}</td>
+                            <td class="text-center bg-light">{{ person.tong_lop_ttuyen }}</td>
+                            <td class="text-center font-weight-bold" style="background-color: #fff3cd;">{{ person.tong_lop_ttiep + person.tong_lop_ttuyen }}</td>
+
+                            <td class="text-center bg-light">{{ person.tong_ngay_ttiep }}</td>
+                            <td class="text-center bg-light">{{ person.tong_ngay_ttuyen }}</td>
+                            <td class="text-center font-weight-bold text-success" style="background-color: #d4edda;">{{ person.tong_ngay_ttiep + person.tong_ngay_ttuyen }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        var table = $('.dataTableCustom').DataTable({
+            "language": { "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Vietnamese.json" },
+            "pageLength": 25,
+            "order": [[0, "asc"]],
+            "dom": 'rtip',
+            "scrollX": true,        // Bắt buộc phải có để FixedColumns hoạt động
+            "scrollCollapse": true,
+            "fixedHeader": true,
+            "fixedColumns": {
+                "leftColumns": 3    // Cố định 3 cột đầu tiên
+            }
+        });
+    });
+</script>
+<style>
+    .uppercase { text-transform: uppercase; }
+    .table td, .table th { border: 1px solid #dee2e6 !important; vertical-align: middle !important; }
+    
+    /* FIX LỆCH CỘT VÀ XOAY CHỮ */
+    .th-vertical {
+        height: 150px; /* Chiều cao cố định để Header không bị trồi sụt */
+        position: relative;
+        vertical-align: bottom !important;
+        padding-bottom: 10px !important;
+    }
+
+    .vertical-wrapper {
+        /* Xoay nghiêng thay vì xoay dọc hoàn toàn */
+        transform: translate(10px, 0px) rotate(-45deg);
+        width: 30px;
+        white-space: nowrap;
+        border-bottom: 1px solid #ddd; /* Tạo đường dẫn thị giác */
+        /*writing-mode: vertical-rl;
+        transform: rotate(180deg);
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        height: 100%;
+        width: 100%;
+        padding: 10px 0;
+        margin: 0 auto;*/
+    }
+
+    .class-name {
+        font-size: 0.85rem;
+        font-weight: bold;
+        white-space: nowrap;
+        color: #333;
+    }
+
+    .class-code {
+        font-size: 0.75rem;
+        color: #007bff; /* Nhấn mạnh mã lớp */
+        margin-left: 5px; /*margin-top: 8px;*/
+        /*writing-mode: horizontal-tb; /* Mã hiệu nằm ngang dễ đọc */
+        /*transform: rotate(0deg);**/
+    }
+
+    /* Sticky Header cố định khi cuộn */
+    .table-responsive { max-height: 800px; overflow: auto; }
+    .table thead th { position: sticky; top: 0; background: #f8f9fc; z-index: 11; }
+    .table thead tr:nth-child(2) th { top: 43px; z-index: 10; }
+    /* Hiệu ứng highlight dòng khi di chuột để dễ theo dõi hàng ngang */
+    .table-sm tbody tr:hover {
+        background-color: rgba(0,0,0,.05) !important;
+    }
+</style>
+{% endblock %}

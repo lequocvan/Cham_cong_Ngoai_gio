@@ -1,0 +1,425 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* 1. TỐI ƯU GIAO DIỆN SELECT2 KHOA HỌC */
+    .select2-container--open { z-index: 9999999 !important; }
+    
+    .select2-container--bootstrap4 .select2-selection--multiple {
+        border: 2px solid #007bff !important;
+        border-radius: 8px !important;
+        min-height: 45px !important;
+        background-color: #f8fbff !important;
+        display: flex;
+        align-items: center;
+    }
+
+    /* 2. VÙNG DANH SÁCH MẪU ĐÃ CHỌN (BẢNG KHOA HỌC) */
+    .selected-container {
+        margin-top: 15px;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        background: #ffffff;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        overflow: hidden;
+    }
+    
+    .selected-header {
+        background: #f1f4f9;
+        padding: 10px 15px;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .selected-body {
+        padding: 10px;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    /* ITEM TRONG DANH SÁCH */
+    .selected-item-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        margin-bottom: 6px;
+        background: #fff;
+        border: 1px solid #e3e6f0;
+        border-radius: 6px;
+        transition: all 0.2s;
+    }
+
+    .selected-item-row:hover {
+        border-color: #bac8f3;
+        background-color: #f8faff;
+        transform: translateX(5px);
+    }
+
+    .item-info { display: flex; align-items: center; }
+    .item-code {
+        background: #007bff;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: bold;
+        margin-right: 10px;
+        min-width: 60px;
+        text-align: center;
+    }
+    .item-name { font-size: 0.9rem; color: #333; font-weight: 500; }
+
+    .remove-btn {
+        color: #e74a3b;
+        cursor: pointer;
+        padding: 5px;
+        transition: 0.2s;
+    }
+    .remove-btn:hover { color: #be2617; transform: scale(1.2); }
+
+    .empty-msg { color: #adb5bd; font-style: italic; text-align: center; padding: 20px; width: 100%; }
+
+    /* Hiệu ứng rung khi lỗi validation */
+    @keyframes shake {
+        0%, 100% {transform: translateX(0);}
+        25% {transform: translateX(-5px);}
+        75% {transform: translateX(5px);}
+    }
+    .is-invalid-custom { border: 2px solid #dc3545 !important; animation: shake 0.2s ease-in-out 0s 2; }
+</style>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="text-dark mb-0 font-weight-bold">
+            <i class="fas fa-tasks mr-2 text-primary"></i>Quản lý Nhu cầu & Gói mẫu
+        </h4>
+        <div class="btn-group">
+            <a href="{{ url_for('quan_ly_danh_muc') }}" class="btn btn-outline-primary shadow-sm px-3 mr-2" style="border-radius: 50px;">
+                <i class="fas fa-cog mr-2"></i>Khai báo Danh mục
+            </a>
+            <button class="btn btn-success shadow-sm px-4" style="border-radius: 50px;" data-toggle="modal" data-target="#modalTaoGoiMau">
+                <i class="fas fa-plus-circle mr-2"></i>Tạo gói mẫu dùng chung
+            </button>
+        </div>
+    </div>
+
+    <ul class="nav nav-pills mb-3 bg-white p-2 rounded shadow-sm" id="adminTab" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active font-weight-bold" data-toggle="tab" href="#tab-nhan-vien">
+                <i class="fas fa-user-edit mr-2"></i>Yêu cầu nhân viên 
+                <span class="badge badge-danger ml-1">{{ requests|length }}</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link font-weight-bold" data-toggle="tab" href="#tab-goi-mau">
+                <i class="fas fa-boxes mr-2"></i>Gói mẫu hệ thống 
+                <span class="badge badge-secondary ml-1">{{ goi_mau_da_tao|length }}</span>
+            </a>
+        </li>
+    </ul>
+
+    <div class="tab-content mt-3">
+        <div class="tab-pane fade show active" id="tab-nhan-vien">
+            <div class="card border-0 shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th class="pl-4">Nhân viên</th>
+                                <th>Nội dung nhu cầu</th>
+                                <th>Danh mục</th>
+                                <th>Thời gian</th>
+                                <th class="text-center">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for yc in requests %}
+                            <tr>
+                                <td class="pl-4">
+                                    <div class="font-weight-bold text-dark">{{ yc.nguoi_gui.fullname if yc.nguoi_gui else 'N/A' }}</div>
+                                    <small class="text-muted">Mã NV: {{ yc.user_id }}</small>
+                                </td>
+                                <td>{{ yc.noi_dung_yeu_cau }}</td>
+                                <td><span class="badge badge-light border">{{ yc.danh_muc_obj.ten_danh_muc if yc.danh_muc_obj else 'Chưa gán' }}</span></td>
+                                <td><small>{{ yc.ngay_yeu_cau.strftime('%H:%M %d/%m/%Y') }}</small></td>
+                                <td class="text-center">
+                                    <button class="btn btn-primary btn-sm px-3" data-toggle="modal" data-target="#modalReview{{ yc.id }}">Phản hồi / Gán mẫu</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-pane fade" id="tab-goi-mau">
+            <div class="card border-0 shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th class="pl-4">Tên gói mẫu biểu</th>
+                                <th>Danh mục</th>
+                                <th>Số lượng</th>
+                                <th class="text-center">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for gm in goi_mau_da_tao %}
+                            <tr>
+                                <td class="pl-4 font-weight-bold text-primary">{{ gm.noi_dung_yeu_cau }}</td>
+                                <td><span class="badge badge-info">{{ gm.danh_muc_obj.ten_danh_muc if gm.danh_muc_obj else 'N/A' }}</span></td>
+                                <td><span class="badge badge-pill badge-secondary">{{ gm.danh_sach_mau|length }} file</span></td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-info mr-1" data-toggle="modal" data-target="#modalReview{{ gm.id }}"><i class="fas fa-edit"></i></button>
+                                    <a href="{{ url_for('xoa_yeu_cau_mau', id=gm.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Xóa gói mẫu này?')"><i class="fas fa-trash"></i></a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalTaoGoiMau" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form action="{{ url_for('admin_tao_goi_mau') }}" method="POST" id="formTaoGoi">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title font-weight-bold"><i class="fas fa-folder-plus mr-2"></i>TẠO GÓI MẪU DÙNG CHUNG</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="row">
+                        <div class="col-md-7 form-group">
+                            <label class="font-weight-bold small text-muted">TÊN GÓI MẪU BIỂU:</label>
+                            <input type="text" name="ten_goi" id="ten_goi_new" class="form-control form-control-lg border-primary" placeholder="Nhập tên gói mẫu..." required>
+                        </div>
+                        <div class="col-md-5 form-group">
+                            <label class="font-weight-bold small text-muted">DANH MỤC:</label>
+                            <select name="danh_muc_id" class="form-control form-control-lg border-primary" required>
+                                <option value="">-- Chọn danh mục --</option>
+                                {% for dm in ds_danh_muc %}
+                                    <option value="{{ dm.id }}">{{ dm.ten_danh_muc }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group mt-3">
+                        <label class="font-weight-bold text-primary"><i class="fas fa-search mr-1"></i> TÌM VÀ CHỌN CÁC MẪU BIỂU (GÕ MÃ HOẶC TÊN):</label>
+                        <select id="search_tao_goi" class="form-control ajax-select2" multiple="multiple" style="width: 100%"></select>
+                    </div>
+
+                    <div class="selected-container shadow-sm">
+                        <div class="selected-header">
+                            <span class="small font-weight-bold text-muted">DANH SÁCH MẪU ĐÃ TÍCH CHỌN</span>
+                            <span class="badge badge-pill badge-primary" id="count_tao_goi">0 file</span>
+                        </div>
+                        <div class="selected-body" id="list_tao_goi">
+                            <div class="empty-msg">Vui lòng tìm và chọn ít nhất một mẫu biểu...</div>
+                        </div>
+                        <div id="hidden_tao_goi"></div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-white">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Đóng</button>
+                    <button type="submit" class="btn btn-success px-5 font-weight-bold btn-submit-custom">XÁC NHẬN TẠO</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% set all_items = requests + goi_mau_da_tao %}
+{% for item in all_items %}
+<div class="modal fade" id="modalReview{{ item.id }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form action="{{ url_for('phe_duyet_mau', id=item.id) }}" method="POST" class="form-edit-goi">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+                <div class="modal-header {% if item.is_template %}bg-info{% else %}bg-primary{% endif %} text-white">
+                    <h5 class="modal-title font-weight-bold">Chỉnh sửa: {{ item.noi_dung_yeu_cau }}</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="row">
+                        <div class="col-md-8 form-group">
+                            <label class="font-weight-bold small text-muted">TÊN HIỂN THỊ:</label>
+                            <input type="text" name="noi_dung_edit" class="form-control border-primary" value="{{ item.noi_dung_yeu_cau }}" required>
+                        </div>
+                        <div class="col-md-4 form-group">
+                            <label class="font-weight-bold small text-muted">DANH MỤC:</label>
+                            <select name="danh_muc_id" class="form-control border-primary">
+                                {% for dm in ds_danh_muc %}
+                                    <option value="{{ dm.id }}" {% if item.danh_muc_id == dm.id %}selected{% endif %}>{{ dm.ten_danh_muc }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group mt-3">
+                        <label class="font-weight-bold text-danger">GÕ ĐỂ THÊM MẪU BIỂU MỚI:</label>
+                        <select id="search_edit_{{ item.id }}" class="form-control ajax-select2" multiple="multiple" style="width: 100%"></select>
+                    </div>
+
+                    <div class="selected-container shadow-sm">
+                        <div class="selected-header">
+                            <span class="small font-weight-bold text-muted">CÁC MẪU TRONG GÓI</span>
+                            <span class="badge badge-pill badge-danger" id="count_edit_{{ item.id }}">0 file</span>
+                        </div>
+                        <div class="selected-body" id="list_edit_{{ item.id }}"></div>
+                        <div id="hidden_edit_{{ item.id }}">
+                            {% for m in item.danh_sach_mau %}
+                                <input type="hidden" name="mau_bieu_ids[]" value="{{ m.id }}" data-text="[{{ m.ma_mau }}] {{ m.ten_mau }}">
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-white">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary px-4 font-weight-bold btn-submit-custom">LƯU THAY ĐỔI</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // 1. HÀM QUẢN LÝ DANH SÁCH CHỌN HYBRID (CHUYÊN NGHIỆP)
+    function setupHybridSelect(selectId, listId, hiddenId, countId) {
+        const $select = $(`#${selectId}`);
+        const $list = $(`#${listId}`);
+        const $hidden = $(`#${hiddenId}`);
+        const $count = $(`#${countId}`);
+
+        $select.select2({
+            theme: 'bootstrap4',
+            placeholder: 'Gõ mã mẫu (VD: EL.01) hoặc tên để tìm...',
+            minimumInputLength: 1,
+            closeOnSelect: false,
+            dropdownParent: $select.closest('.modal'),
+            ajax: {
+                url: '/api/search-mau-bieu',
+                dataType: 'json',
+                delay: 250,
+                processResults: function (data) { return { results: data }; }
+            }
+        });
+
+        $select.on('select2:select', function (e) {
+            addItem(e.params.data.id, e.params.data.text);
+            $select.val(null).trigger('change'); 
+        });
+
+        function addItem(id, text) {
+            if ($hidden.find(`input[value="${id}"]`).length > 0) return;
+            if ($list.find('.empty-msg').length > 0) $list.empty();
+
+            let code = "FILE";
+            let name = text;
+            if (text.includes(']')) {
+                code = text.split(']')[0].replace('[', '');
+                name = text.split(']')[1].trim();
+            }
+
+            const row = `
+                <div class="selected-item-row" id="row-${id}">
+                    <div class="item-info">
+                        <span class="item-code">${code}</span>
+                        <span class="item-name">${name}</span>
+                    </div>
+                    <i class="fas fa-trash-alt remove-btn" data-id="${id}"></i>
+                </div>`;
+            $list.append(row);
+            $hidden.append(`<input type="hidden" name="mau_bieu_ids[]" value="${id}">`);
+            updateCount();
+        }
+
+        $list.on('click', '.remove-btn', function() {
+            const id = $(this).data('id');
+            $(`#row-${id}`).remove();
+            $hidden.find(`input[value="${id}"]`).remove();
+            if ($list.children().length === 0) $list.html('<div class="empty-msg">Chưa có mẫu nào được chọn...</div>');
+            updateCount();
+        });
+
+        function updateCount() {
+            const c = $hidden.find('input').length;
+            $count.text(c + " file");
+            $count.closest('.selected-container').removeClass('is-invalid-custom');
+        }
+
+        // Load dữ liệu cũ
+        $hidden.find('input').each(function() {
+            const id = $(this).val();
+            const txt = $(this).data('text');
+            if (txt) addItem(id, txt);
+        });
+    }
+
+    // 2. KÍCH HOẠT KHI MỞ MODAL
+    $('.modal').on('shown.bs.modal', function () {
+        const mid = $(this).attr('id');
+        if (mid === 'modalTaoGoiMau') {
+            if (!$('#search_tao_goi').hasClass("select2-hidden-accessible")) {
+                setupHybridSelect('search_tao_goi', 'list_tao_goi', 'hidden_tao_goi', 'count_tao_goi');
+            }
+        } else if (mid.startsWith('modalReview')) {
+            const id = mid.replace('modalReview', '');
+            if (!$(`#search_edit_${id}`).hasClass("select2-hidden-accessible")) {
+                setupHybridSelect(`search_edit_${id}`, `list_edit_${id}`, `hidden_edit_${id}`, `count_edit_${id}`);
+            }
+        }
+    });
+
+    // 3. RÀNG BUỘC CHẶT CHẼ (VALIDATION)
+    $('.btn-submit-custom').on('click', function(e) {
+        const $form = $(this).closest('form');
+        const $tenGoi = $form.find('input[name="ten_goi"], input[name="noi_dung_edit"]');
+        const $container = $form.find('.selected-container');
+        const count = $form.find('input[name="mau_bieu_ids[]"]').length;
+        
+        let valid = true;
+
+        if (!$tenGoi.val().trim()) {
+            $tenGoi.addClass('is-invalid-custom');
+            valid = false;
+        } else {
+            $tenGoi.removeClass('is-invalid-custom');
+        }
+
+        if (count === 0) {
+            $container.addClass('is-invalid-custom');
+            valid = false;
+        } else {
+            $container.removeClass('is-invalid-custom');
+        }
+
+        if (!valid) {
+            e.preventDefault();
+            // Có thể dùng Toastr hoặc Alert ở đây
+            return false;
+        }
+    });
+
+    // Giữ Tab
+    $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+        localStorage.setItem('activeAdminTab', $(e.target).attr('href'));
+    });
+    var activeTab = localStorage.getItem('activeAdminTab');
+    if (activeTab) { $('#adminTab a[href="' + activeTab + '"]').tab('show'); }
+});
+</script>
+{% endblock %}

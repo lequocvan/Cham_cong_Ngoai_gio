@@ -1,0 +1,775 @@
+{% extends "base.html" %}
+
+{% block title %}Hệ thống Kiểm soát & Phê duyệt Hồ sơ{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4" id="stats-container">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Đang xử lý</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="count-pending">{{ danh_sach|length }}</div>
+                        </div>
+                        <div class="col-auto"><i class="fas fa-clock fa-2x text-gray-300"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Hồ sơ Quá hạn</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="count-overdue">0</div>
+                        </div>
+                        <div class="col-auto"><i class="fas fa-exclamation-circle fa-2x text-gray-300"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4 border-0">
+        <div class="card-header bg-light py-3">
+            <h6 class="m-0 font-weight-bold text-dark"><i class="fas fa-filter mr-2"></i>BỘ LỌC TÌM KIẾM</h6>
+        </div>
+        <div class="card-body">
+            <form id="filterForm" class="row">
+                <div class="col-md-3 mb-3">
+                    <label class="small font-weight-bold">Đơn vị:</label>
+                    <select class="form-control form-control-sm select2-filter" id="filterDonVi">
+                        <option value="">Tất cả đơn vị</option>
+                        {% for dv in ds_don_vi %}
+                            {% if is_admin_or_th or dv.ma_hieu_2 == user_ma_hieu_2 %}
+                            <option value="{{ dv.ten_ma_hieu_2 }}">{{ dv.ten_ma_hieu_2 }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="small font-weight-bold">Trạng thái:</label>
+                    <select class="form-control form-control-sm" id="filterTrangThai">
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="Dự thảo">Dự thảo</option>
+                        <option value="Chờ kiểm soát">Chờ kiểm soát</option>
+                        <option value="Yêu cầu sửa đổi">Yêu cầu sửa đổi</option>
+                        <option value="Chờ phê duyệt">Chờ phê duyệt</option>
+                        <option value="Đã duyệt">Đã duyệt</option>
+                        <option value="Từ chối">Từ chối</option>
+                    </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="small font-weight-bold">Khoảng thời gian:</label>
+                    <div class="input-group input-group-sm">
+                        <input type="date" class="form-control" id="filterDateStart">
+                        <div class="input-group-append"><span class="input-group-text">đến</span></div>
+                        <input type="date" class="form-control" id="filterDateEnd">
+                    </div>
+                </div>
+                <div class="col-md-2 mb-3 d-flex align-items-end">
+                    <button type="button" class="btn btn-sm btn-secondary btn-block" onclick="resetFilter()">
+                        <i class="fas fa-undo"></i> Làm mới
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4 border-0">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center bg-white border-bottom">
+            <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-tasks mr-2"></i>QUẢN LÝ QUY TRÌNH HỒ SƠ</h6>
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-success mr-2 rounded-pill px-3" onclick="exportExcel()">
+                    <i class="fas fa-file-excel mr-1"></i> Xuất Excel
+                </button>
+                {% if is_admin_or_th or current_user.ma_nhan_vien %}
+                <button class="btn btn-sm btn-primary rounded-pill shadow-sm px-4" data-toggle="modal" data-target="#modalThemMoi">
+                    <i class="fas fa-plus-circle"></i> Lập hồ sơ mới
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="tableHoSoWorkflow" width="100%" cellspacing="0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Đơn vị (Mã hiệu 2)</th>
+                            <th>Loại hồ sơ & Đính kèm</th>
+                            <th class="text-center">Hạn chót</th>
+                            <th class="text-center">Trạng thái</th>
+                            <th>Người xử lý</th>
+                            <th class="text-center" style="min-width: 150px;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ho_so in danh_sach %}
+                        <tr id="row-{{ ho_so.id }}" class="{{ 'table-danger' if ho_so.han_chot < now_date_obj and ho_so.trang_thai != 'Đã duyệt' else '' }}">
+                            <td>
+                                <div class="font-weight-bold">{{ ho_so.don_vi_rel.ten_ma_hieu_2 }}</div>
+                                <small class="text-muted">{{ ho_so.ma_hieu_2 }}</small>
+                            </td>
+                            <td>
+                                <div class="text-primary font-weight-bold">{{ ho_so.loai_giay_to.ten_giay_to }}</div>
+                                <small class="d-block text-muted">Mã: HS_{{ "%06d"|format(ho_so.id) }} | Ngày phát sinh: <span class="ngay-phat-sinh">{{ ho_so.ngay_phat_sinh.strftime('%Y-%m-%d') }}</span></small>
+
+                                {% if ho_so.meta_data and ho_so.meta_data.file_dinh_kem %}
+                                <a href="{{ url_for('static', filename=ho_so.meta_data.file_dinh_kem) }}" target="_blank" class="badge badge-info ml-2">
+                                    <i class="fas fa-eye"></i> Xem file
+                                </a>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge {{ 'badge-danger' if ho_so.han_chot < now_date_obj else 'badge-light border' }}">
+                                    {{ ho_so.han_chot.strftime('%d/%m/%Y') }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                {% set status_colors = {'Dự thảo': 'secondary', 'Chờ kiểm soát': 'warning', 'Yêu cầu sửa đổi': 'info', 'Chờ phê duyệt': 'primary', 'Đã duyệt': 'success', 'Từ chối': 'danger'} %}
+                                <span class="badge badge-{{ status_colors.get(ho_so.trang_thai, 'secondary') }} px-2 py-1">
+                                    {{ ho_so.trang_thai }}
+                                </span>
+                            </td>
+                            <td class="small">
+                                {{ ho_so.ho_ten_nguoi_nop }}<br>
+                                <small>{{ ho_so.chuc_vu_nguoi_nop }}</small>
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="viewLog({{ ho_so.id }})" title="Lịch sử"><i class="fas fa-history"></i></button>
+
+                                    <button class="btn btn-sm btn-outline-primary" onclick="generateBarcodes([{{ ho_so.id }}])" title="In mã vạch"><i class="fas fa-barcode"></i></button>
+
+                                    {% if ho_so.trang_thai in ['Dự thảo', 'Yêu cầu sửa đổi'] %}
+                                        {# Kiểm tra: Nếu là Admin HOẶC có quyền HS_LAP tại đơn vị của hồ sơ đó #}
+                                        {% if current_user.is_admin or has_permission('HS_LAP', ho_so.ma_hieu_2) %}
+                                        <button class="btn btn-sm btn-warning" onclick="guiKiemSoat({{ ho_so.id }})" title="Gửi kiểm soát">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                        {% endif %}
+                                    {% endif %}
+
+                                    {% if ho_so.trang_thai == 'Chờ kiểm soát' %}
+                                        {% if has_permission('HS_KS', ho_so.ma_hieu_2) %}
+                                        <button class="btn btn-sm btn-success btn-workflow-modal" data-id="{{ ho_so.id }}" data-step="kiem_soat" title="Gửi kiểm soát">
+                                            <i class="fas fa-check-double"></i>
+                                        </button>
+                                        {% endif %}
+                                    {% endif %}
+
+                                    {% if ho_so.trang_thai == 'Chờ phê duyệt' %}
+                                        {% if has_permission('HS_PD', ho_so.ma_hieu_2) %}
+                                        <button class="btn btn-sm btn-primary btn-workflow-modal" data-id="{{ ho_so.id }}" data-step="phe_duyet" title="Phê duyệt">
+                                            <i class="fas fa-user-check"></i>
+                                        </button>
+                                        {% endif %}
+                                    {% endif %}
+
+                                    {% if ho_so.trang_thai == 'Dự thảo' %}
+                                        {% if current_user.is_admin or ho_so.nguoi_nop == current_user.ma_nhan_vien %}
+                                        <button class="btn btn-sm btn-outline-danger" onclick="xoaHoSo({{ ho_so.id }})" title="Xóa hồ sơ">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalThemMoi" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document"> 
+        <div class="modal-content border-0 shadow-lg">
+            <form id="formThemHoSo" method="POST" enctype="multipart/form-data">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-file-medical mr-2"></i>LẬP BỘ HỒ SƠ MỚI</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+                </div>
+                <div class="modal-body" style="max-height: 75vh; overflow-y: auto;"> 
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="font-weight-bold">Đơn vị trình:</label>
+                            <select name="ma_hieu_2" class="form-control select2-modal" required>
+                                {% if is_admin_or_th %}
+                                    <option value="">-- Chọn đơn vị --</option>
+                                    {% for dv in ds_don_vi %}
+                                    <option value="{{ dv.ma_hieu_2 }}">{{ dv.ma_hieu_2 }} - {{ dv.ten_ma_hieu_2 }}</option>
+                                    {% endfor %}
+                                {% else %}
+                                    <option value="{{ user_ma_hieu_2 }}" selected>{{ user_ma_hieu_2 }} (Đơn vị của bạn)</option>
+                                {% endif %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="font-weight-bold">Ngày phát sinh:</label>
+                            <input type="date" name="ngay_phat_sinh" class="form-control" value="{{ now_date }}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-light p-4 rounded mb-3 border shadow-sm">
+                        <div class="form-group mb-4">
+                            <label class="font-weight-bold text-primary">1. Chọn Nhóm hồ sơ:</label>
+                            <select id="selectNhomHoSo" name="nhom_ho_so_id" class="form-control select2-nhom" required>
+                                <option value="">-- Gõ để tìm kiếm Nhóm hồ sơ (Ví dụ: Khen thưởng, Pháp lý...) --</option>
+                                {% for nhom in ds_nhom_ho_so %}
+                                    {% if nhom.trang_thai == True %}
+                                    <option value="{{ nhom.id }}">{{ nhom.ten_nhom_ho_so }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted italic d-block mt-1">Hệ thống sẽ lọc các loại giấy tờ tương ứng sau khi bạn chọn nhóm.</small>
+                        </div>
+
+                        <h6 class="font-weight-bold text-dark border-bottom pb-2 mb-3">2. DANH SÁCH GIẤY TỜ ĐÍNH KÈM</h6>
+                        <div id="dynamic_rows">
+                            <div class="row mb-3 align-items-end file-row p-2 rounded">
+                                <div class="col-md-6">
+                                    <label class="small font-weight-bold">Loại giấy tờ:</label>
+                                    <select name="giay_to_id[]" class="form-control select-giay-to" required>
+                                        <option value="">-- Vui lòng chọn Nhóm hồ sơ trước --</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="small font-weight-bold">Tệp đính kèm:</label>
+                                    <input type="file" name="file_dinh_kem[]" class="form-control-file border p-1 rounded bg-white" required accept=".pdf,.jpg,.jpeg,.png">
+                                </div>
+                                <div class="col-md-1 text-right"></div>
+                            </div>
+                        </div>
+                        
+                        <button type="button" class="btn btn-sm btn-outline-success border-dashed w-100 mt-2" onclick="addNewRow()">
+                            <i class="fas fa-plus-circle mr-1"></i> Thêm loại giấy tờ khác cho bộ hồ sơ này
+                        </button>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="font-weight-bold">Ghi chú chung:</label>
+                        <textarea name="ghi_chu_tong" class="form-control" rows="2" placeholder="Nhập ghi chú cho toàn bộ hồ sơ..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Đóng</button>
+                    <button type="submit" class="btn btn-primary px-4" id="btnSubmitForm">Lưu và Trình duyệt</button>
+                    <button type="button" class="btn btn-outline-primary px-4" id="btnSaveDraft">Lưu nháp</button>
+                    <button type="button" class="btn btn-primary px-4" id="btnSaveAndSend">
+                        <i class="fas fa-paper-plane mr-1"></i> Lưu và Gửi ngay
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalWorkflow" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="workflowTitle">Xử lý hồ sơ</h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="workflow_hoso_id">
+                <input type="hidden" id="workflow_step">
+                <div class="form-group">
+                    <label class="font-weight-bold">Quyết định xử lý:</label>
+                    <select id="workflow_action" class="form-control form-control-lg border-primary"></select>
+                </div>
+                <div class="form-group">
+                    <label class="font-weight-bold">Ý kiến xử lý:</label>
+                    <textarea id="workflow_comment" class="form-control" rows="4" placeholder="Nhập ý kiến hoặc lý do từ chối..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Hủy bỏ</button>
+                <button type="button" class="btn btn-primary px-4" id="btnConfirmWorkflow">Xác nhận</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalPrintBarcode" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white text-center">
+                <h5 class="modal-title w-100">IN MÃ VẠCH HỒ SƠ</h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div id="printArea" class="modal-body text-center bg-white">
+                <div id="barcode_container"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary btn-block" onclick="printBarcode()">
+                    <i class="fas fa-print mr-1"></i> In ngay
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalLog" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-history mr-2"></i>NHẬT KÝ LUỒNG XỬ LÝ</h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body bg-light" style="max-height: 500px; overflow-y: auto;">
+                <div id="logContent" class="timeline-wrapper"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    // 1. Biến tạm để xác định người dùng bấm nút nào trong Modal Thêm mới
+    let currentAction = 'draft';
+
+    // Xử lý khi bấm nút "Lưu nháp"
+    $('#btnSaveDraft').on('click', function() {
+        currentAction = 'draft';
+        $('#formThemHoSo').submit();
+    });
+
+    // Xử lý khi bấm nút "Lưu và Gửi ngay"
+    $('#btnSaveAndSend').on('click', function() {
+        currentAction = 'send';
+        $('#formThemHoSo').submit();
+    });
+    
+    // 2. Khởi tạo Select2 cho các dropdown trong Modal
+    function initSelect2() {
+        $('.select2-nhom, .select2-modal, .select-giay-to').select2({
+            dropdownParent: $('#modalThemMoi'),
+            theme: 'bootstrap4',
+            width: '100%',
+            placeholder: "Chọn thông tin..."
+        });
+    }
+    initSelect2();
+
+    // 3. Xử lý submit form Thêm mới bằng AJAX (Đã sửa để gửi kèm currentAction)
+    $('#formThemHoSo').on('submit', function(e) {
+        e.preventDefault();
+        
+        let formData = new FormData(this);
+        // QUAN TRỌNG: Đưa hành động (draft/send) vào formData để app.py nhận diện
+        formData.append('workflow_action', currentAction);
+
+        if (typeof showLoading === "function") showLoading();
+
+        $.ajax({
+            url: '/api/them-nhieu-ho-so',
+            type: 'POST',
+            data: formData,
+            processData: false, // Bắt buộc khi dùng FormData
+            contentType: false, // Bắt buộc khi dùng FormData
+            success: function(res) {
+                if (typeof notifySuccess === "function") {
+                    notifySuccess(res.message);
+                } else {
+                    alert(res.message);
+                }
+                setTimeout(() => location.reload(), 1500);
+            },
+            error: function(err) { 
+                let msg = err.responseJSON?.message || "Lỗi khi lưu hồ sơ";
+                if (typeof notifyError === "function") notifyError(msg); else alert(msg);
+            }
+        });
+    });
+
+    // 4. Sự kiện khi thay đổi Nhóm hồ sơ -> Load danh mục Giấy tờ tương ứng
+    $('#selectNhomHoSo').on('change', function() {
+        const nhomId = $(this).val();
+        const $selects = $('.select-giay-to');
+        
+        if (!nhomId) {
+            $selects.html('<option value="">-- Chọn nhóm trước --</option>').trigger('change');
+            return;
+        }
+        
+        $.get('/api/get-giay-to/' + nhomId, function(data) {
+            let html = '<option value="">-- Chọn loại giấy tờ --</option>';
+            data.forEach(item => {
+                html += `<option value="${item.id}">${item.ten_giay_to} (Hạn ${item.so_ngay_quy_dinh} ngày)</option>`;
+            });
+            
+            $selects.each(function() {
+                const $el = $(this);
+                if ($el.data('select2')) { $el.select2('destroy'); }
+                $el.html(html).val("");
+            });
+            initSelect2(); // Khởi tạo lại Select2 sau khi render HTML mới
+        });
+    });
+
+    // 5. Mở Modal Workflow (Kiểm soát / Phê duyệt)
+    $(document).on('click', '.btn-workflow-modal', function() {
+        const id = $(this).data('id');
+        const step = $(this).data('step');
+        
+        $('#workflow_hoso_id').val(id);
+        $('#workflow_step').val(step);
+        $('#workflow_comment').val(''); // Reset nội dung ý kiến
+        
+        const $action = $('#workflow_action').empty();
+        
+        if (step === 'kiem_soat') {
+            $('#workflowTitle').html('<i class="fas fa-check-double mr-2"></i>Kiểm soát hồ sơ');
+            $action.append('<option value="approve">Chấp nhận trình duyệt</option>');
+            $action.append('<option value="reject">Trả lại yêu cầu sửa đổi</option>');
+        } else {
+            $('#workflowTitle').html('<i class="fas fa-user-check mr-2"></i>Phê duyệt hồ sơ');
+            $action.append('<option value="duyet">Đồng ý phê duyệt</option>');
+            $action.append('<option value="tu_choi">Từ chối hồ sơ</option>');
+        }
+        $('#modalWorkflow').modal('show');
+    });
+
+    // 6. Xác nhận thực hiện Workflow (Gửi dữ liệu JSON)
+    $('#btnConfirmWorkflow').on('click', function() {
+        const id = $('#workflow_hoso_id').val();
+        const step = $('#workflow_step').val();
+        const action = $('#workflow_action').val();
+        const comment = $('#workflow_comment').val();
+        
+        if (!comment && (action === 'reject' || action === 'tu_choi')) {
+            alert("Vui lòng nhập lý do/ý kiến khi trả lại hoặc từ chối!");
+            return;
+        }
+
+        const url = step === 'kiem_soat' ? `/api/kiem-soat-ho-so/${id}` : `/api/phe-duyet-ho-so/${id}`;
+        
+        if (typeof showLoading === "function") showLoading();
+        
+        $.ajax({
+            url: url,
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ 
+                action: action, 
+                y_kien: comment 
+            }),
+            success: function(res) {
+                if (typeof notifySuccess === "function") notifySuccess("Xử lý thành công");
+                location.reload();
+            },
+            error: function(err) {
+                let msg = err.responseJSON?.message || "Lỗi xử lý nghiệp vụ";
+                if (typeof notifyError === "function") notifyError(msg); else alert(msg);
+            }
+        });
+    });
+});
+
+// Hàm xóa hồ sơ
+function xoaHoSo(id) {
+    Swal.fire({
+        title: 'Bạn chắc chắn muốn xóa?',
+        text: "Hành động này không thể hoàn tác!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Đồng ý xóa'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.ajax({
+                url: `/api/xoa-ho-so/${id}`,
+                type: 'DELETE',
+                success: function(res) { notifySuccess(res.message); location.reload(); },
+                error: function(err) { notifyError(err.responseJSON.message); }
+            });
+        }
+    });
+}
+
+// Hàm gửi kiểm soát (Dành cho trường hợp sửa đổi xong gửi lại)
+function guiKiemSoat(id) {
+    Swal.fire({
+        title: 'Xác nhận gửi?',
+        text: "Hồ sơ sẽ được chuyển đến cấp Kiểm soát và không thể tự chỉnh sửa.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#f6c23e',
+        confirmButtonText: 'Gửi ngay'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            showLoading();
+            $.ajax({
+                url: '/api/gui-kiem-soat/' + id,
+                type: 'POST',
+                success: function(res) {
+                    notifySuccess('Đã gửi hồ sơ đi kiểm soát');
+                    setTimeout(() => location.reload(), 1000);
+                },
+                error: function(xhr) {
+                    Swal.close();
+                    notifyError(xhr.responseJSON?.message || "Lỗi khi gửi");
+                }
+            });
+        }
+    });
+}
+
+// Hàm cập nhật danh sách option cho tất cả select giấy tờ
+function updateGiayToOptions($elements, data) {
+    let htmlOptions = '<option value="">-- Chọn loại giấy tờ (Gõ để tìm) --</option>';
+    data.forEach(function(item) {
+        htmlOptions += `<option value="${item.id}">${item.ten_giay_to} (Hạn ${item.so_ngay_quy_dinh} ngày)</option>`;
+    });
+
+    $elements.each(function() {
+        const $el = $(this);
+        if ($el.data('select2')) { $el.select2('destroy'); }
+        $el.html(htmlOptions).val("");
+        $el.select2({
+            dropdownParent: $('#modalThemMoi'),
+            theme: 'bootstrap4',
+            width: '100%'
+        });
+    });
+}
+
+
+// Xử lý lọc Loại giấy tờ khi chọn Nhóm hồ sơ
+$(document).on('change', '#selectNhomHoSo', function() {
+    const selectedNhomId = $(this).val();
+    
+    // Duyệt qua từng ô chọn Loại giấy tờ
+    $('.select-giay-to').each(function() {
+        const $el = $(this);
+        
+        // 1. Reset giá trị về trống
+        $el.val("").trigger('change.select2'); 
+
+        // 2. Lọc các option
+        $el.find('option').each(function() {
+            const nhomId = $(this).data('nhom');
+            const isDefault = $(this).val() === "";
+
+            if (isDefault || (selectedNhomId && nhomId == selectedNhomId)) {
+                $(this).prop('disabled', false).detach().appendTo($el); // Đưa trở lại DOM và kích hoạt
+            } else {
+                $(this).prop('disabled', true).detach(); // Xóa tạm thời khỏi DOM để Select2 không thấy
+            }
+        });
+
+        // 3. Quan trọng: Khởi tạo lại Select2 để cập nhật giao diện
+        if ($el.hasClass('select2-hidden-accessible')) {
+            $el.select2('destroy');
+        }
+        $el.select2({ 
+            dropdownParent: $('#modalThemMoi'), 
+            theme: 'bootstrap4', 
+            width: '100%' 
+        });
+    });
+});
+
+
+/**
+ * Hàm hỗ trợ lọc Loại giấy tờ
+ * @param {jQuery} $selectElement - Đối tượng select cần lọc
+ * @param {string} nhomId - ID của nhóm hồ sơ đã chọn
+ */
+function filterGiayToByNhom($selectElement, nhomId) {
+    // Reset giá trị về mặc định
+    $selectElement.val("");
+    
+    const $options = $selectElement.find('option');
+    
+    $options.each(function() {
+        const optionNhomId = $(this).data('nhom');
+        
+        if ($(this).val() === "") {
+            $(this).show(); // Giữ lại option mặc định "-- Chọn loại giấy tờ --"
+        } else if (nhomId === "") {
+            $(this).show(); // Nếu chưa chọn nhóm, hiện tất cả (hoặc ẩn tùy bạn)
+        } else if (optionNhomId == nhomId) {
+            $(this).show(); // Trùng nhóm thì hiện
+        } else {
+            $(this).hide(); // Khác nhóm thì ẩn
+        }
+    });
+}
+
+
+// Cập nhật lại hàm addNewRow (AJAX) để dòng mới thêm vào cũng có danh sách giấy tờ theo nhóm hiện tại
+function addNewRow() {
+    const $container = $('#dynamic_rows');
+    const $firstRow = $container.find('.file-row').first();
+    
+    // Hủy Select2 dòng gốc để tránh lỗi ID khi clone
+    const $firstSelect = $firstRow.find('.select-giay-to');
+    if ($firstSelect.data('select2')) { $firstSelect.select2('destroy'); }
+
+    const $newRow = $firstRow.clone();
+
+    // Khởi tạo lại Select2 cho dòng gốc
+    $firstSelect.select2({ dropdownParent: $('#modalThemMoi'), theme: 'bootstrap4', width: '100%' });
+
+    // Reset giá trị nhưng GIỮ NGUYÊN các <option> đã có từ AJAX
+    $newRow.find('input[type="file"]').val('');
+    $newRow.find('.select-giay-to').val(""); 
+
+    // Thêm nút xóa cho dòng mới
+    $newRow.find('.col-md-1').html(`
+        <button type="button" class="btn btn-sm btn-outline-danger btn-block shadow-sm" 
+                onclick="$(this).closest('.file-row').remove()" title="Xóa dòng này">
+            <i class="fas fa-trash-alt"></i>
+        </button>
+    `);
+
+    $newRow.hide().appendTo($container).fadeIn(300);
+    
+    // Khởi tạo Select2 cho dòng mới
+    $newRow.find('.select-giay-to').select2({ 
+        dropdownParent: $('#modalThemMoi'), 
+        theme: 'bootstrap4', 
+        width: '100%' 
+    });
+}
+
+function generateBarcodes(ids) {
+    const container = $('#barcode_container').empty();
+    ids.forEach(id => {
+        let barcodeValue = "HS" + String(id).padStart(6, '0');
+        container.append(`<div class="mb-4 border-bottom pb-3">
+            <div class="small font-weight-bold text-uppercase mb-2">Mã hồ sơ: ${barcodeValue}</div>
+            <svg class="barcode-img" id="barcode-${id}"></svg>
+        </div>`);
+        JsBarcode(`#barcode-${id}`, barcodeValue, { format: "CODE128", width: 2, height: 60, displayValue: true });
+    });
+    $('#modalPrintBarcode').modal('show');
+}
+
+function printBarcode() {
+    const printContent = document.getElementById('printArea').innerHTML;
+    const win = window.open('', '', 'height=600,width=800');
+    win.document.write('<html><head><title>In mã vạch</title><style>body{text-align:center;padding:40px;font-family:Arial;} .mb-4{margin-bottom:30px; border-bottom:1px dashed #ccc; padding-bottom:20px;}</style></head><body>' + printContent + '</body></html>');
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 700);
+}
+
+function viewLog(id) {
+    $('#logContent').html('<div class="text-center p-5"><i class="fas fa-spinner fa-spin fa-2x text-primary"></i></div>');
+    $('#modalLog').modal('show');
+    $.get('/api/ho-so-logs/' + id, function(data) {
+        if (!data || data.length === 0) {
+            $('#logContent').html('<div class="alert alert-light text-center">Chưa có nhật ký.</div>');
+            return;
+        }
+        let html = '<ul class="timeline">';
+        data.forEach(item => {
+            html += `<li class="timeline-item bg-white rounded ml-3 p-3 shadow-sm mb-3 border-left-info">
+                        <div class="timeline-arrow"></div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="font-weight-bold text-primary mb-0">${item.action}</h6>
+                            <span class="badge badge-light text-muted"><i class="far fa-clock mr-1"></i>${item.time}</span>
+                        </div>
+                        <p class="small mb-1 text-dark"><strong>Người thực hiện:</strong> ${item.user}</p>
+                        <div class="bg-light p-2 small border rounded italic text-secondary">${item.comment || '<i>Không có ý kiến</i>'}</div>
+                    </li>`;
+        });
+        $('#logContent').html(html + '</ul>');
+    });
+}
+
+function exportExcel() {
+    const table = document.getElementById('tableHoSoWorkflow');
+    const wb = XLSX.utils.table_to_book(table, {sheet: "Danh Sách Hồ Sơ"});
+    XLSX.writeFile(wb, "He_Thong_Ho_So_" + new Date().toISOString().slice(0,10) + ".xlsx");
+}
+
+function showLoading() { Swal.fire({ title: 'Đang xử lý...', allowOutsideClick: false, didOpen: () => Swal.showLoading() }); }
+function notifySuccess(msg) { Swal.fire({ icon: 'success', title: msg, showConfirmButton: false, timer: 1500 }); }
+function notifyError(msg) { Swal.fire({ icon: 'error', title: 'Lỗi', text: msg }); }
+
+function resetFilter() {
+    $('#filterForm')[0].reset();
+    $('#filterDonVi').val('').trigger('change');
+    $('#tableHoSoWorkflow').DataTable().search('').columns().search('').draw();
+}
+</script>
+
+<style>
+    /* 1. Tối ưu giao diện Modal XL */
+    .modal-xl { max-width: 95%; }
+    
+    /* Giới hạn chiều cao modal để không bị tràn màn hình khi dữ liệu quá nhiều */
+    #modalThemMoi .modal-body {
+        max-height: 75vh; 
+        overflow-y: auto;
+    }
+
+    /* 2. Hiệu ứng cho từng dòng giấy tờ */
+    .file-row { 
+        background: #fff; 
+        transition: all 0.2s; 
+        border: 1px solid transparent; 
+        padding: 10px;
+        border-radius: 5px;
+    }
+    .file-row:hover { 
+        background: #f8f9fc; 
+        border-color: #dee2e6; 
+    }
+
+    /* 3. Làm đẹp Select2 trong Bootstrap 4 (Fix lỗi lệch chiều cao) */
+    .select2-container--bootstrap4 .select2-selection--single {
+        height: calc(1.5em + 0.75rem + 2px) !important;
+        line-height: 1.5;
+    }
+
+    /* 4. Nút Thêm dòng (Dashed Border) */
+    .border-dashed { 
+        border: 2px dashed #28a745 !important; 
+        background: #f8fff9; 
+        transition: all 0.3s; 
+    }
+    .border-dashed:hover { 
+        background: #eaffe2; 
+        border-color: #218838 !important; 
+    }
+
+    /* 5. Cấu trúc Timeline (Nhật ký xử lý) */
+    ul.timeline { list-style-type: none; position: relative; padding-left: 20px; }
+    ul.timeline:before { 
+        content: ' '; background: #d4d9df; display: inline-block; 
+        position: absolute; left: 0; width: 2px; height: 100%; z-index: 400; 
+    }
+    li.timeline-item:before { 
+        content: ''; background: #22c0e8; display: inline-block; position: absolute; 
+        border-radius: 50%; left: -26px; width: 14px; height: 14px; z-index: 400; 
+        top: 20px; border: 2px solid #fff; 
+    }
+    .timeline-arrow { 
+        border-style: solid; border-width: 8px 10px 8px 0; 
+        border-color: transparent #f8f9fc transparent transparent; 
+        position: absolute; left: -10px; top: 18px; 
+    }
+
+    /* 6. Các tiện ích khác */
+    .barcode-img { max-width: 100%; height: auto; }
+    .italic { font-style: italic; }
+    .border-left-info { border-left: 4px solid #36b9cc !important; }
+</style>
+{% endblock %}

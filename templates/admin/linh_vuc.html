@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* CSS bổ sung để đồng bộ với style hiện tại của bạn */
+    .form-control {
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        padding: 10px 15px;
+        width: 100%;
+    }
+    .btn-edit { color: #3498db; cursor: pointer; font-size: 1.2rem; }
+    /* Đã loại bỏ .btn-delete */
+    .table-hover tbody tr:hover { background-color: #f1f4f6; transition: 0.2s; }
+</style>
+
+<div class="container-fluid">
+    <div class="header-top">
+        <div class="welcome-text">
+            <h1><i class="fas fa-layer-group text-primary"></i> Quản lý Lĩnh vực</h1>
+            <p style="color: #7f8c8d;">Thêm hoặc cập nhật thông tin các lĩnh vực chuyên môn trong hệ thống.</p>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}" style="padding: 12px; margin-bottom: 20px; border-radius: 8px; {{ 'background: #d4edda; color: #155724;' if category == 'success' else 'background: #f8d7da; color: #721c24;' }}">
+            <i class="fas {{ 'fa-check-circle' if category == 'success' else 'fa-exclamation-triangle' }}"></i> {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="stat-card" style="min-height: auto; margin-bottom: 30px;">
+        <h5 class="stat-title">Thêm lĩnh vực mới</h5>
+        <form action="{{ url_for('add_linh_vuc') }}" method="POST" class="row g-3">
+            <div class="col-md-4">
+                <input type="text" name="ten_linh_vuc" class="form-control" placeholder="Tên lĩnh vực (VD: Công nghệ thông tin)" required>
+            </div>
+            <div class="col-md-6">
+                <input type="text" name="mo_ta" class="form-control" placeholder="Mô tả ngắn gọn">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn-refresh" style="width: 100%; height: 45px; border: none; cursor: pointer;">
+                    <i class="fas fa-plus"></i> Thêm mới
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="stat-card" style="padding: 0; overflow: hidden;">
+        <table class="table table-hover" style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
+            <thead style="background: #f8f9fa; border-bottom: 2px solid #eee;">
+                <tr>
+                    <th style="padding: 15px; text-align: left; width: 80px;">ID</th>
+                    <th style="padding: 15px; text-align: left;">Tên lĩnh vực</th>
+                    <th style="padding: 15px; text-align: left;">Mô tả</th>
+                    <th style="padding: 15px; text-align: left; width: 150px;">Ngày tạo</th>
+                    <th style="padding: 15px; text-align: center; width: 100px;">Sửa</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lv in linh_vucs %}
+                <tr style="border-top: 1px solid #eee;">
+                    <td style="padding: 15px;">{{ lv.id }}</td>
+                    <td style="padding: 15px;"><strong>{{ lv.ten_linh_vuc }}</strong></td>
+                    <td style="padding: 15px; color: #666;">{{ lv.mo_ta or '---' }}</td>
+                    <td style="padding: 15px;">{{ lv.created_at.strftime('%d/%m/%Y') }}</td>
+                    <td style="padding: 15px; text-align: center;">
+                        <a href="javascript:void(0)" class="btn-edit" onclick="openEditModal('{{ lv.id }}', '{{ lv.ten_linh_vuc|e }}', '{{ (lv.mo_ta or "")|e }}')" title="Sửa">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 30px; color: #bdc3c7;">
+                        Chưa có dữ liệu lĩnh vực nào.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="editModal" style="display:none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);">
+    <div class="stat-card" style="width: 500px; margin: 10% auto; background: white; padding: 30px; border-radius: 12px;">
+        <h5 class="stat-title"><i class="fas fa-edit text-primary"></i> Cập nhật Lĩnh vực</h5>
+        <form id="editForm" action="" method="POST">
+            <div style="margin-bottom: 15px;">
+                <label style="font-size: 0.8rem; font-weight: bold; color: #7f8c8d; display: block; margin-bottom: 5px;">TÊN LĨNH VỰC</label>
+                <input type="text" id="edit_ten" name="ten_linh_vuc" class="form-control" required>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label style="font-size: 0.8rem; font-weight: bold; color: #7f8c8d; display: block; margin-bottom: 5px;">MÔ TẢ</label>
+                <textarea id="edit_mota" name="mo_ta" class="form-control" rows="3"></textarea>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" onclick="closeModal()" style="padding: 8px 20px; border-radius: 5px; border: 1px solid #ccc; background: #eee; cursor: pointer;">Hủy</button>
+                <button type="submit" class="btn-refresh" style="border: none; padding: 8px 20px; border-radius: 5px; cursor: pointer;">Lưu thay đổi</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openEditModal(id, ten, mota) {
+        const modal = document.getElementById('editModal');
+        const form = document.getElementById('editForm');
+        
+        // Cập nhật action cho form
+        form.action = "{{ url_for('danh_sach_linh_vuc') }}/update/" + id;
+        
+        // Điền dữ liệu
+        document.getElementById('edit_ten').value = ten;
+        document.getElementById('edit_mota').value = mota;
+        
+        modal.style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('editModal').style.display = 'none';
+    }
+
+    window.onclick = function(event) {
+        const modal = document.getElementById('editModal');
+        if (event.target == modal) {
+            closeModal();
+        }
+    }
+</script>
+{% endblock %}

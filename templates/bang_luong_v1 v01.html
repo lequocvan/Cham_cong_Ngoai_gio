@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}Quản lý Hệ số Lương V1{% endblock %}
+
+{% block content %}
+<style>
+    .toolbar-card { background: #fff; padding: 8px 15px; border-radius: 8px; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1); }
+    .toolbar-container { display: flex; align-items: center; gap: 15px; flex-wrap: nowrap; }
+    .form-group-inline { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+    .form-control-sm { font-size: 12px; height: 30px; }
+    .table-responsive { max-height: 75vh; overflow: auto; }
+    .hsl-input:focus { background-color: #fffde7 !important; box-shadow: inset 0 0 0 1.5px #fbc02d !important; outline: none; }
+    .status-container { line-height: 1.2; font-size: 10px; }
+    .text-approved { color: #28a745; font-weight: bold; }
+    .info-detail { font-size: 9px; color: #858796; display: block; }
+
+    /* Ẩn nút mũi tên tăng giảm (spin buttons) trên Chrome, Safari, Edge, Opera */
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    /* Ẩn nút mũi tên trên Firefox */
+    input[type=number] {
+        -moz-appearance: textfield;
+    }
+
+    /* Tinh chỉnh thêm để text hiển thị chính giữa và rõ ràng hơn */
+    .hsl-input {
+        text-align: center;
+        padding: 2px !important;
+    }
+</style>
+
+<div class="container-fluid mt-2">
+    <div class="toolbar-card mb-3 mt-2">
+        <form action="{{ url_for('bang_luong_v1') }}" method="GET" class="toolbar-container">
+            <div class="form-group-inline"><span class="badge bg-primary px-2 py-2 text-white">V1</span></div>
+            <div class="form-group-inline">
+                <label class="mb-0 font-weight-bold">Năm:</label>
+                <input type="number" name="year" value="{{ year }}" class="form-control form-control-sm" style="width: 75px;">
+            </div>
+            <div class="form-group-inline">
+                <label class="mb-0 font-weight-bold">Phòng ban:</label>
+                <select name="phong_ban" class="form-control form-control-sm" style="width: 180px;">
+                    <option value="">-- Tất cả --</option>
+                    {% for pb in ds_phong_ban %}
+                    <option value="{{ pb.id }}" {% if selected_pb == pb.id|string %}selected{% endif %}>{{ pb.ten_phong_ban }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group-inline">
+                <label class="mb-0 font-weight-bold">Mã NV:</label>
+                <input type="text" name="ma_nv" value="{{ ma_nv_filter }}" class="form-control form-control-sm" placeholder="Tìm..." style="width: 90px;">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm px-3 shadow-sm"><i class="fas fa-search mr-1"></i> TRUY VẤN</button>
+
+            <div class="d-flex ml-auto" style="gap: 8px;">
+                {% if current_user.role in ['ADMIN', 'KIEM_SOAT'] %}
+                <button type="button" onclick="approveData()" class="btn btn-info btn-sm font-weight-bold px-3 shadow-sm text-white">
+                    <i class="fas fa-check-double mr-1"></i> PHÊ DUYỆT
+                </button>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover table-bordered mb-0" style="font-size: 11.5px; table-layout: fixed; width: 100%; min-width: 1200px;">
+                    <thead class="table-dark sticky-top">
+                        <tr class="text-center align-middle">
+                            <th style="width: 75px;">Mã NV</th>
+                            <th style="width: 160px;">Họ và Tên</th>
+                            <th style="width: 140px;">Phòng ban</th>
+                            {% for m in range(1, 13) %}<th style="width: 50px; padding: 4px 0;">T{{ m }}</th>{% endfor %}
+                            <th style="width: 130px;">Trạng thái / Người duyệt</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if results %}
+                            {% for row in results %}
+                            <tr class="align-middle">
+                                <td class="text-center fw-bold bg-light text-primary font-weight-bold">{{ row.ma_nhan_vien }}</td>
+                                <td class="text-nowrap px-2 text-truncate">{{ row.ho_ten }}</td>
+                                <td class="small px-2 text-truncate text-muted">{{ row.ten_phong_ban }}</td>
+                                {% for m in range(1, 13) %}
+                                <td class="p-0">
+                                    <input type="number" step="0.01" 
+                                           class="form-control form-control-sm border-0 text-center bg-transparent hsl-input" 
+                                           value="{{ "%.2f"|format(row['t' ~ m]|float) if row['t' ~ m] else "0.00" }}"
+                                           {% if row.approved_by %}disabled{% endif %}>
+                                </td>
+                                {% endfor %}
+                                <td class="text-center p-1">
+                                    <div class="status-container">
+                                        {% if row.approved_by and row.approved_by != 'None' and row.approved_by != '' %}
+                                            <span class="text-approved"><i class="fas fa-check-circle"></i> ĐÃ DUYỆT</span>
+                                            <span class="info-detail">{{ row.ten_nguoi_duyet or row.approved_by }}</span>
+                                            <span class="info-detail" style="font-style: italic;">
+                                                {{ row.approved_at.strftime('%d/%m/%Y %H:%M') if row.approved_at }}
+                                            </span>
+
+                                            {% if current_user.role == 'ADMIN' %}
+                                            <button type="button" class="btn btn-link btn-sm p-0 text-danger" 
+                                                    onclick="unapprove('{{ row.ma_nhan_vien }}')" title="Gỡ phê duyệt">
+                                                <small><i class="fas fa-undo"></i> Hủy duyệt</small>
+                                            </button>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-warning"><i class="fas fa-clock"></i> Chờ phê duyệt</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="17" class="text-center py-5 text-muted">Không có dữ liệu.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function approveData() {
+        const year = document.getElementsByName('year')[0].value;
+        if (!confirm('Hệ thống sẽ LƯU THAY ĐỔI và PHÊ DUYỆT các dòng đang chờ. Xác nhận?')) return;
+
+        const rows = document.querySelectorAll('tbody tr');
+        const updates = [];
+        let isValid = true; // Biến đánh dấu dữ liệu hợp lệ hay không
+
+        // Sử dụng vòng lặp for thường hoặc for...of để có thể dùng 'break' nếu cần
+        for (const row of rows) {
+            const inputs = row.querySelectorAll('.hsl-input:not([disabled])');
+            
+            if (inputs.length > 0) {
+                const ma_nv = row.querySelector('td:first-child').innerText.trim();
+                const ho_ten = row.querySelectorAll('td')[1].innerText.trim(); // Lấy họ tên để báo lỗi cho dễ hiểu
+                const rowData = { ma_nv: ma_nv };
+
+                for (let index = 0; index < inputs.length; index++) {
+                    const input = inputs[index];
+                    const val = input.value.trim();
+                    const numVal = parseFloat(val);
+                    const monthLabel = `Tháng ${index + 1}`;
+
+                    // 1. Kiểm tra để trống
+                    if (val === "") {
+                        alert(`Lỗi: Hệ số ${monthLabel} của nhân viên [${ho_ten}] đang để trống!`);
+                        input.focus();
+                        isValid = false;
+                        break; 
+                    }
+
+                    // 2. Kiểm tra số âm
+                    if (numVal < 0) {
+                        alert(`Lỗi: Hệ số ${monthLabel} của nhân viên [${ho_ten}] không được là số âm (${val})!`);
+                        input.focus();
+                        isValid = false;
+                        break;
+                    }
+
+                    // 3. (Tùy chọn) Kiểm tra xem có phải là số không
+                    if (isNaN(numVal)) {
+                        alert(`Lỗi: Hệ số ${monthLabel} của nhân viên [${ho_ten}] phải là một con số!`);
+                        input.focus();
+                        isValid = false;
+                        break;
+                    }
+
+                    rowData[`t${index + 1}`] = numVal;
+                }
+
+                if (!isValid) break; // Thoát khỏi vòng lặp hàng nếu có lỗi ở ô nhập liệu
+                updates.push(rowData);
+            }
+        }
+
+        // Nếu dữ liệu không hợp lệ, dừng thực hiện fetch
+        if (!isValid) return;
+
+        // Nếu không có hàng nào để cập nhật (ví dụ tất cả đã được duyệt)
+        if (updates.length === 0) {
+            alert("Không có dòng dữ liệu mới nào cần phê duyệt.");
+            return;
+        }
+
+        // Bước 2: Gửi dữ liệu lên Server
+        fetch('/approve-v1', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                year: year,
+                phong_ban: document.getElementsByName('phong_ban')[0].value,
+                ma_nv: document.getElementsByName('ma_nv')[0].value,
+                updates: updates
+            })
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) { 
+                alert(res.message); 
+                location.reload(); 
+            } else { 
+                alert('Lỗi từ hệ thống: ' + res.message); 
+            }
+        })
+        .catch(err => {
+            console.error('Fetch error:', err);
+            alert('Có lỗi xảy ra trong quá trình gửi dữ liệu.');
+        });
+    }
+
+    function unapprove(ma_nv) {
+        if (!confirm(`Bạn có chắc chắn muốn gỡ trạng thái phê duyệt cho nhân viên ${ma_nv}? \nDữ liệu sẽ được mở khóa để chỉnh sửa.`)) return;
+
+        const year = document.getElementsByName('year')[0].value;
+        
+        fetch('/unapprove-v1', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ year: year, ma_nv: ma_nv })
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) {
+                location.reload();
+            } else {
+                alert('Lỗi: ' + res.message);
+            }
+        })
+        .catch(err => {
+            console.error('Fetch error:', err);
+            alert('Có lỗi xảy ra trong quá trình kết nối máy chủ.');
+        });
+    }
+</script>
+{% endblock %}

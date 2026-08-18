@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block title %}Kết quả tự dò lỗi Danh mục dữ liệu{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h4 class="text-danger mb-1">
+                <i class="fas fa-database me-2"></i>Kết quả tự dò tìm lỗi không thuộc Danh mục dữ liệu (sp_TuDongKiemTraDuLieu)
+            </h4>
+            <p class="text-muted small mb-0">
+                Hệ thống quét tự động đối chiếu các trường thông tin giao dịch với các danh mục chuẩn mực (don_vi, quoc_gia, loai_khach_hang, loai_tien, loai_giay_to...).
+            </p>
+            <p class="text-muted small mb-0">ĐVXL: <strong>Trung tâm Quản lý dữ liệu</strong></p>
+        </div>
+    </div>
+
+    <div class="card border-danger mb-4 shadow-sm">
+        <div class="card-header bg-danger text-white fw-bold py-2">
+            <i class="fas fa-filter me-1"></i> Tùy chọn phạm vi kiểm tra hệ thống danh mục
+        </div>
+        <div class="card-body py-3">
+            <form id="filterForm" method="GET" action="{{ url_for('ket_qua_kiem_tra_danh_muc') }}" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label for="thang_nam" class="form-label small fw-bold text-secondary">Gõ NamThang (yyyymm)</label>
+                    <input type="month" class="form-control form-control-sm" id="thang_nam" name="thang_nam" value="{{ selected_thang_nam or '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="ngay_baocao" class="form-label small fw-bold text-secondary">Chọn Ngày báo cáo (tên file chứa ngày)</label>
+                    <input type="date" class="form-control form-control-sm" id="ngay_baocao" name="ngay_baocao" value="{{ selected_ngay_baocao or '' }}">
+                </div>
+                <div class="col-md-6 d-flex justify-content-end gap-2">
+                    <button type="submit" class="btn btn-sm btn-secondary fw-bold px-3">
+                        <i class="fas fa-search me-1"></i> Lọc danh sách xem
+                    </button>
+                    <button type="button" id="btnRunCheck" class="btn btn-sm btn-danger text-white fw-bold px-3 border border-dark-subtle shadow-sm">
+                        <i class="fas fa-sync-alt me-1" id="iconSync"></i> Chạy rà soát hệ thống
+                    </button>
+                    <a href="{{ url_for('xuat_excel_loi_danh_muc', thang_nam=selected_thang_nam, ngay_baocao=selected_ngay_baocao) }}" id="btnExportExcel" class="btn btn-sm btn-success fw-bold px-3 shadow-sm">
+                        <i class="fas fa-file-excel me-1"></i> Xuất Excel dữ liệu lỗi
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <h5 class="text-secondary fw-bold mb-3"><i class="fas fa-chart-pie me-2"></i>Dashboard Thống Kê Tổng Quan</h5>
+    
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card border-start border-danger border-3 shadow-sm h-100">
+                <div class="card-body py-3 d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small text-uppercase fw-bold d-block">Tổng số bản ghi lỗi phát hiện</span>
+                        <h2 class="mb-0 fw-bold text-danger mt-1">{{ "{:,}".format(total_records) }}</h2>
+                    </div>
+                    <div class="bg-danger-subtle text-danger rounded p-3">
+                        <i class="fas fa-exclamation-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8 mb-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-header bg-light py-2 fw-bold text-secondary small">
+                    <i class="fas fa-th-list me-1"></i> Số lượng bản ghi nghi ngờ phân bổ theo Tên Bảng
+                </div>
+                <div class="card-body p-0" style="max-height: 165px; overflow-y: auto;">
+                    <table class="table table-sm table-hover table-striped mb-0 align-middle small text-center">
+                        <thead class="table-secondary sticky-top">
+                            <tr>
+                                <th width="10%">STT</th>
+                                <th width="50%" class="text-start">Tên bảng gốc dữ liệu báo cáo</th>
+                                <th width="40%">Tổng số lượng dòng lỗi tồn tại</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if dashboard_summary %}
+                                {% for row in dashboard_summary %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td class="text-start font-monospace text-primary fw-bold">{{ row.ten_bang }}</td>
+                                    <td>
+                                        <span class="badge bg-danger rounded-pill px-3">{{ "{:,}".format(row.so_luong) }}</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center py-3 text-muted">Chưa có dữ liệu thống kê lỗi.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h5 class="text-secondary fw-bold mb-3"><i class="fas fa-search-plus me-2"></i>Dữ Liệu Chi Tiết Phân Trang</h5>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-2">
+            <span class="fw-bold small"><i class="fas fa-list me-1"></i> Chi tiết các dòng sai danh mục hệ thống</span>
+            <span class="badge bg-secondary py-1.5">Trang {{ page }} / {{ total_pages if total_pages > 0 else 1 }}</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0 align-middle small">
+                    <thead class="table-secondary">
+                        <tr>
+                            <th width="5%" class="text-center">STT</th>
+                            <th width="15%">Tên bảng gốc</th>
+                            <th width="15%">Cột dữ liệu lỗi</th>
+                            <th width="15%" class="text-center">Giá trị lỗi / Trống</th>
+                            <th width="20%">Mã giao dịch (magd)</th>
+                            <th width="15%" class="text-center">Thời điểm giao dịch</th>
+                            <th width="15%" class="text-center">Thời điểm quét log</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if data %}
+                            {% for item in data %}
+                            <tr>
+                                <td class="text-center text-muted">{{ loop.index + (page - 1) * 50 }}</td>
+                                <td><strong class="text-primary">{{ item.ten_bang }}</strong></td>
+                                <td><strong class="text-danger">{{ item.ten_cot }}</strong></td>
+                                <td class="text-center">
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle font-monospace px-2 py-1">
+                                        {{ item.gia_tri_loi if item.gia_tri_loi and item.gia_tri_loi != 'nan' else '[Trống / NULL]' }}
+                                    </span>
+                                </td>
+                                <td><span class="font-monospace text-dark">{{ item.ma_giao_dich }}</span></td>
+                                <td class="text-center text-muted small">{{ item.thoidiem }}</td>
+                                <td class="text-center text-muted small">
+                                    {{ item.thoi_diem_kiem_tra.strftime('%d/%m/%Y %H:%M:%S') if item.thoi_diem_kiem_tra is not string and item.thoi_diem_kiem_tra else item.thoi_diem_kiem_tra }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    <i class="fas fa-check-circle text-success fa-2x mb-2 d-block"></i>
+                                    Không tìm thấy dữ liệu lỗi danh mục nào trong phạm vi bộ lọc hiện tại.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if total_pages > 1 %}
+        <div class="card-footer bg-light d-flex justify-content-center py-2">
+            <nav aria-label="Page navigation">
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('ket_qua_kiem_tra_danh_muc', page=page-1, thang_nam=selected_thang_nam, ngay_baocao=selected_ngay_baocao) }}"><i class="fas fa-chevron-left"></i></a>
+                    </li>
+
+                    {% for p in range(1, total_pages + 1) %}
+                        {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                            <li class="page-item {% if page == p %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('ket_qua_kiem_tra_danh_muc', page=p, thang_nam=selected_thang_nam, ngay_baocao=selected_ngay_baocao) }}">{{ p }}</a>
+                            </li>
+                        {% elif p == page - 3 or p == page + 3 %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('ket_qua_kiem_tra_danh_muc', page=page+1, thang_nam=selected_thang_nam, ngay_baocao=selected_ngay_baocao) }}"><i class="fas fa-chevron-right"></i></a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+$(document).ready(function() {
+    // SỰ KIỆN NÚT CHẠY RÀ SOÁT HỆ THỐNG
+    $('#btnRunCheck').on('click', function() {
+        let $btn = $(this);
+        let $icon = $('#iconSync');
+
+        let thangNamRaw = $('#thang_nam').val(); // Dạng YYYY-MM
+        let ngayBaoCao = $('#ngay_baocao').val();  // Dạng YYYY-MM-DD
+
+        let thangNam = "";
+        if (thangNamRaw) {
+            thangNam = thangNamRaw.replace('-', '');
+        }
+
+        let confirmText = "Hệ thống sẽ tiến hành rà soát danh mục lỗi cho toàn bộ lịch sử các bảng.";
+        if (ngayBaoCao) {
+            confirmText = `Hệ thống sẽ chạy đối chiếu danh mục riêng cho ngày cụ thể: ${ngayBaoCao}`;
+        } else if (thangNam) {
+            confirmText = `Hệ thống sẽ chạy đối chiếu danh mục cho tất cả các bảng thuộc tháng: ${thangNamRaw}`;
+        }
+
+        Swal.fire({
+            title: 'Xác nhận quét danh mục?',
+            text: confirmText + " Quá trình phân tích chéo dữ liệu lớn (Big Data) có thể mất vài phút.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Đồng ý, chạy ngay!',
+            cancelButtonText: 'Hủy'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $btn.prop('disabled', true);
+                $('#btnExportExcel').addClass('disabled'); // Khóa nút xuất Excel tránh xung đột ghi tệp
+                $icon.addClass('fa-spin');
+
+                Swal.fire({
+                    title: 'Đang rà soát danh mục ngầm...',
+                    text: 'Hệ thống đang tải dữ liệu và xử lý đối chiếu qua Pandas RAM. Vui lòng giữ kết nối.',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                $.ajax({
+                    url: "{{ url_for('run_check_danh_muc') }}",
+                    type: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify({
+                        thang_nam: thangNam || null,
+                        ngay_baocao: ngayBaoCao || null
+                    }),
+                    dataType: "json",
+                    success: function(response) {
+                        Swal.fire({
+                            title: 'Thành công!',
+                            text: response.message,
+                            icon: 'success'
+                        }).then(() => {
+                            window.location.reload(); 
+                        });
+                    },
+                    error: function(xhr) {
+                        let errMsg = 'Gặp lỗi hệ thống xử lý truy vấn dữ liệu backend.';
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errMsg = xhr.responseJSON.message;
+                        }
+                        Swal.fire({
+                            title: 'Thất bại!',
+                            text: errMsg,
+                            icon: 'error'
+                        });
+                    },
+                    complete: function() {
+                        $btn.prop('disabled', false);
+                        $('#btnExportExcel').removeClass('disabled');
+                        $icon.removeClass('fa-spin');
+                    }
+                });
+            }
+        });
+    });
+
+    // Cảnh báo người dùng khi nhấn nút Xuất Excel nếu tổng số bản ghi bằng 0
+    $('#btnExportExcel').on('click', function(e) {
+        let totalRecs = parseInt('{{ total_records or 0 }}');
+        if (totalRecs === 0) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Thông báo',
+                text: 'Không có dữ liệu bản ghi lỗi trong phạm vi bộ lọc để thực hiện xuất file Excel!',
+                icon: 'info',
+                confirmButtonColor: '#6c757d'
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

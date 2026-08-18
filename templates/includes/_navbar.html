@@ -1,0 +1,90 @@
+<nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
+    <a class="navbar-brand font-weight-bold" href="{{ url_for('index') }}">
+        <i class="fas fa-university text-warning"></i> TIỀN LƯƠNG
+    </a>
+    
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#mainMenu">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="mainMenu">
+        <!-- MENU CHÍNH BÊN TRÁI -->
+        <ul class="navbar-nav mr-auto align-items-center">
+            <li class="nav-item">
+                <a href="{{ url_for('index') }}" class="nav-link-item btn-home mr-2" style="background-color: var(--home-color);">
+                    <i class="fas fa-home"></i> Trang chủ
+                </a>
+            </li>
+
+            {% if current_user.is_authenticated %}
+            <!-- DROPDOWN MENU PHÂN HỆ: BÁO CÁO 48 -->
+            <li class="nav-item dropdown">
+                <a class="nav-link-item dropdown-toggle" href="#" id="navbarDropdownBC48" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="background-color: #34495e;">
+                    <i class="fas fa-file-invoice-dollar text-info"></i> Phân hệ Báo cáo 48
+                </a>
+                <div class="dropdown-menu dropdown-menu-bc48 shadow" aria-labelledby="navbarDropdownBC48">
+                    
+                    <!-- Menu 1: Cục PCRT trả ra (CSV) -->
+                    <a class="dropdown-item dropdown-item-bc48" href="{{ url_for('giaodien_cuc_pcrt_tra_loi') }}">
+                        <div class="font-weight-bold text-dark mb-1">
+                            <i class="fas fa-chart-bar text-info mr-2"></i>Cục PCRT trả ra
+                        </div>
+                        <small class="text-muted d-block" style="font-size: 11px; line-height: 1.4;">
+                            Từng ngày báo cáo có bao nhiêu dòng "KIỂM TRA FILE THÀNH CÔNG" và "KIỂM TRA GIAO DỊCH LỖI". Thống kê chi tiết theo tháng.
+                        </small>
+                    </a>
+                    
+                    <!-- Menu 2: Kết quả dò tìm lỗi -->
+                    <a class="dropdown-item dropdown-item-bc48" href="{{ url_for('giaodien_ket_qua_do_tim') }}">
+                        <div class="font-weight-bold text-primary mb-1">
+                            <i class="fas fa-search-location text-success mr-2"></i>Kết quả dò tìm lỗi
+                        </div>
+                        <small class="text-muted d-block" style="font-size: 11px; line-height: 1.4;">
+                            Sau khi nạp csv có các bảng _error, chi_tiet_loi_master (chỉ trạng thái LỖI), căn cứ theo "MA_GIAO_DICH" VÀ "KIỂM TRA GIAO DỊCH LỖI" tìm trong TXT (nhớ nạp đủ GLD, GBS, GLA), nếu thấy, sao kê chi tiết (ket_qua_do_tim_loi); phần chưa tìm thấy ở bảng giao_dich_error_khong_tim_thay.
+                        </small>
+                    </a>
+
+                </div>
+            </li>
+            {% endif %}
+        </ul>
+
+        <!-- MENU THÔNG TIN TÀI KHOẢN BÊN PHẢI -->
+        <ul class="navbar-nav ml-auto align-items-center">
+            {% if current_user.is_authenticated %}
+            <li class="nav-item dropdown no-arrow mx-3">
+                <a class="nav-link dropdown-toggle p-0" href="#" id="alertsDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="position: relative;">
+                    <i class="fas fa-bell fa-lg text-light"></i>
+                    <span class="badge badge-danger" id="noti-count" style="display: none;">0</span>
+                </a>
+                <div class="dropdown-menu dropdown-menu-right shadow dropdown-list-noti" aria-labelledby="alertsDropdown">
+                    <div class="dropdown-header-noti">Thông báo mới</div>
+                    <div id="noti-list" style="max-height: 350px; overflow-y: auto;"></div>
+                    <div class="dropdown-divider m-0"></div>
+                    <a class="dropdown-item text-center small text-primary py-2 font-weight-bold" href="javascript:void(0)" onclick="markAllRead()">
+                        <i class="fas fa-check-double mr-1"></i> Đánh dấu tất cả đã đọc
+                    </a>
+                </div>
+            </li>
+
+            <li class="nav-item mr-3">
+                <div class="user-info-box">
+                    <span><i class="fas fa-user-circle"></i> {{ current_user.fullname or current_user.ma_nhan_vien }}</span>
+                    <span class="role-badge">[{{ current_user.role }}]</span>
+                </div>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('logout') }}" class="nav-link-item btn-logout shadow-sm" style="background-color: var(--logout-bg);">
+                    <i class="fas fa-sign-out-alt"></i> Thoát
+                </a>
+            </li>
+            {% else %}
+            <li class="nav-item">
+                <a href="{{ url_for('login') }}" class="nav-link-item px-4" style="background: #34495e;">
+                    <i class="fas fa-sign-in-alt"></i> Đăng nhập
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+</nav>

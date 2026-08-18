@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="text-dark mb-0 font-weight-bold">
+            <i class="fas fa-tasks mr-2 text-primary"></i>Quản lý Nhu cầu & Gói mẫu
+        </h4>
+        <div class="btn-group">
+            <a href="{{ url_for('quan_ly_danh_muc') }}" class="btn btn-outline-primary shadow-sm px-3 mr-2" style="border-radius: 50px;">
+                <i class="fas fa-cog mr-2"></i>Khai báo Danh mục
+            </a>
+            <button class="btn btn-success shadow-sm px-4" style="border-radius: 50px;" data-toggle="modal" data-target="#modalTaoGoiMau">
+                <i class="fas fa-plus-circle mr-2"></i>Tạo gói mẫu dùng chung
+            </button>
+        </div>
+    </div>
+
+    <ul class="nav nav-pills mb-3 bg-white p-2 rounded shadow-sm" id="adminTab" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active font-weight-bold" data-toggle="tab" href="#tab-nhan-vien">
+                <i class="fas fa-user-edit mr-2"></i>Yêu cầu nhân viên 
+                <span class="badge badge-danger ml-1">{{ requests|length }}</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link font-weight-bold" data-toggle="tab" href="#tab-goi-mau">
+                <i class="fas fa-boxes mr-2"></i>Gói mẫu hệ thống 
+                <span class="badge badge-secondary ml-1">{{ goi_mau_da_tao|length }}</span>
+            </a>
+        </li>
+    </ul>
+
+    <div class="tab-content mt-3">
+        <div class="tab-pane fade show active" id="tab-nhan-vien">
+            <div class="card border-0 shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th class="pl-4">Nhân viên</th>
+                                <th>Nội dung nhu cầu</th>
+                                <th>Danh mục</th>
+                                <th>Thời gian</th>
+                                <th>Trạng thái</th>
+                                <th class="text-center">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for yc in requests %}
+                            <tr>
+                                <td class="pl-4">
+                                    <div class="font-weight-bold text-dark">{{ yc.nguoi_gui.fullname if yc.nguoi_gui else 'N/A' }}</div>
+                                    <small class="text-muted">Mã NV: {{ yc.user_id }}</small>
+                                </td>
+                                <td>{{ yc.noi_dung_yeu_cau }}</td>
+                                <td>
+                                    <span class="badge badge-light border text-muted">
+                                        {{ yc.danh_muc_obj.ten_danh_muc if yc.danh_muc_obj else 'Chưa gán' }}
+                                    </span>
+                                </td>
+                                <td><small>{{ yc.ngay_yeu_cau.strftime('%H:%M %d/%m/%Y') }}</small></td>
+                                <td>
+                                    {% if yc.trang_thai == 'Chờ xử lý' %}
+                                        <span class="badge badge-warning px-3 py-2">Chờ Admin gán mẫu</span>
+                                    {% else %}
+                                        <span class="badge badge-success px-3 py-2 text-white">{{ yc.trang_thai }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn btn-primary btn-sm px-3 shadow-sm" data-toggle="modal" data-target="#modalReview{{ yc.id }}">
+                                        Phản hồi / Gán mẫu
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-pane fade" id="tab-goi-mau">
+            <div class="card border-0 shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th class="pl-4">Tên gói mẫu biểu</th>
+                                <th>Danh mục</th>
+                                <th>Số lượng file</th>
+                                <th>Các mẫu hiện có</th>
+                                <th class="text-center">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for gm in goi_mau_da_tao %}
+                            <tr>
+                                <td class="pl-4 font-weight-bold text-primary">{{ gm.noi_dung_yeu_cau }}</td>
+                                <td>
+                                    <span class="badge badge-info px-2 py-1">
+                                        {{ gm.danh_muc_obj.ten_danh_muc if gm.danh_muc_obj else 'Chưa phân loại' }}
+                                    </span>
+                                </td>
+                                <td><span class="badge badge-pill badge-secondary">{{ gm.danh_sach_mau|length }} file</span></td>
+                                <td>
+                                    <div style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                        {% for mau in gm.danh_sach_mau %}
+                                        <small class="bg-light border px-1 rounded mr-1 text-muted">[{{ mau.ma_mau }}]</small>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-info" data-toggle="modal" data-target="#modalReview{{ gm.id }}" title="Chỉnh sửa">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <a href="{{ url_for('xoa_yeu_cau_mau', id=gm.id) }}" class="btn btn-sm btn-outline-danger" 
+                                           onclick="return confirm('Xác nhận xóa gói mẫu: {{ gm.noi_dung_yeu_cau }}?')" title="Xóa">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalTaoGoiMau" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form action="{{ url_for('admin_tao_goi_mau') }}" method="POST">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title font-weight-bold">TẠO GÓI MẪU DÙNG CHUNG</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-7">
+                            <div class="form-group">
+                                <label class="font-weight-bold text-muted small">TÊN GÓI MẪU:</label>
+                                <input type="text" name="ten_goi" class="form-control form-control-lg border-primary" placeholder="Ví dụ: Hồ sơ tuyển dụng..." required>
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="form-group">
+                                <label class="font-weight-bold text-muted small">DANH MỤC HỆ THỐNG:</label>
+                                <select name="danh_muc_id" class="form-control form-control-lg border-primary" required>
+                                    <option value="">-- Chọn danh mục --</option>
+                                    {% for dm in ds_danh_muc %}
+                                        <option value="{{ dm.id }}">{{ dm.ten_danh_muc }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group mt-3">
+                        <label class="font-weight-bold text-muted small">CHỌN CÁC MẪU BIỂU VÀO GÓI (GÕ ĐỂ TÌM):</label>
+                        <select name="mau_bieu_ids" class="form-control ajax-select2" multiple="multiple" style="width: 100%" required></select>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Đóng</button>
+                    <button type="submit" class="btn btn-success px-4 font-weight-bold shadow-sm">XÁC NHẬN TẠO</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% set all_items = requests + goi_mau_da_tao %}
+{% for item in all_items %}
+<div class="modal fade" id="modalReview{{ item.id }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form action="{{ url_for('phe_duyet_mau', id=item.id) }}" method="POST">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header {% if item.is_template %}bg-info{% else %}bg-primary{% endif %} text-white">
+                    <h5 class="modal-title">
+                        <i class="fas {% if item.is_template %}fa-edit{% else %}fa-check-circle{% endif %} mr-2"></i>
+                        {% if item.is_template %}Cập nhật: {{ item.noi_dung_yeu_cau }}{% else %}Đáp ứng yêu cầu: {{ item.nguoi_gui.fullname }}{% endif %}
+                    </h5>
+                    <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="form-group">
+                                <label class="font-weight-bold small text-muted text-uppercase">Tên gói / Nội dung hiển thị:</label>
+                                <input type="text" name="noi_dung_edit" class="form-control font-weight-bold" value="{{ item.noi_dung_yeu_cau }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label class="font-weight-bold small text-muted text-uppercase">Danh mục:</label>
+                                <select name="danh_muc_id" class="form-control">
+                                    <option value="">-- Chưa phân loại --</option>
+                                    {% for dm in ds_danh_muc %}
+                                        <option value="{{ dm.id }}" {% if item.danh_muc_id == dm.id %}selected{% endif %}>
+                                            {{ dm.ten_danh_muc }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if not item.is_template %}
+                    <div class="alert alert-warning py-2 mb-3">
+                        <small><i class="fas fa-comment-dots mr-1"></i> <strong>Nhân viên yêu cầu:</strong> {{ item.noi_dung_yeu_cau }}</small>
+                    </div>
+                    {% endif %}
+
+                    <div class="form-group">
+                        <label class="font-weight-bold small text-muted text-uppercase d-block">Mẫu biểu hiện tại:</label>
+                        <div class="p-2 border rounded bg-light mb-2 d-flex flex-wrap">
+                            {% if item.danh_sach_mau %}
+                                {% for m in item.danh_sach_mau %}
+                                    <span class="badge badge-primary p-2 mb-1 mr-1">[{{ m.ma_mau }}] {{ m.ten_mau }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <small class="text-muted italic w-100 text-center py-2">Chưa có mẫu nào được gán</small>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="font-weight-bold small text-muted text-uppercase text-danger">Cập nhật danh sách (Chọn mới sẽ ghi đè):</label>
+                        <select name="mau_bieu_ids" class="form-control ajax-select2" multiple="multiple" style="width: 100%">
+                            {% for m in item.danh_sach_mau %}
+                                <option value="{{ m.id }}" selected>[{{ m.ma_mau }}] {{ m.ten_mau }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Đóng</button>
+                    <button type="submit" class="btn btn-primary px-4 font-weight-bold shadow-sm">
+                        <i class="fas fa-save mr-1"></i> LƯU THAY ĐỔI
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // 1. Hàm khởi tạo Select2 với logic Modal fix
+    function initSelect2(element) {
+        var $el = $(element);
+        var $parentModal = $el.closest('.modal');
+
+        $el.select2({
+            theme: 'bootstrap4',
+            placeholder: '--- Gõ tên hoặc mã mẫu để tìm ---',
+            allowClear: true,
+            minimumInputLength: 1,
+            dropdownParent: $parentModal, // Quan trọng: Để danh sách select hiện lên trên Modal
+            ajax: {
+                url: '/api/search-mau-bieu',
+                dataType: 'json',
+                delay: 300,
+                data: function (params) {
+                    return { q: params.term };
+                },
+                processResults: function (data) {
+                    return { results: data };
+                },
+                cache: true
+            }
+        });
+    }
+
+    // 2. Kích hoạt Select2 khi Modal được hiển thị hoàn toàn
+    $('.modal').on('shown.bs.modal', function () {
+        var $select = $(this).find('.ajax-select2');
+        if ($select.length > 0) {
+            // Kiểm tra nếu chưa được khởi tạo thì mới init
+            if (!$select.hasClass("select2-hidden-accessible")) {
+                initSelect2($select);
+            }
+        }
+    });
+
+    // 3. Xử lý giữ Tab khi Load lại trang
+    $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+        localStorage.setItem('activeAdminTab', $(e.target).attr('href'));
+    });
+
+    var activeTab = localStorage.getItem('activeAdminTab');
+    if (activeTab) {
+        $('#adminTab a[href="' + activeTab + '"]').tab('show');
+    }
+});
+</script>
+{% endblock %}

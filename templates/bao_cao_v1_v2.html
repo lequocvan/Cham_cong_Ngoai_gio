@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Báo cáo Tổng hợp V1 + V2{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2 class="mb-4 text-center text-primary">Báo cáo Tổng hợp Thu nhập V1 + V2</h2>
+
+    <div class="row mb-3">
+        <div class="col-12">
+            <form method="GET" action="{{ url_for('report_v1_v2') }}" class="form-inline justify-content-center bg-white p-3 rounded shadow-sm border">
+                <div class="form-group mx-2">
+                    <label class="mr-2 font-weight-bold">Năm:</label>
+                    <select name="nam" class="form-control" onchange="this.form.submit()">
+                        {% for y in all_years %}
+                            <option value="{{ y }}" {% if y == nam_chon %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group mx-2">
+                    <label class="mr-2 font-weight-bold">Phòng ban:</label>
+                    {% if is_admin_or_th %}
+                        <select name="phong_ban" class="form-control" style="min-width: 180px;" onchange="this.form.submit()">
+                            <option value="">-- Tất cả phòng ban --</option>
+                            {% for dept in all_depts %}
+                                <option value="{{ dept }}" {% if dept == search_phong_ban %}selected{% endif %}>{{ dept }}</option>
+                            {% endfor %}
+                        </select>
+                    {% else %}
+                        <span class="badge badge-info py-2 px-3" style="font-size: 14px;">{{ search_phong_ban }}</span>
+                        <input type="hidden" name="phong_ban" value="{{ search_phong_ban }}">
+                    {% endif %}
+                </div>
+
+                <div class="form-group mx-2">
+                    <label class="mr-2 font-weight-bold">Mã nhân viên:</label>
+                    <input type="text" name="ma_nv" class="form-control" placeholder="Nhập mã..." value="{{ search_ma_nv }}">
+                </div>
+
+                <button type="submit" class="btn btn-primary ml-2">
+                    <i class="fas fa-search"></i> Tìm kiếm
+                </button>
+                <a href="{{ url_for('report_v1_v2') }}" class="btn btn-outline-secondary ml-2">Xóa lọc</a>
+
+                <a href="{{ url_for('export_report_v1_v2', nam=nam_chon, ma_nv=search_ma_nv, phong_ban=search_phong_ban) }}" 
+                   class="btn btn-success ml-2">
+                    <i class="fas fa-file-excel"></i> Xuất Excel
+                </a>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-container shadow rounded">
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm mb-0">
+                <thead>
+                    <tr class="bg-dark text-white">
+                        <th rowspan="2" class="sticky-col text-center align-middle">Mã NV</th>
+                        <th rowspan="2" class="sticky-col-name text-center align-middle">Họ và Tên</th>
+                        <th rowspan="2" class="text-center align-middle">Phòng Ban</th>
+                        {% for i in range(1, 13) %}
+                        <th colspan="3" class="text-center border-left">Tháng {{ i }}</th>
+                        {% endfor %}
+                        <th colspan="3" class="text-center bg-primary border-left">TỔNG NĂM</th>
+                    </tr>
+                    <tr class="bg-secondary text-white">
+                        {% for i in range(1, 13) %}
+                        <th class="text-center border-left">V1</th>
+                        <th class="text-center">V2</th>
+                        <th class="text-center table-warning text-dark">V1+V2</th>
+                        {% endfor %}
+                        <th class="text-center border-left">Tổng V1</th>
+                        <th class="text-center">Tổng V2</th>
+                        <th class="text-center table-danger text-dark font-weight-bold">TỔNG CỘNG</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if data %}
+                        {% for row in data %}
+                        <tr>
+                            <td class="sticky-col font-weight-bold bg-light">{{ row.ma_nhan_vien }}</td>
+                            <td class="sticky-col-name bg-light">{{ row.ho_ten }}</td>
+                            <td class="text-left px-2">{{ row.phong_ban }}</td>
+                            
+                            {% for i in range(1, 13) %}
+                                <td class="text-right border-left">{{ "{:,.0f}".format(row['tien_v1_t' ~ i] or 0) }}</td>
+                                <td class="text-right">{{ "{:,.0f}".format(row['tien_v2_t' ~ i] or 0) }}</td>
+                                <td class="text-right font-weight-bold table-yellow">{{ "{:,.0f}".format(row['tong_tien_t' ~ i] or 0) }}</td>
+                            {% endfor %}
+                            
+                            <td class="text-right font-weight-bold border-left bg-light">{{ "{:,.0f}".format(row.tong_tien_v1_nam or 0) }}</td>
+                            <td class="text-right font-weight-bold bg-light">{{ "{:,.0f}".format(row.tong_tien_v2_nam or 0) }}</td>
+                            <td class="text-right font-weight-bold table-red">{{ "{:,.0f}".format(row.tong_tien_v1_v2_all_nam or 0) }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="45" class="text-center py-5 text-muted">
+                                <i class="fas fa-folder-open fa-3x mb-3"></i><br>
+                                Không tìm thấy dữ liệu phù hợp với điều kiện lọc.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .table-container { border: 1px solid #dee2e6; background: #fff; }
+    .table-responsive { max-height: 70vh; overflow: auto; }
+
+    /* Header Sticky */
+    .table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+    }
+    .table thead tr:nth-child(2) th { top: 31px; z-index: 19; }
+
+    /* Cột Mã NV Sticky */
+    .sticky-col {
+        position: sticky;
+        left: 0;
+        z-index: 21;
+        background-color: #f8f9fa !important;
+        min-width: 100px;
+    }
+
+    /* Cột Họ Tên Sticky (Nằm sau cột Mã NV) */
+    .sticky-col-name {
+        position: sticky;
+        left: 100px; /* Khớp với min-width của cột Mã NV */
+        z-index: 21;
+        background-color: #f8f9fa !important;
+        border-right: 2px solid #dee2e6 !important;
+        min-width: 180px;
+    }
+
+    /* Header cho các cột Sticky */
+    .table thead tr th.sticky-col,
+    .table thead tr th.sticky-col-name { z-index: 25; }
+
+    /* Màu sắc */
+    .table-yellow { background-color: #fffde7 !important; }
+    .table-red { background-color: #ffebee !important; }
+    .text-right { text-align: right; }
+    .border-left { border-left: 2px solid #adb5bd !important; }
+    
+    th, td { 
+        white-space: nowrap; 
+        padding: 8px 12px !important; 
+        vertical-align: middle !important;
+    }
+    tbody tr:hover { background-color: #f1f1f1; }
+</style>
+{% endblock %}

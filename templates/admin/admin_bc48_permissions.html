@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-shield-alt"></i> Phân quyền sử dụng Module BC48</h5>
+            <span class="badge badge-light">Tổng số nhân viên: {{ pagination.total }}</span>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('admin_permissions_bc48') }}" class="row mb-3">
+                <div class="col-md-4">
+                    <input type="text" name="q" class="form-control" value="{{ current_search }}" placeholder="Tìm theo Mã NV hoặc Tên...">
+                </div>
+                <div class="col-md-3">
+                    <input type="text" name="ma_hieu_2" class="form-control" value="{{ current_don_vi }}" placeholder="Tìm theo Đơn vị (Mã hiệu 2)...">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100"><i class="fas fa-search"></i> Tìm kiếm</button>
+                </div>
+            </form>
+
+            <div class="table-container shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered table-hover mb-0" id="permTable">
+                        <thead>
+                            <tr>
+                                <th class="sticky-col first-col">Mã NV</th>
+                                <th class="sticky-col second-col">Họ tên</th>
+                                <th class="sticky-col third-col">Đơn vị</th>
+                                <th class="text-center align-middle">Cấp quyền Truy cập</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in users %}
+                            <tr>
+                                <td class="sticky-col first-col bg-light-column">{{ u.ma_nhan_vien }}</td>
+                                <td class="sticky-col second-col bg-light-column"><strong>{{ u.ho_ten }}</strong></td>
+                                <td class="sticky-col third-col bg-light-column text-center">{{ u.ma_hieu_2 }}</td>
+                                <td class="text-center align-middle">
+                                    <div class="custom-control custom-switch">
+                                        <input type="checkbox" class="custom-control-input bc48-checkbox" 
+                                               id="sw_{{ u.ma_nhan_vien }}" data-ma-nv="{{ u.ma_nhan_vien }}"
+                                               {% if u.ma_nhan_vien in allowed_nv %}checked{% endif %}>
+                                        <label class="custom-control-label" style="cursor:pointer" for="sw_{{ u.ma_nhan_vien }}"></label>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <nav class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if page_num %}
+                            <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('admin_permissions_bc48', page=page_num, q=current_search, ma_hieu_2=current_don_vi) }}">{{ page_num }}</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).on('change', '.bc48-checkbox', function() {
+    const checkbox = $(this);
+    checkbox.prop('disabled', true);
+    $.ajax({
+        url: '/api/bc48/toggle-permission',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ ma_nhan_vien: checkbox.data('ma-nv'), is_active: checkbox.is(':checked') }),
+        success: function(res) {
+            checkbox.prop('disabled', false);
+            if (!res.success) { alert('Lỗi: ' + res.message); checkbox.prop('checked', !checkbox.is(':checked')); }
+        },
+        error: function() { checkbox.prop('disabled', false); alert('Lỗi kết nối!'); checkbox.prop('checked', !checkbox.is(':checked')); }
+    });
+});
+</script>
+
+<style>
+    /* CSS Giữ nguyên như cũ, chỉ tối ưu một chút */
+    .table-responsive { max-height: 70vh; overflow: auto; }
+    .sticky-col { position: sticky; z-index: 10; background-color: #ffffff !important; }
+    .first-col { left: 0; min-width: 100px; }
+    .second-col { left: 100px; min-width: 200px; }
+    .third-col { left: 300px; min-width: 80px; border-right: 2px solid #dee2e6 !important; box-shadow: 4px 0 5px -2px rgba(0,0,0,0.1); }
+</style>
+{% endblock %}

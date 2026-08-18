@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}Quản trị Phân quyền Xử lý Hồ sơ{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<div class="container-fluid mt-4">
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 bg-primary text-white d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold"><i class="fas fa-user-shield mr-2"></i>PHÂN QUYỀN XỬ LÝ HỒ SƠ CHO NHÂN VIÊN</h6>
+            <div class="small">Hệ thống: {{ managed_slugs|length }} chức năng</div>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-5">
+                    <div class="input-group">
+                        <input type="text" id="search_input" class="form-control" placeholder="Mã nhân viên hoặc tên...">
+                        <div class="input-group-append">
+                            <button class="btn btn-primary" onclick="searchUsers()">
+                                <i class="fas fa-search"></i> Tìm kiếm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <select id="filter_don_vi" class="form-control" onchange="searchUsers()">
+                        <option value="">-- Tất cả đơn vị (Lọc theo NV) --</option>
+                        {% for dv in don_vis %}
+                        <option value="{{ dv }}">{{ dv }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="userTable">
+                    <thead class="thead-light">
+                        <tr>
+                            <th style="width: 15%">Nhân viên</th>
+                            <th style="width: 50%">Quyền Menu (Truy cập)</th>
+                            <th style="width: 25%">Quyền Quy trình (Hồ sơ)</th>
+                            <th style="width: 10%">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalWorkflow" tabindex="-1" role="dialog" aria-labelledby="wfModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="wfModalLabel"><i class="fas fa-user-check mr-2"></i>Cấu hình Quyền Xử lý Hồ sơ</h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    Nhân viên: <strong id="wf_display_name"></strong><br>
+                    Mã NV: <span id="wf_mnv_text" class="badge badge-secondary"></span>
+                </div>
+                <input type="hidden" id="wf_mnv">
+
+                <div class="form-group">
+                    <label class="font-weight-bold text-dark">1. Chọn vai trò trong quy trình:</label>
+                    <select id="sel_perm" class="form-control border-primary">
+                        <option value="HS_LAP">Lập hồ sơ (Cấp Đơn vị)</option>
+                        <option value="HS_KS">Kiểm soát (Cấp Đơn vị chuyên trách TSC)</option>
+                        <option value="HS_PD">Phê duyệt (Lãnh đạo Đơn vị chuyên trách TSC phê duyệt)</option>
+                        <option value="PHE_DUYET_DON">Phê duyệt đơn</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="font-weight-bold text-dark">2. Phạm vi Đơn vị xử lý:</label>
+                    <select id="sel_unit" class="form-control border-primary">
+                        <option value="ALL">--- Tất cả các đơn vị ---</option>
+                        {% for dv in ds_don_vi %}
+                        <option value="{{ dv.ma_hieu_2 }}">{{ dv.ten_ma_hieu_2 }} ({{ dv.ma_hieu_2 }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Đóng</button>
+                <button type="button" onclick="saveWorkflowPerm('revoke')" class="btn btn-outline-danger">
+                    <i class="fas fa-user-minus"></i> Thu hồi
+                </button>
+                <button type="button" onclick="saveWorkflowPerm('grant')" class="btn btn-success px-4">
+                    <i class="fas fa-user-plus"></i> Cấp quyền
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/** 2. KHAI BÁO BIẾN TOÀN CỤC NGAY LẬP TỨC **/
+// Đặt Toast ở dòng đầu tiên của script
+const Toast = (typeof Swal !== 'undefined') ? Swal.mixin({
+    toast: true,
+    position: 'top-end',
+    showConfirmButton: false,
+    timer: 1500
+}) : null;
+
+const managedSlugs = {{ managed_slugs|tojson|safe }};
+
+/** 3. CÁC HÀM XỬ LÝ **/
+
+function searchUsers() {
+    const q = $('#search_input').val();
+    const dv = $('#filter_don_vi').val();
+    const tbody = $('#userTableBody');
+
+    tbody.html('<tr><td colspan="4" class="text-center p-5"><div class="spinner-border text-primary"></div></td></tr>');
+
+    $.get('/api/search-users', { q: q, don_vi: dv }, function(data) {
+        tbody.empty();
+        if (!data || data.length === 0) {
+            tbody.html('<tr><td colspan="4" class="text-center text-muted p-4">Không tìm thấy dữ liệu</td></tr>');
+            return;
+        }
+
+        data.forEach(user => {
+            let menuHtml = `<div class="row mx-0">`;
+            managedSlugs.forEach(s => {
+                const checked = (user.permissions && user.permissions.includes(s.code)) ? 'checked' : '';
+                const cleanId = `chk_${user.ma_nhan_vien}_${s.code.replace(/[^a-z0-9]/gi, '_')}`;
+                menuHtml += `
+                    <div class="col-md-6 px-1 mb-1">
+                        <div class="custom-control custom-switch border rounded p-1 pl-5 bg-white shadow-sm hover-effect">
+                            <input type="checkbox" class="custom-control-input" id="${cleanId}" 
+                                   ${checked} onchange="updateMenuPerm('${user.ma_nhan_vien}', '${s.code}', this.checked)">
+                            <label class="custom-control-label small" style="cursor:pointer" for="${cleanId}">${s.name}</label>
+                        </div>
+                    </div>`;
+            });
+            menuHtml += `</div>`;
+
+            let wfBadges = '';
+            if (user.workflow_permissions && user.workflow_permissions.length > 0) {
+                user.workflow_permissions.forEach(p => {
+                    wfBadges += `<span class="badge badge-info mr-1 mb-1 p-2 shadow-sm"><i class="fas fa-user-tag mr-1"></i>${p}</span>`;
+                });
+            } else {
+                wfBadges = '<small class="text-muted font-italic">Chưa phân quyền</small>';
+            }
+
+            tbody.append(`
+                <tr>
+                    <td class="align-middle">
+                        <div class="text-primary font-weight-bold">${user.ma_nhan_vien}</div>
+                        <div class="text-uppercase small font-weight-bold text-dark">${user.fullname || ''}</div>
+                    </td>
+                    <td>${menuHtml}</td>
+                    <td class="align-middle text-center">${wfBadges}</td>
+                    <td class="align-middle text-center">
+                        <button class="btn btn-sm btn-primary shadow-sm" onclick="openWorkflowModal('${user.ma_nhan_vien}', '${user.fullname || user.ma_nhan_vien}')">
+                            <i class="fas fa-cog"></i> Phân quyền HS
+                        </button>
+                    </td>
+                </tr>
+            `);
+        });
+    });
+}
+
+function updateMenuPerm(mnv, slug, status) {
+    $.ajax({
+        url: '/api/update-permission',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ ma_nhan_vien: mnv, menu_slug: slug, status: status }),
+        success: function(res) {
+            if (res.success || res.status === 'success') {
+                if(Toast) Toast.fire({ icon: 'success', title: 'Cập nhật thành công' });
+            } else {
+                Swal.fire('Lỗi', res.message || 'Thất bại', 'error');
+            }
+        }
+    });
+}
+
+function openWorkflowModal(mnv, name) {
+    $('#wf_mnv').val(mnv);
+    $('#wf_mnv_text').text(mnv);
+    $('#wf_display_name').text(name);
+    $('#modalWorkflow').modal('show');
+}
+
+function saveWorkflowPerm(action) {
+    const mnv = $('#wf_mnv').val();
+    const code = $('#sel_perm').val();
+    const unit = $('#sel_unit').val();
+
+    if(!mnv) return;
+
+    // Hiệu ứng nút bấm
+    const btn = window.event ? window.event.currentTarget : null;
+    if(btn) $(btn).prop('disabled', true).prepend('<span class="spinner-border spinner-border-sm mr-1"></span>');
+
+    $.ajax({
+        url: '/api/admin/update-ho-so-permission',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            ma_nhan_vien: mnv,
+            permission_code: code,
+            ma_hieu_2: unit,
+            action: action
+        }),
+        success: function(res) {
+            if (res.status === 'success') {
+                if(Toast) Toast.fire({ icon: 'success', title: action === 'grant' ? 'Đã cấp quyền' : 'Đã thu hồi' });
+                $('#modalWorkflow').modal('hide');
+                searchUsers();
+            } else {
+                Swal.fire('Lỗi', res.message || 'Thất bại', 'error');
+            }
+        },
+        error: function() {
+            Swal.fire('Lỗi kết nối', 'Không thể gọi API', 'error');
+        },
+        complete: function() {
+            if(btn) $(btn).prop('disabled', false).find('.spinner-border').remove();
+        }
+    });
+}
+
+$(document).ready(function() {
+    searchUsers();
+});
+</script>
+
+<style>
+    .hover-effect:hover { background-color: #f0f7ff !important; transition: 0.2s; }
+    .badge-info { background-color: #36b9cc; }
+    .table td { vertical-align: middle !important; }
+    #userTable thead th { position: sticky; top: 0; z-index: 10; background: #f8f9fa; }
+    .custom-switch .custom-control-label::before { height: 1.25rem; width: 2.25rem; border-radius: 1rem; }
+    .custom-switch .custom-control-label::after { width: calc(1.25rem - 4px); height: calc(1.25rem - 4px); border-radius: 1rem; }
+</style>
+{% endblock %}

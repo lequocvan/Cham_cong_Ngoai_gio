@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2 class="mb-4"><i class="fas fa-list-alt text-warning"></i> Thống kê (đếm ruột bảng _yyyymm_error) từng ngày số lượng dòng KTraGDLoi, KTraFileThanhCong của từng loại báo cáo (CTR; DWT; EFT; PTR); kết quả của sp_tong_hop_sodong_bang_error; bảng bang_thong_ke_loi_daily & logs_nap_csv</h2>
+    
+    <div class="card shadow mb-4">
+        <div class="card-header bg-light">
+            <h6 class="m-0 font-weight-bold text-dark"><i class="fas fa-filter"></i> Bộ lọc tiêu chí</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="font-weight-bold">Từ ngày:</label>
+                    <input type="date" id="filter_tu_ngay" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="font-weight-bold">Đến ngày:</label>
+                    <input type="date" id="filter_den_ngay" class="form-control">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="button" id="btn_clear_filter" class="btn btn-secondary w-100">
+                        <i class="fas fa-undo"></i> Xóa
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="tbl_trang_thai" class="table table-bordered table-sm table-striped text-center align-middle" style="width:100%">
+                    <thead class="table-dark">
+                        <tr>
+                            <th rowspan="2" class="align-middle text-center">Ngày Báo Cáo</th>
+                            <th colspan="4" class="bg-danger text-white text-center">DB: KIỂM TRA GIAO DỊCH LỖI</th>
+                            <th colspan="4" class="bg-success text-white text-center">DB: KIỂM TRA FILE THÀNH CÔNG</th>
+                            <th colspan="4" class="bg-primary text-white text-center">PYTHON: SỐ DÒNG TỪ FILE CSV</th>
+                            <th colspan="2" class="bg-secondary text-white text-center">Tổng cộng</th>
+                        </tr>
+                        <tr>
+                            <th>CTR</th><th>DWT</th><th>EFT</th><th>PTR</th>
+                            <th>CTR</th><th>DWT</th><th>EFT</th><th>PTR</th>
+                            <th>CTR</th><th>DWT</th><th>EFT</th><th>PTR</th>
+                            <th class="bg-dark text-white">Tổng DB</th>
+                            <th class="bg-info text-dark">Tổng File</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Đợi toàn bộ cấu trúc trang tải xong
+window.onload = function() {
+    if (typeof jQuery === 'undefined') {
+        console.error("jQuery chưa được tải! Kiểm tra lại file base.html");
+        return;
+    }
+    
+    $(document).ready(function() {
+        var table = $('#tbl_trang_thai').DataTable({
+            "processing": true,
+            "serverSide": true,
+            "ajax": {
+                "url": "/api/bc48/thong-ke-trang-thai",
+                "data": function (d) {
+                    function convertDate(dateStr) {
+                        return dateStr ? dateStr.replace(/-/g, "") : "";
+                    }
+                    d.tu_ngay = convertDate($('#filter_tu_ngay').val());
+                    d.den_ngay = convertDate($('#filter_den_ngay').val());
+                }
+            },
+            // Khai báo chính xác cấu hình 15 cột tương ứng hàng đáy của thead
+            "columns": [
+                { "data": "ngay_baocao" },
+
+                // Khối 1: Giao dịch lỗi ghi nhận trong DB
+                { "data": "loi_ctr" }, 
+                { "data": "loi_dwt" }, 
+                { "data": "loi_eft" }, 
+                { "data": "loi_ptr" },
+                
+                // Khối 2: Giao dịch thành công ghi nhận trong DB
+                { "data": "tc_ctr" }, 
+                { "data": "tc_dwt" }, 
+                { "data": "tc_eft" }, 
+                { "data": "tc_ptr" },
+                
+                // Khối 3: Số liệu Python quét trực tiếp từ file vật lý CSV (Màu nền Primary phân biệt)
+                { "data": "file_ctr", "className": "table-primary text-dark font-weight-bold" }, 
+                { "data": "file_dwt", "className": "table-primary text-dark font-weight-bold" }, 
+                { "data": "file_eft", "className": "table-primary text-dark font-weight-bold" }, 
+                { "data": "file_ptr", "className": "table-primary text-dark font-weight-bold" },
+                
+                // Khối Tổng cộng cuối dòng
+                { "data": "tong_db" },
+                { "data": "tong_file", "className": "table-info text-dark font-weight-bold" }
+            ],
+            "dom": '<"row mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row"<"col-md-6"i><"col-md-6"p>>',
+            "buttons": [
+                {
+                    extend: 'collection',
+                    text: '<i class="fas fa-file-excel"></i> Xuất Excel',
+                    className: 'btn btn-success',
+                    buttons: [
+                        {
+                            text: 'Xuất kết quả lọc',
+                            action: function () {
+                                var tu = $('#filter_tu_ngay').val();
+                                var den = $('#filter_den_ngay').val();
+                                
+                                if (!tu && !den) {
+                                    alert("Thông báo: Bạn chưa chọn ngày, sẽ xuất toàn bộ dữ liệu.");
+                                }
+
+                                function convertDate(dateStr) {
+                                    if (!dateStr) return "";
+                                    return dateStr.replace(/-/g, ""); 
+                                }
+                                var tu_param = convertDate(tu);
+                                var den_param = convertDate(den);
+
+                                console.log("Xuất lọc từ:", tu_param, "đến:", den_param);
+                                window.location.href = `/api/bc48/export-thong-ke?tu_ngay=${tu_param}&den_ngay=${den_param}`;
+                            }
+                        },
+                        {
+                            text: 'Xuất toàn bộ dữ liệu',
+                            action: function () {
+                                window.location.href = '/api/bc48/export-thong-ke?all=true';
+                            }
+                        }
+                    ]
+                }
+            ]
+        });
+
+        // Kích hoạt cơ chế reload API khi thay đổi giá trị bộ lọc ngày
+        $('#filter_tu_ngay, #filter_den_ngay').on('change', function() { 
+            table.ajax.reload();
+        });
+        
+        // Thiết lập sự kiện nút Xóa bộ lọc
+        $('#btn_clear_filter').on('click', function() {
+            $('#filter_tu_ngay, #filter_den_ngay').val('');
+            table.ajax.reload();
+        });
+    });
+};
+</script>
+{% endblock %}

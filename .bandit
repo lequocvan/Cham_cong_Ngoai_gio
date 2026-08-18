@@ -1,0 +1,24 @@
+# Danh sách các thư mục Bandit sẽ BỎ QUA không quét
+targets:
+  - "."
+
+exclude_dirs:
+  - "venv"
+  - ".venv"
+  - "env"
+  - ".git"
+  - "tests"
+  - "build"
+  - "dist"
+  - "__pycache__"
+
+# Ẩn các loại kiểm tra không cần thiết hoặc dễ gây cảnh báo giả
+# B301: pickle (nếu dự án không dùng pickle nguy hiểm)
+# B101: assert_used (Bandit mặc định cảnh báo khi dùng assert)
+skips:
+  - "B101"
+
+# Chỉ báo cáo các lỗ hổng có mức độ nghiêm trọng từ MEDIUM trở lên
+# (Tương đương tham số -ll trên CLI)
+# Các giá trị hợp lệ: LOW, MEDIUM, HIGH
+# min_severity: "MEDIUM"

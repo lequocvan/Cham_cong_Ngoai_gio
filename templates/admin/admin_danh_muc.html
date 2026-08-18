@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white font-weight-bold">
+                    <i class="fas fa-plus-circle mr-2"></i>Thêm Danh mục Mới
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('quan_ly_danh_muc') }}" method="POST">
+                        <div class="form-group mb-3">
+                            <label class="small font-weight-bold text-muted">TÊN DANH MỤC</label>
+                            <input type="text" name="ten_danh_muc" class="form-control" placeholder="Ví dụ: Hồ sơ Kế toán" required>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label class="small font-weight-bold text-muted">MÔ TẢ (TÙY CHỌN)</label>
+                            <textarea name="mo_ta" class="form-control" rows="3" placeholder="Ghi chú về các loại mẫu biểu trong nhóm này..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block font-weight-bold">
+                            <i class="fas fa-save mr-1"></i> LƯU DANH MỤC
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white font-weight-bold d-flex justify-content-between align-items-center">
+                    <span class="text-dark"><i class="fas fa-list mr-2 text-primary"></i>Danh sách Danh mục hiện có</span>
+                    <span class="badge badge-pill badge-info">{{ ds_dm|length }} mục</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th style="width: 50px;">ID</th>
+                                <th>Tên Danh mục</th>
+                                <th>Mô tả</th>
+                                <th class="text-center">Số gói mẫu</th>
+                                <th class="text-right">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for dm in ds_dm %}
+                            <tr>
+                                <td class="text-muted small">#{{ dm.id }}</td>
+                                <td class="font-weight-bold text-primary">{{ dm.ten_danh_muc }}</td>
+                                <td class="small text-muted">{{ dm.mo_ta or '---' }}</td>
+                                <td class="text-center">
+                                    <span class="badge badge-light border">{{ dm.ds_goi_mau|length }}</span>
+                                </td>
+                                <td class="text-right">
+                                    <a href="{{ url_for('xoa_danh_muc', id=dm.id) }}" 
+                                       class="btn btn-sm btn-outline-danger border-0"
+                                       onclick="return confirm('Bạn có chắc chắn muốn xóa danh mục [{{ dm.ten_danh_muc }}]? Hành động này không thể hoàn tác.')">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted italic">
+                                    Chưa có danh mục nào được khai báo.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+{% endblock %}

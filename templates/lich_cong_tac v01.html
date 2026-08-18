@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center bg-white">
+            <h5 class="m-0 font-weight-bold text-primary">
+                <i class="fas fa-calendar-alt mr-2"></i>LỊCH CÔNG TÁC ĐOÀN - {% if is_searching %}KẾT QUẢ TÌM KIẾM{% else %}THÁNG {{ month }}/{{ year }}{% endif %}
+                <small class="text-muted ml-2">{% if not is_system_admin %}(Đơn vị: {{ user_ten_ma_hieu_2 }}){% endif %}</small>
+            </h5>
+            <div class="d-flex align-items-center">
+                <div class="btn-group mr-3">
+                    <a href="?month={{ month-1 if month > 1 else 12 }}&year={{ year if month > 1 else year-1 }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-chevron-left"></i> Trước
+                    </a>
+                    <button class="btn btn-sm btn-light border" onclick="location.href='?month={{ today.month }}&year={{ today.year }}'">Hôm nay</button>
+                    <a href="?month={{ month+1 if month < 12 else 1 }}&year={{ year if month < 12 else year+1 }}" class="btn btn-sm btn-outline-secondary">
+                        Sau <i class="fas fa-chevron-right"></i>
+                    </a>
+                </div>
+                <button class="btn btn-success btn-sm shadow-sm" onclick="openAddModal('{{ today.strftime('%Y-%m-%d') }}')">
+                    <i class="fas fa-plus fa-sm"></i> Thêm lịch mới
+                </button>
+            </div>
+        </div>
+        
+        <div class="card-body border-bottom bg-light">
+            <form method="GET" action="{{ url_for('lich_cong_tac') }}" id="searchForm">
+                <div class="row">
+                    <div class="col-md-2 mb-2">
+                        <label class="small font-weight-bold">Từ ngày</label>
+                        <input type="date" name="search_tu_ngay" class="form-control form-control-sm" value="{{ search_params.get('search_tu_ngay', '') }}">
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <label class="small font-weight-bold">Đến ngày</label>
+                        <input type="date" name="search_den_ngay" class="form-control form-control-sm" value="{{ search_params.get('search_den_ngay', '') }}">
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <label class="small font-weight-bold">Trưởng đoàn</label>
+                        <input type="text" name="search_truong_doan" class="form-control form-control-sm" placeholder="Tên trưởng đoàn..." value="{{ search_params.get('search_truong_doan', '') }}">
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <label class="small font-weight-bold">Đơn vị</label>
+                        <select name="search_don_vi" id="search_don_vi_filter" class="form-control form-control-sm">
+                            {% if search_params.get('search_don_vi') %}
+                                <option value="{{ search_params.get('search_don_vi') }}" selected>Đang chọn: {{ search_params.get('search_don_vi') }}</option>
+                            {% else %}
+                                <option value="">-- Gõ để tìm đơn vị --</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <label class="small font-weight-bold">Lĩnh vực</label>
+                        <select name="search_linh_vuc" id="search_linh_vuc_filter" class="form-control form-control-sm">
+                            <option value="">-- Gõ để tìm lĩnh vực --</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 mb-2 d-flex align-items-end">
+                        <div class="btn-group w-100">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="fas fa-search"></i> Tìm
+                            </button>
+                            <button type="button" class="btn btn-success btn-sm" onclick="exportExcel()">
+                                <i class="fas fa-file-excel"></i> Xuất Excel
+                            </button>
+                            <a href="{{ url_for('lich_cong_tac') }}" class="btn btn-secondary btn-sm">
+                                <i class="fas fa-sync"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="card-body p-0">
+            {% if is_searching %}
+                <div class="table-responsive">
+                    <table class="table table-hover m-0">
+                        <thead class="bg-light">
+                            <tr class="small font-weight-bold text-uppercase text-center">
+                                <th style="width: 150px;">Thời gian</th>
+                                <th>Nội dung đoàn công tác</th>
+                                <th>Đơn vị / Lĩnh vực</th>
+                                <th>Trưởng đoàn</th>
+                                {% if current_user.is_admin %}<th style="width: 50px;"></th>{% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in lich_trinh %}
+                            <tr>
+                                <td class="text-center small">
+                                    {{ item.doan_vao_tu_ngay.strftime('%d/%m/%Y') }}
+                                    {% if item.doan_vao_tu_ngay != item.doan_vao_den_ngay %}
+                                        <br><i class="fas fa-arrow-down fa-xs"></i><br>
+                                        {{ item.doan_vao_den_ngay.strftime('%d/%m/%Y') }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="font-weight-bold text-primary">{{ item.ten_doan }}</span>
+                                    <br><small class="text-muted">{{ item.thanh_phan[:100] }}{% if item.thanh_phan|length > 100 %}...{% endif %}</small>
+                                </td>
+                                <td>
+                                    <div>
+                                        {% for dv in item.danh_sach_don_vi %}
+                                            <span class="badge bg-info text-white mb-1">{{ dv.ten_ma_hieu_2 }}</span>
+                                        {% endfor %}
+                                    </div>
+                                    <div>
+                                        {% for lv in item.danh_sach_linh_vuc %}
+                                            <span class="badge bg-secondary text-white">{{ lv.ten_linh_vuc }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                                <td>{{ item.truong_doan }}</td>
+                                {% if current_user.is_admin %}
+                                <td class="text-center">
+                                    <form action="{{ url_for('delete_lich_cong_tac', id=item.id) }}" method="POST">
+                                        <button type="submit" class="btn btn-link text-danger p-0" onclick="return confirm('Xóa lịch này?')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="text-center py-5 text-muted">Không tìm thấy kết quả nào phù hợp tiêu chí tìm kiếm.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+            {% else %}
+                <div class="table-responsive">
+                    <table class="table table-bordered calendar-table m-0">
+                        <thead>
+                            <tr class="text-center bg-light text-uppercase small font-weight-bold">
+                                <th>Thứ Hai</th><th>Thứ Ba</th><th>Thứ Tư</th><th>Thứ Năm</th><th>Thứ Sáu</th>
+                                <th class="text-danger">Thứ Bảy</th><th class="text-danger">Chủ Nhật</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for week in month_days %}
+                            <tr>
+                                {% for day in week %}
+                                {% set current_date_str = "%04d-%02d-%02d" % (year, month, day) if day != 0 else "" %}
+                                <td class="day-cell {% if day == 0 %}empty-cell{% endif %} {% if day == today.day and month == today.month and year == today.year %}today-highlight{% endif %}"
+                                    {% if day != 0 %} onclick="openAddModal('{{ current_date_str }}')" {% endif %}>
+                                    
+                                    {% if day != 0 %}
+                                        <span class="day-number">{{ day }}</span>
+                                        <div class="event-stack">
+                                            {% for item in lich_trinh %}
+                                                {# Ở chế độ lịch, chỉ hiển thị nếu ngày đó nằm trong khoảng từ - đến #}
+                                                {% if item.doan_vao_tu_ngay.day <= day and item.doan_vao_den_ngay.day >= day %}
+                                                <div class="event-bar d-flex justify-content-between align-items-center" 
+                                                     data-bs-toggle="tooltip" data-bs-html="true"
+                                                     title="<b>Đoàn:</b> {{ item.ten_doan }}<br><b>Đơn vị:</b> {% for dv in item.danh_sach_don_vi %}{{ dv.ten_ma_hieu_2 }}{% endfor %}">
+                                                    
+                                                    <span class="event-title text-truncate">
+                                                        <strong>{{ item.danh_sach_don_vi[0].ten_ma_hieu_2[:10] if item.danh_sach_don_vi else '...' }}</strong>: {{ item.ten_doan }}
+                                                    </span>
+
+                                                    {% if current_user.is_admin %}
+                                                    <form action="{{ url_for('delete_lich_cong_tac', id=item.id) }}" method="POST" class="delete-form d-inline">
+                                                        <button type="submit" class="btn-delete-event" onclick="return confirmDelete(event)">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </form>
+                                                    {% endif %}
+                                                </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalAddLich" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <form action="{{ url_for('add_lich_cong_tac') }}" method="POST" class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title font-weight-bold"><i class="fas fa-calendar-plus mr-2"></i> GHI LỊCH TRÌNH CÔNG TÁC</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body bg-light px-4">
+                <div class="row">
+                    <div class="col-lg-7 border-right">
+                        <h6 class="text-primary font-weight-bold mb-3 border-bottom pb-2">Thông tin đoàn</h6>
+                        
+                        <div class="mb-3">
+                            <label class="small font-weight-bold">Tên đoàn / Nội dung công tác</label>
+                            <input type="text" name="ten_doan" class="form-control" tabindex="1" required placeholder="Nhập tên đoàn công tác...">
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="small font-weight-bold">Trưởng đoàn</label>
+                                <input type="text" name="truong_doan" class="form-control" tabindex="2" placeholder="Tên trưởng đoàn">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="small font-weight-bold text-primary">Lĩnh vực công tác (Chọn nhiều)</label>
+                                <select name="linh_vuc_id[]" id="select_linh_vuc" class="form-control" multiple="multiple" style="width: 100%;" tabindex="3">
+                                    {% for lv in danh_sach_linh_vuc %}
+                                    <option value="{{ lv.id }}">{{ lv.ten_linh_vuc }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="small font-weight-bold text-danger">Đơn vị đến làm việc</label>
+                            {% if is_system_admin %}
+                                <select name="don_vi_id[]" id="selectDonViSearch" class="form-control" multiple="multiple" style="width: 100%;" tabindex="4">
+                                </select>
+                                <small class="text-muted"><i class="fas fa-info-circle"></i> Gõ mã hoặc tên để tìm kiếm đơn vị</small>
+                            {% else %}
+                                <div class="p-2 border rounded bg-light d-flex align-items-center">
+                                    <i class="fas fa-building text-primary mr-2"></i>
+                                    <div>
+                                        <span class="d-block small text-muted">Đơn vị của bạn:</span>
+                                        <strong>{{ user_ma_hieu_2 }} - {{ user_ten_ma_hieu_2 }}</strong>
+                                    </div>
+                                </div>
+                                <input type="hidden" name="don_vi_id[]" value="{{ user_ma_hieu_2 }}">
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="col-lg-5 px-lg-4">
+                        <h6 class="text-primary font-weight-bold mb-3 border-bottom pb-2">Thời gian & Ghi chú</h6>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="small font-weight-bold text-dark">Từ ngày <span class="text-danger">*</span></label>
+                                <input type="date" name="doan_vao_tu_ngay" id="input_tu_ngay" class="form-control" tabindex="5" required>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="small font-weight-bold text-dark">Đến ngày <span class="text-danger">*</span></label>
+                                <input type="date" name="doan_vao_den_ngay" id="input_den_ngay" class="form-control" tabindex="6" required>
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <label class="small font-weight-bold text-dark">Thành phần tham gia & Ghi chú</label>
+                            <textarea name="thanh_phan" class="form-control" rows="6" tabindex="7" placeholder="Danh sách cán bộ đi cùng, địa điểm cụ thể hoặc các lưu ý khác..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-white shadow-sm">
+                <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal">Hủy bỏ</button>
+                <button type="submit" class="btn btn-primary px-5 font-weight-bold">
+                    <i class="fas fa-save mr-2"></i> Lưu lịch trình
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    /* Style giữ nguyên và thêm style cho select search */
+    .modal-xl { max-width: 1140px; }
+    @media (min-width: 992px) {
+        .border-right { border-right: 1px solid #e3e6f0 !important; }
+    }
+    .form-control, .form-select { border-radius: 6px; border: 1px solid #d1d3e2; padding: 0.6rem 0.75rem; }
+    .form-control:focus { box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.1); }
+    
+    .calendar-table { table-layout: fixed; }
+    .day-cell { height: 140px; vertical-align: top !important; padding: 5px !important; cursor: pointer; border: 1px solid #dee2e6 !important; transition: 0.2s; }
+    .day-cell:hover { background-color: #f8f9ff !important; box-shadow: inset 0 0 0 2px #4e73df; z-index: 5; position: relative; }
+    .empty-cell { background-color: #fcfcfc !important; cursor: default; }
+    .today-highlight { background-color: #fff9e6 !important; }
+    .today-highlight .day-number { background: #f6c23e; color: #fff; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; }
+    .day-number { font-size: 0.85rem; font-weight: 800; color: #5a5c69; margin-bottom: 5px; display: block; }
+    .event-stack { display: flex; flex-direction: column; gap: 3px; }
+    .event-bar { font-size: 0.72rem; padding: 2px 6px; border-radius: 3px; background-color: #eef2ff; color: #2e59d9; border-left: 3px solid #4e73df; transition: 0.1s; }
+    .event-bar:hover { background-color: #4e73df !important; color: #fff !important; }
+    .btn-delete-event { background: none; border: none; color: currentColor; padding: 0 2px; font-size: 0.8rem; opacity: 0.5; transition: 0.2s; }
+    .btn-delete-event:hover { opacity: 1; transform: scale(1.2); color: #e74a3b !important; }
+    .select2-container--bootstrap-5 .select2-selection--multiple { min-height: 42px; border-radius: 6px; }
+    /* Style cho select search nhỏ gọn */
+    .select2-search + .select2-container--bootstrap-5 .select2-selection {
+        height: 31px;
+        font-size: 0.8rem;
+        min-height: 31px;
+    }
+</style>
+
+<script>
+    let addModalWrap = null;
+
+    function exportExcel() {
+        const form = document.getElementById('searchForm');
+        const formData = new FormData(form);
+        const params = new URLSearchParams(formData).toString();
+        // Redirect tới route export của bạn với các tham số query
+        window.location.href = "{{ url_for('export_excel_lich') }}?" + params;
+    }
+
+    function openAddModal(selectedDate) {
+        if (!addModalWrap) {
+            addModalWrap = new bootstrap.Modal(document.getElementById('modalAddLich'), {
+                focus: false 
+            });
+        }
+        
+        const modalEl = document.getElementById('modalAddLich');
+        const form = modalEl.querySelector('form');
+        form.reset();
+        
+        $('#selectDonViSearch').val(null).trigger('change');
+        $('#select_linh_vuc').val(null).trigger('change');
+
+        if (selectedDate) {
+            document.getElementById('input_tu_ngay').value = selectedDate;
+            document.getElementById('input_den_ngay').value = selectedDate;
+        }
+        addModalWrap.show();
+    }
+
+    function confirmDelete(event) {
+        event.stopPropagation();
+        return confirm("Bạn có chắc chắn muốn xóa lịch công tác này?");
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Cấu hình chung cho Select2 Ajax
+        const select2AjaxConfig = (url, placeholder) => ({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: placeholder,
+            allowClear: true,
+            ajax: {
+                url: url,
+                dataType: 'json',
+                delay: 300, // Chỉ gửi request sau khi người dùng ngừng gõ 0.3 giây
+                data: function (params) {
+                    return { q: params.term };
+                },
+                processResults: function (data) {
+                    return { results: data.results };
+                },
+                cache: true
+            },
+            minimumInputLength: 0 // Cho phép bấm vào hiện danh sách gợi ý ngay
+        });
+
+        // 1. Khởi tạo cho bộ lọc (Ngoài màn hình)
+        $('#search_don_vi_filter').select2(select2AjaxConfig('/api/search_don_vi', '🔍 Tìm đơn vị...'));
+        $('#search_linh_vuc_filter').select2(select2AjaxConfig('/api/search_linh_vuc', '🔍 Tìm lĩnh vực...'));
+
+        // 2. Khởi tạo cho Modal thêm mới (Dành cho Admin)
+        if ($('#selectDonViSearch').length > 0) {
+            $('#selectDonViSearch').select2({
+                ...select2AjaxConfig('/api/search_don_vi', '🔍 Chọn đơn vị đến làm việc...'),
+                dropdownParent: $('#modalAddLich'),
+                multiple: true // Cho phép chọn nhiều đơn vị
+            });
+        }
+
+        $('#select_linh_vuc').select2({
+            ...select2AjaxConfig('/api/search_linh_vuc', '🔍 Chọn các lĩnh vực...'),
+            dropdownParent: $('#modalAddLich'),
+            multiple: true
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Nhật ký nạp TXT vào bc48</title>
+    <style>
+        .table-sm { font-size: 0.85rem; }
+        .card-body { padding: 1.25rem; }
+        .form-label { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem; color: #495057; }
+        .badge-status { font-size: 80%; padding: 0.35em 0.65em; }
+        
+        /* CSS CHO WRAP TEXT TỰ ĐỘNG XUỐNG DÒNG */
+        .wrap-cell { 
+            white-space: normal !important; 
+            word-break: break-word; 
+            overflow-wrap: anywhere; 
+        }
+    </style>
+</head>
+<body class="bg-light">
+<div class="container-fluid mt-4 mb-5">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0 text-dark font-weight-bold">
+            <i class="fas fa-file-import text-primary mr-2"></i>Nhật ký nạp TXT vào BC48
+        </h3>
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm shadow-sm">
+            <i class="fas fa-home mr-1"></i> Trang chủ
+        </a>
+    </div>
+
+    <!-- Thống kê nhanh -->
+    <div class="alert alert-white border shadow-sm py-3 mb-4 rounded">
+        <div class="row text-center text-md-left">
+            <div class="col-md-4 border-right mb-2 mb-md-0">
+                <i class="fas fa-file-alt text-primary fa-lg mr-2"></i> 
+                <span class="text-muted">Tổng số file TXT duy nhất:</span> 
+                <strong class="text-primary h5 mb-0 ml-1">{{ "{:,}".format(stats.unique_files) if stats and stats.unique_files else 0 }}</strong>
+            </div>
+            <div class="col-md-4 border-right mb-2 mb-md-0">
+                <i class="fas fa-database text-info fa-lg mr-2"></i> 
+                <span class="text-muted">Tổng số bản ghi:</span> 
+                <strong class="text-info h5 mb-0 ml-1">{{ "{:,}".format(stats.total_records) if stats and stats.total_records else 0 }}</strong>
+            </div>
+            <div class="col-md-4">
+                <i class="fas fa-calculator text-success fa-lg mr-2"></i> 
+                <span class="text-muted">Tổng số lượng:</span> 
+                <strong class="text-success h5 mb-0 ml-1">{{ "{:,}".format(stats.total_so_luong) if stats and stats.total_so_luong else 0 }}</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- Khối Bộ lọc & Bảng dữ liệu -->
+    <div class="card shadow-sm border-0 rounded-lg">
+        <div class="card-body">
+            
+            <!-- FORM BỘ LỌC -->
+            <form method="GET" action="{{ url_for('bc48_file_logs') }}" class="bg-light p-3 border rounded mb-4">
+                <div class="form-row align-items-end">
+                    <div class="form-group col-lg-2 col-md-4 col-sm-6 mb-2">
+                        <label class="form-label"><i class="far fa-calendar-alt text-muted"></i> Từ ngày</label>
+                        <input type="date" name="start_date" class="form-control form-control-sm" value="{{ start_date or '' }}">
+                    </div>
+                    <div class="form-group col-lg-2 col-md-4 col-sm-6 mb-2">
+                        <label class="form-label"><i class="far fa-calendar-alt text-muted"></i> Đến ngày</label>
+                        <input type="date" name="end_date" class="form-control form-control-sm" value="{{ end_date or '' }}">
+                    </div>
+
+                    <!-- Cột Loại BC -->
+                    <div class="form-group col-lg-2 col-md-4 col-sm-6 mb-2">
+                        <label class="form-label"><i class="fas fa-filter text-muted"></i> Loại BC (CTR; DWT; EFT; PTR)</label>
+                        <select name="loai_bc" class="form-control form-control-sm">
+                            <option value="">-- Tất cả --</option>
+                            {% for item in loai_bc_list %}
+                                <option value="{{ item }}" {% if loai_bc == item %}selected{% endif %}>
+                                    {{ item }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Cột Hình thức -->
+                    <div class="form-group col-lg-2 col-md-4 col-sm-6 mb-2">
+                        <label class="form-label"><i class="fas fa-layer-group text-muted"></i> Hình thức (GLD; GBS; GLA)</label>
+                        <select name="hinh_thuc" class="form-control form-control-sm">
+                            <option value="">-- Tất cả --</option>
+                            {% for item in hinh_thuc_list %}
+                                <option value="{{ item }}" {% if hinh_thuc == item %}selected{% endif %}>
+                                    {{ item }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Ô Tên file kết hợp Checkbox Lọc Chính Xác -->
+                    <div class="form-group col-lg-3 col-md-4 col-sm-6 mb-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <label class="form-label mb-0"><i class="fas fa-file-signature text-muted"></i> Tên file</label>
+                            <div class="custom-control custom-checkbox small">
+                                <input type="checkbox" class="custom-control-input" id="exactMatch" name="exact_match" value="1" {% if exact_match %}checked{% endif %}>
+                                <label class="custom-control-label text-muted" for="exactMatch" title="Tích chọn để tìm kiếm chính xác 100% giúp tối ưu tốc độ">Chính xác</label>
+                            </div>
+                        </div>
+                        <input type="text" name="file_name" class="form-control form-control-sm mt-1" placeholder="Nhập tên file..." value="{{ file_name or '' }}">
+                    </div>
+                    
+                    <div class="form-group col-lg-4 col-md-8 col-sm-12 mb-2 text-md-right">
+                        <button type="submit" class="btn btn-primary btn-sm shadow-sm">
+                            <i class="fas fa-search mr-1"></i> Lọc
+                        </button>
+                        <a href="{{ url_for('bc48_file_logs') }}" class="btn btn-outline-secondary btn-sm ml-1 shadow-sm" title="Xóa tất cả điều kiện lọc">
+                            <i class="fas fa-undo mr-1"></i> Xóa lọc
+                        </a>
+                        <a href="{{ url_for('export_file_logs_csv', start_date=start_date, end_date=end_date, loai_bc=loai_bc, hinh_thuc=hinh_thuc) }}" 
+                           class="btn btn-success btn-sm ml-1 shadow-sm">
+                            <i class="fas fa-file-csv mr-1"></i> Xuất CSV
+                        </a>
+                    </div>
+                </div>
+            </form>
+
+            <!-- BẢNG DỮ LIỆU -->
+            <div class="table-responsive">
+                <table class="table table-sm table-hover table-bordered mb-0">
+                    <thead class="thead-light text-center">
+                        <tr>
+                            <!-- Bổ sung wrap-cell và thiết lập độ rộng thích hợp -->
+                            <th class="wrap-cell" style="width: 18%;">Tên file</th>
+                            <th style="width: 6%;">Mã CN</th>
+                            <th style="width: 8%;">
+                                Thời điểm 
+                                <i class="fas fa-sort-numeric-down text-primary" title="Mới nhất trước"></i>
+                            </th>
+                            <th style="width: 7%;">Loại BC</th>
+                            <th style="width: 7%;">Hình thức</th>
+                            <th style="width: 5%;">STT</th>
+                            <th style="width: 6%;">Số lượng</th>
+                            <th style="width: 9%;">Người nạp</th>
+                            <th style="width: 10%;">Ngày nạp</th>
+                            <th style="width: 6%;">Trạng thái</th>
+                            <!-- Bổ sung wrap-cell cho Header -->
+                            <th class="wrap-cell" style="width: 18%;">Header</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in file_logs %}
+                        <tr>
+                            <!-- Wrap text cho Tên file -->
+                            <td class="font-weight-bold text-dark wrap-cell">{{ log.file_name }}</td>
+                            <td class="text-center">{{ log.macn }}</td>
+                            <td class="text-center">
+                                {% if log.thoidiem and log.thoidiem|length == 8 %}
+                                    {{ log.thoidiem[6:8] }}/{{ log.thoidiem[4:6] }}/{{ log.thoidiem[0:4] }}
+                                {% else %}
+                                    {{ log.thoidiem or '' }}
+                                {% endif %}
+                            </td>
+                            <td class="text-center"><span class="badge badge-light border">{{ log.loai_bc }}</span></td>
+                            <td class="text-center">{{ log.hinh_thuc or '' }}</td>
+                            <td class="text-center">{{ log.stt or '' }}</td>
+                            <td class="text-right pr-2">{{ "{:,}".format(log.so_luong) if log.so_luong else 0 }}</td>
+                            <td>{{ log.user_import or '' }}</td>
+                            <td class="text-center">{{ log.import_date.strftime('%d/%m/%Y %H:%M') if log.import_date else '' }}</td>
+                            <td class="text-center">
+                                <span class="badge badge-status {% if log.status == 'SUCCESS' %}badge-success{% else %}badge-danger{% endif %}">
+                                    {{ log.status or 'N/A' }}
+                                </span>
+                            </td>
+                            <!-- Wrap text cho Header -->
+                            <td class="wrap-cell text-muted" title="{{ log.header_raw }}">{{ log.header_raw or '' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="11" class="text-center py-4 text-muted">
+                                <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                                Không tìm thấy dữ liệu phù hợp với điều kiện lọc.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PHÂN TRANG -->
+            {% set total_records = stats.total_records if stats and stats.total_records else 0 %}
+            {% set per_page = 50 %}
+            {% set total_pages = ((total_records - 1) // per_page) + 1 if total_records > 0 else 1 %}
+
+            {% if total_pages > 1 %}
+            <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                <div class="text-muted small">
+                    Hiển thị trang <strong>{{ page }}</strong> / <strong>{{ total_pages }}</strong> trang (Tổng <strong>{{ "{:,}".format(total_records) }}</strong> bản ghi)
+                </div>
+                
+                <nav aria-label="Page navigation">
+                    <ul class="pagination pagination-sm mb-0">
+                        <!-- Trang đầu -->
+                        <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('bc48_file_logs', page=1, start_date=start_date, end_date=end_date, loai_bc=loai_bc, hinh_thuc=hinh_thuc, file_name=file_name, exact_match=('1' if exact_match else '0')) }}" title="Trang đầu">
+                                <i class="fas fa-angle-double-left"></i>
+                            </a>
+                        </li>
+                        
+                        <!-- Trang trước -->
+                        <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('bc48_file_logs', page=page-1, start_date=start_date, end_date=end_date, loai_bc=loai_bc, hinh_thuc=hinh_thuc, file_name=file_name, exact_match=('1' if exact_match else '0')) }}" title="Trang trước">
+                                <i class="fas fa-angle-left"></i>
+                            </a>
+                        </li>
+
+                        {% set start_p = page - 2 if page - 2 > 0 else 1 %}
+                        {% set end_p = page + 2 if page + 2 <= total_pages else total_pages %}
+
+                        {% if start_p > 1 %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+
+                        <!-- Danh sách các trang -->
+                        {% for p in range(start_p, end_p + 1) %}
+                            <li class="page-item {% if p == page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('bc48_file_logs', page=p, start_date=start_date, end_date=end_date, loai_bc=loai_bc, hinh_thuc=hinh_thuc, file_name=file_name, exact_match=('1' if exact_match else '0')) }}">{{ p }}</a>
+                            </li>
+                        {% endfor %}
+
+                        {% if end_p < total_pages %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+
+                        <!-- Trang sau -->
+                        <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('bc48_file_logs', page=page+1, start_date=start_date, end_date=end_date, loai_bc=loai_bc, hinh_thuc=hinh_thuc, file_name=file_name, exact_match=('1' if exact_match else '0')) }}" title="Trang sau">
+                                <i class="fas fa-angle-right"></i>
+                            </a>
+                        </li>
+
+                        <!-- Trang cuối -->
+                        <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('bc48_file_logs', page=total_pages, start_date=start_date, end_date=end_date, loai_bc=loai_bc, hinh_thuc=hinh_thuc, file_name=file_name, exact_match=('1' if exact_match else '0')) }}" title="Trang cuối">
+                                <i class="fas fa-angle-double-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-calendar-check mr-2"></i>BÁO CÁO TỔNG HỢP CÔNG CHI TIẾT</h5>
+            <span class="badge badge-light">Quy mô: {{ results|length }} nhân viên</span>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('bao_cao_cong_chi_tiet') }}" class="row g-3 mb-4 border-bottom pb-3">
+                <div class="col-md-2">
+                    <label class="form-label font-weight-bold">Từ ngày</label>
+                    <input type="date" name="tu_ngay" id="tu_ngay" class="form-control" value="{{ tu_ngay }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label font-weight-bold">Đến ngày</label>
+                    <input type="date" name="den_ngay" id="den_ngay" class="form-control" value="{{ den_ngay }}">
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label font-weight-bold small">Đơn vị (Mã hiệu 2)</label>
+                    <select name="ma_hieu_2" id="ma_hieu_2" class="form-control select2" {% if not is_system_admin %}disabled{% endif %}>
+                        <option value="">-- Tất cả đơn vị --</option>
+                        {% for dv in don_vis_list %}
+                        <option value="{{ dv }}" {% if dv == current_don_vi %}selected{% endif %}>{{ dv }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label font-weight-bold">Tìm nhân viên (Mã/Tên)</label>
+                    <input type="text" name="ho_ten" id="ho_ten" class="form-control" placeholder="Nhập để tìm..." value="{{ ho_ten if ho_ten else '' }}">
+                </div>
+
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary mr-2 flex-grow-1">
+                        <i class="fas fa-search mr-1"></i> Xem
+                    </button>
+                    <button type="button" class="btn btn-success flex-grow-1" onclick="exportExcel()">
+                        <i class="fas fa-file-excel mr-1"></i> Xuất Excel
+                    </button>
+                </div>
+            </form>
+
+            <div class="table-responsive table-container">
+                <table class="table table-bordered table-hover table-sm" id="reportTable">
+                    <thead class="bg-light text-center">
+                        <tr>
+                            <th class="align-middle">Mã NV</th>
+                            <th class="align-middle">Họ Tên</th>
+                            <th class="align-middle">Tháng/Năm</th>
+                            <th title="Công làm việc">X</th>
+                            <th title="Sáng Chiều">SC</th>
+                            <th title="Đi công tác">B</th>
+                            <th title="Nghỉ phép">P</th>
+                            <th title="Nghỉ hiếu">V</th>
+                            <th title="Nghỉ hỷ">C</th>
+                            <th title="Thai sản">T</th>
+                            <th title="Nghỉ ốm dài ngày">S</th>
+                            <th title="Nghỉ dưỡng sức">M</th>
+                            <th title="Đi học">H</th>
+                            <th title="Nghỉ tự do">D</th>
+                            <th title="Nghỉ không lương">N</th>
+                            <th title="Nghỉ Khác">K</th>
+                            <th title="Lễ tết">L</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if results %}
+                            {% for row in results %}
+                            <tr class="text-center">
+                                <td class="sticky-col first-col text-left font-weight-bold text-primary">{{ row.ma_nhan_vien }}</td>
+                                <td class="sticky-col second-col text-left text-nowrap">{{ row.ho_ten }}</td>
+                                <td class="text-nowrap small">
+                                    {% if row.Thang_Min == row.Thang_Max %}
+                                        {{ row.Thang_Min }}/{{ row.Nam_Min }}
+                                    {% else %}
+                                        <small>{{ row.Thang_Min }}-{{ row.Thang_Max }}/{{ row.Nam_Min }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="font-weight-bold text-dark">{{ row.Tong_X }}</td>
+                                <td>{{ row.Tong_SC }}</td>
+                                <td>{{ row.Tong_B }}</td>
+                                <td>{{ row.Tong_P }}</td>
+                                <td>{{ row.Tong_V }}</td>
+                                <td>{{ row.Tong_C }}</td>
+                                <td>{{ row.Tong_T }}</td>
+                                <td>{{ row.Tong_S }}</td>
+                                <td>{{ row.Tong_M }}</td>
+                                <td>{{ row.Tong_H }}</td>
+                                <td>{{ row.Tong_D }}</td>
+                                <td>{{ row.Tong_N }}</td>
+                                <td>{{ row.Tong_K }}</td>
+                                <td>{{ row.Tong_L }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="17" class="text-center text-muted py-3">Không có dữ liệu phù hợp với tiêu chí lọc.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="legend-box shadow-sm mt-4 bg-white p-3 border rounded">
+                <h6 class="font-weight-bold border-bottom pb-2 mb-3 text-primary">
+                    <i class="fas fa-info-circle mr-2"></i>GIẢI THÍCH KÝ HIỆU CHẤM CÔNG
+                </h6>
+                <div class="legend-grid">
+                    <div class="legend-item"><span class="badge-code">X</span> Đi làm (1.0 Ngày Công) <small class="text-muted d-block">// 1 công, 1 lương, 1 ăn ca</small></div>
+                    <div class="legend-item"><span class="badge-code">SC</span> Chấm công sáng chiều (0.5) <small class="text-muted d-block">// 0.5 công, 0.5 lương, 0.5 ăn ca</small></div>
+                    <div class="legend-item"><span class="badge-code">B</span> Đi công tác (1.0 Ngày Công) <small class="text-muted d-block">// 1 công, 1 lương, 1 ăn ca</small></div>
+                    <div class="legend-item"><span class="badge-code badge-green">P</span> Nghỉ phép (1.0 Ngày Lương) <small class="text-muted d-block">// 0 công, 1 lương, 0 ăn ca</small></div>
+                    <div class="legend-item"><span class="badge-code badge-green">V</span> Nghỉ hiếu (1.0 Ngày Lương) <small class="text-muted d-block">// 0 công, 1 lương, 0 ăn ca</small></div>
+                    <div class="legend-item"><span class="badge-code badge-green">C</span> Nghỉ hỷ (1.0 Ngày Lương) <small class="text-muted d-block">// 0 công, 1 lương, 0 ăn ca</small></div>
+                    <div class="legend-item"><span class="badge-code badge-green">T</span> Nghỉ thai sản (1.0 Ngày Lương) <small class="text-muted d-block">// 0 công, 1 lương, 0 ăn ca</small></div>
+                    <div class="legend-item"><span class="badge-code badge-green">S</span> Nghỉ ốm dài ngày (1.0 Lương) <small class="text-muted d-block">// 0 công, 1 lương, 0 ăn ca</small></div>
+                    <div class="legend-item"><span class="badge-code badge-green">M</span> Nghỉ dưỡng sức (1.0 Lương) <small class="text-muted d-block">// 0 công, 1 lương, 0 ăn ca</small></div>
+                    <div class="legend-item"><span class="badge-code badge-green">H</span> Nghỉ đi học (1.0 Ngày Lương) <small class="text-muted d-block">// 0 công, 1 lương, 0 ăn ca</small></div>
+                    <div class="legend-item"><span class="badge-code badge-red">D</span> Nghỉ tự do (0 Ngày Lương) <small class="text-muted d-block">// 0 công, 0 lương, 0 ăn ca</small></div>
+                    <div class="legend-item"><span class="badge-code badge-red">N</span> Nghỉ không lương (0 Lương) <small class="text-muted d-block">// 0 công, 0 lương, 0 ăn ca</small></div>
+                    <div class="legend-item"><span class="badge-code badge-red">K</span> Nghỉ khác (0 Ngày Lương) <small class="text-muted d-block">// 0 công, 0 lương, 0 ăn ca</small></div>
+                    <div class="legend-item"><span class="badge-code badge-red">L</span> Nghỉ Lễ (0 Ngày Lương) <small class="text-muted d-block">// 0 công, 0 lương, 0 ăn ca</small></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function exportExcel() {
+    // 1. Lấy giá trị từ các trường input và select
+    const tu_ngay = document.getElementById('tu_ngay').value;
+    const den_ngay = document.getElementById('den_ngay').value;
+    const ho_ten = document.getElementById('ho_ten').value;
+
+    // Thêm lấy giá trị đơn vị (Mã hiệu 2)
+    const ma_hieu_2_select = document.getElementById('ma_hieu_2');
+    const ma_hieu_2 = ma_hieu_2_select ? ma_hieu_2_select.value : '';
+    
+    // 2. Kiểm tra điều kiện bắt buộc
+    if (!tu_ngay || !den_ngay) {
+        alert("Vui lòng chọn đầy đủ khoảng thời gian trước khi xuất Excel!");
+        return;
+    }
+
+    // 3. Xây dựng URL động với URLSearchParams để an toàn và sạch sẽ hơn
+    const params = new URLSearchParams({
+        tu_ngay: tu_ngay,
+        den_ngay: den_ngay,
+        ho_ten: ho_ten,
+        ma_hieu_2: ma_hieu_2
+    });
+
+    // 4. Chuyển hướng tới route export kèm theo đầy đủ tham số lọc bao gồm cả họ tên
+    const exportUrl = `{{ url_for('export_bao_cao_cong') }}?tu_ngay=${encodeURIComponent(tu_ngay)}&den_ngay=${encodeURIComponent(den_ngay)}&ho_ten=${encodeURIComponent(ho_ten)}`;
+
+    // Hiển thị thông báo nhỏ cho người dùng nếu dữ liệu quá lớn
+    console.log("Đang xuất dữ liệu với các tham số:", params.toString());
+    window.location.href = exportUrl;
+}
+</script>
+
+<style>
+    /* 1. Layout giải thích ký hiệu (Legend) */
+    .legend-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+        gap: 15px;
+    }
+    .legend-item {
+        font-size: 0.85rem;
+        line-height: 1.4;
+        padding: 5px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+    .legend-item:hover { background: #f8f9fa; }
+
+    .badge-code {
+        display: inline-block;
+        width: 35px;
+        height: 24px;
+        line-height: 24px;
+        text-align: center;
+        background: #34495e;
+        color: white;
+        font-weight: bold;
+        border-radius: 4px;
+        margin-right: 8px;
+    }
+    .badge-green { background: #27ae60 !important; }
+    .badge-red { background: #e74c3c !important; }
+    
+    /* 2. Tối ưu bảng báo cáo quy mô lớn */
+    .table-responsive {
+        max-height: 700px; /* Tăng chiều cao xem được nhiều nhân viên hơn */
+        overflow: auto;
+        border: 1px solid #dee2e6;
+    }
+
+    /* Cố định dòng tiêu đề */
+    #reportTable thead th { 
+        position: sticky; 
+        top: 0; 
+        z-index: 100; 
+        background-color: #f8f9fa; 
+        box-shadow: inset 0 -1px 0 #dee2e6;
+    }
+
+    /* Kỹ thuật cố định 2 cột đầu (Mã NV và Họ tên) */
+    .sticky-col {
+        position: sticky;
+        background-color: white !important;
+        z-index: 10;
+        box-shadow: inset -1px 0 0 #dee2e6;
+    }
+
+    .first-col {
+        left: 0;
+        min-width: 100px;
+    }
+
+    .second-col {
+        left: 100px; /* Độ rộng cột 1 */
+        min-width: 200px;
+    }
+
+    /* Giao điểm (Header của các cột sticky) phải có z-index cao nhất */
+    #reportTable thead th.sticky-col {
+        z-index: 110;
+        background-color: #f8f9fa;
+    }
+
+    .text-nowrap { white-space: nowrap; }
+    .table-sm td, .table-sm th { padding: 0.4rem; vertical-align: middle; }
+    
+    /* Hiệu ứng hover cho dòng để dễ theo dõi */
+    #reportTable tbody tr:hover td {
+        background-color: #f1f4f9 !important;
+    }
+</style>
+{% endblock %}

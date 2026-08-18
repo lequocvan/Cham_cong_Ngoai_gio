@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow border-0">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-key text-warning"></i> Nhật ký cấp mật khẩu tệp mã hóa (Quản lý nội bộ)</h5>
+            <span class="badge rounded-pill bg-light text-dark">Trang {{ page }} / {{ total_pages }}</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped align-middle mb-0" style="font-size: 0.85rem;">
+                <thead class="table-secondary">
+                    <tr>
+                        <th>Thời gian xuất</th>
+                        <th>Mã đơn vị (Chi nhánh)</th>
+                        <th>Loại BC</th>
+                        <th>Tên tệp ZIP</th>
+                        <th>Mật khẩu giải nén</th>
+                        <th>Người thực hiện</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in pass_logs %}
+                    <tr>
+                        <td>{{ log.ngay_xuat.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+                        <td><span class="badge border bg-light text-dark fw-bold">{{ log.manh8so_moi }}</span></td>
+                        <td><span class="badge bg-info text-dark">{{ log.loai_bao_cao }}</span></td>
+                        <td class="text-muted"><i class="fas fa-file-archive text-warning"></i> {{ log.ten_file }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <code class="fw-bold text-danger fs-6" id="pwd-{{ loop.index }}">{{ log.mat_khau }}</code>
+                                <button class="btn btn-sm btn-link text-muted p-0" onclick="copyPassword('pwd-{{ loop.index }}', this)" title="Sao chép mật khẩu">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
+                        </td>
+                        <td><i class="far fa-user"></i> {{ log.nguoi_xuat }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">Chưa có lịch sử sinh mật khẩu xuất file.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if total_pages > 1 %}
+        <div class="card-footer bg-white py-3">
+            <nav>
+                <ul class="pagination pagination-sm justify-content-center mb-0">
+                    <li class="page-item {{ 'disabled' if page == 1 }}">
+                        <a class="page-link" href="{{ url_for('nhat_ky_mat_khau', page=page-1) }}">Trước</a>
+                    </li>
+                    {% for p in range(1, total_pages + 1) %}
+                        <li class="page-item {{ 'active' if p == page }}">
+                            <a class="page-link" href="{{ url_for('nhat_ky_mat_khau', page=p) }}">{{ p }}</a>
+                        </li>
+                    {% endfor %}
+                    <li class="page-item {{ 'disabled' if page == total_pages }}">
+                        <a class="page-link" href="{{ url_for('nhat_ky_mat_khau', page=page+1) }}">Sau</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function copyPassword(elementId, btn) {
+    const text = document.getElementById(elementId).innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        const icon = btn.querySelector('i');
+        icon.className = "fas fa-check text-success";
+        setTimeout(() => {
+            icon.className = "far fa-copy";
+        }, 1500);
+    }).catch(err => {
+        console.error('Không thể sao chép mật khẩu: ', err);
+    });
+}
+</script>
+{% endblock %}

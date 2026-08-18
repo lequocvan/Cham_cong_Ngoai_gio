@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Đối soát lỗi BC48</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .error-table { font-size: 0.85rem; }
+        .badge-resolved { background-color: #28a745; color: white; }
+        .badge-pending { background-color: #dc3545; color: white; }
+        .header-content-cell { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid mt-4">
+    <h3><i class="fas fa-exclamation-triangle text-danger"></i> Lỗi khi nạp dữ liệu TXT vào bc48
+        <a href="{{ url_for('index') }}" class="btn btn-outline-primary shadow-sm">
+            <i class="fas fa-home"></i> Trang chủ
+        </a>
+    </h3>
+
+    <hr>
+
+    <div class="table-responsive">
+        <form method="GET" action="{{ url_for('bc48_logs') }}" class="form-inline mb-3">
+            <input type="date" name="start_date" class="form-control mr-2" value="{{ request.args.get('start_date', '') }}">
+            <input type="date" name="end_date" class="form-control mr-2" value="{{ request.args.get('end_date', '') }}">
+            <select name="ma_loi" class="form-control mr-2">
+                <option value="">Tất cả mã lỗi</option>
+                <option value="RE2" {{ 'selected' if request.args.get('ma_loi') == 'RE2' }}>RE2</option>
+                <option value="RE4" {{ 'selected' if request.args.get('ma_loi') == 'RE4' }}>RE4</option>
+                <option value="RF3" {{ 'selected' if request.args.get('ma_loi') == 'RF3' }}>RF3</option>
+            </select>
+            <button type="submit" class="btn btn-primary mr-2"><i class="fas fa-filter"></i> Lọc</button>
+            
+            <a href="{{ url_for('export_logs_csv', **request.args) }}" class="btn btn-success">
+                <i class="fas fa-file-csv"></i> Xuất CSV
+            </a>
+        </form>
+        <table class="table table-bordered table-hover error-table">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Thời điểm</th>
+                    <th>Người thực hiện</th>
+                    <th>Tên file</th>
+                    <th>Mã lỗi</th>
+                    <th>Chi tiết lỗi</th>
+                    <th>Header Content</th>
+                    <th>Khai báo</th>
+                    <th>Thực tế</th>
+                    <th>Chênh lệch</th>
+                    <th>Trạng thái</th>
+                    <th>Hành động</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for error in logs %}
+                <tr id="row-{{ error.id }}">
+                    <td>{{ error.error_time.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td>{{ error.user_import }}</td>
+                    <td><small>{{ error.file_name }}</small></td>
+                    <td><span class="badge badge-info">{{ error.ma_loi_bc48 }}</span></td>
+                    <td>{{ error.mo_ta_loi or 'Chưa xác định' }}</td>
+                    <td class="header-content-cell" title="{{ error.header_content }}">{{ error.header_content }}</td>
+                    <td>{{ error.declared_rows }}</td>
+                    <td>{{ error.actual_rows }}</td>
+                    <td class="font-weight-bold {{ 'text-danger' if error.diff_rows != 0 else 'text-success' }}">
+                        {{ error.diff_rows }}
+                    </td>
+                    <td>
+                        <span id="status-{{ error.id }}" class="badge {{ 'badge-resolved' if error.status == 'Đã xử lý' else 'badge-pending' }}">
+                            {{ error.status }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if error.status != 'Đã xử lý' %}
+                        <button class="btn btn-sm btn-outline-success" onclick="markAsResolved({{ error.id }})">
+                            <i class="fas fa-check"></i> Xử lý
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="11" class="text-center">Không có lỗi nào trong 30 ngày qua.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function markAsResolved(id) {
+    if(!confirm("Xác nhận đã xử lý lỗi này?")) return;
+    
+    fetch(`/bc48/log/update_status/${id}`, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.success) {
+            document.getElementById(`status-${id}`).innerText = "Đã xử lý";
+            document.getElementById(`status-${id}`).className = "badge badge-resolved";
+            const btn = document.querySelector(`#row-${id} button`);
+            if(btn) btn.style.display = 'none';
+        } else {
+            alert('Lỗi: ' + data.msg);
+        }
+    });
+}
+</script>
+</body>
+</html>

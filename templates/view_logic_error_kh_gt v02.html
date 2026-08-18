@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Lỗi Logic LoaiKH-LoaiGT{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="card shadow-lg border-0" style="background-color: #1a1d20; border-radius: 12px; overflow: hidden;">
+        
+        <div class="card-header border-0 py-3 d-flex justify-content-between align-items-center" 
+             style="background: linear-gradient(90deg, #1e2125 0%, #23272b 100%);">
+            <div>
+                <h5 class="mb-0 fw-bold" style="color: #0dcaf0; letter-spacing: 0.5px;">
+                    <i class="fas fa-shield-alt me-2"></i> GIÁM SÁT LOGIC LOAIKH & LOAIGT
+                </h5>
+                <small class="text-muted">Rà soát sự tương quan giữa Kiểu khách hàng, Loại giấy tờ, Số GT và Ngày sinh</small>
+            </div>
+            
+            <div class="d-flex gap-2">
+                <button id="btnRunCheck" class="btn btn-sm px-3 fw-bold shadow-sm" 
+                        style="background-color: #0dcaf0; color: #000; border-radius: 6px; transition: 0.3s;">
+                    <i class="fas fa-play me-1"></i> Chạy rà soát mới
+                </button>
+                <div class="input-group input-group-sm" style="width: 250px;">
+                    <span class="input-group-text bg-dark border-secondary text-muted"><i class="fas fa-search"></i></span>
+                    <input type="text" id="tableSearch" class="form-control bg-dark border-secondary text-white" placeholder="Tìm nhanh tại trang này...">
+                </div>
+                <button onclick="exportTableToCSV('log_logic.csv')" class="btn btn-sm btn-outline-success px-3">
+                    <i class="fas fa-file-csv me-1"></i> Xuất CSV
+                </button>
+            </div>
+        </div>
+
+        <div id="statusAlert" class="alert alert-info border-0 rounded-0 m-0 py-2 d-none" 
+             style="background-color: rgba(13, 202, 240, 0.1); color: #0dcaf0;">
+            <div class="d-flex align-items-center justify-content-center">
+                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                <span class="small fw-bold">Hệ thống đang thực thi Procedure... Vui lòng đợi trong giây lát.</span>
+            </div>
+        </div>
+
+        <div class="card-body p-0 position-relative">
+            <div class="table-responsive" style="max-height: 68vh;">
+                <table id="errorTable" class="table table-dark table-hover align-middle mb-0">
+                    <thead style="position: sticky; top: 0; z-index: 10;">
+                        <tr style="background-color: #2c3034; border-bottom: 2px solid #373b3e;">
+                            <th class="ps-4 py-3 text-uppercase small fw-bold text-muted" style="width: 150px;">Thời điểm</th>
+                            <th class="text-uppercase small fw-bold text-muted">Bảng gốc</th>
+                            <th class="text-uppercase small fw-bold text-muted">Mã Giao Dịch</th>
+                            <th class="text-center text-uppercase small fw-bold text-muted">Kiểu KH</th>
+                            <th class="text-center text-uppercase small fw-bold text-muted">Loại GT</th>
+                            <th class="text-center text-uppercase small fw-bold text-muted">Số GT lỗi</th>
+                            <th class="text-center text-uppercase small fw-bold text-muted">Ngày sinh lỗi</th>
+                            <th class="pe-4 text-uppercase small fw-bold text-muted">Ghi chú chi tiết lỗi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in data %}
+                        <tr style="border-bottom: 1px solid #2d3238;">
+                            <td class="ps-4 small text-muted">{{ row.thoi_diem_kiem_tra.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+                            <td><span class="badge border border-secondary text-muted fw-normal" style="background: rgba(255,255,255,0.05);">{{ row.ten_bang_goc }}</span></td>
+                            <td class="fw-bold text-light">{{ row.ma_giao_dich }}</td>
+                            <td class="text-center">
+                                <span class="badge shadow-sm" style="background-color: #0dcaf0; color: #000; min-width: 65px;">{{ row.kieukh_loi }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge shadow-sm bg-secondary text-white" style="min-width: 65px;">{{ row.loaigto_loi }}</span>
+                            </td>
+                            <td class="text-center">
+                                {% if row.sogt_loi %}
+                                    <span class="text-danger fw-bold border-bottom border-danger">{{ row.sogt_loi }}</span>
+                                {% else %}
+                                    <span class="text-muted opacity-50">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if row.ngaysinh_loi %}
+                                    <span class="text-warning fw-bold">{{ row.ngaysinh_loi }}</span>
+                                {% else %}
+                                    <span class="text-muted opacity-50">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="pe-4 small">
+                                <div class="d-flex flex-column gap-1 py-1">
+                                    {% for loi in row.ghi_chu.split('; ') %}
+                                        <span class="text-info italic">
+                                            <i class="fas fa-exclamation-circle me-1 text-danger opacity-75 small"></i>{{ loi }}
+                                        </span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted small">Không tìm thấy dữ liệu lỗi.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card-footer border-0 py-3 d-flex justify-content-between align-items-center" style="background-color: #1e2125;">
+            <div class="text-muted small">
+                Hiển thị bản ghi từ 
+                <span class="text-white fw-bold">{{ ((page - 1) * 50) + 1 if total_records > 0 else 0 }}</span> 
+                đến 
+                <span class="text-white fw-bold">{{ page * 50 if page * 50 < total_records else total_records }}</span> 
+                trong tổng số 
+                <span class="text-info fw-bold">{{ "{:,}".format(total_records) }}</span> kết quả
+            </div>
+            
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {{ 'disabled' if page == 1 }}">
+                        <a class="page-link border-secondary bg-dark text-info" href="{{ url_for('ket_qua_logic_kh_gt', page=page-1) }}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    
+                    {% for p in range(1, total_pages + 1) %}
+                        {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                        <li class="page-item {{ 'active' if p == page }}">
+                            <a class="page-link border-secondary {{ 'bg-info text-dark fw-bold border-info' if p == page else 'bg-dark text-white' }}" 
+                               href="{{ url_for('ket_qua_logic_kh_gt', page=p) }}">{{ p }}</a>
+                        </li>
+                        {% elif p == page - 3 or p == page + 3 %}
+                        <li class="page-item disabled"><span class="page-link border-secondary bg-dark text-muted">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    <li class="page-item {{ 'disabled' if page == total_pages }}">
+                        <a class="page-link border-secondary bg-dark text-info" href="{{ url_for('ket_qua_logic_kh_gt', page=page+1) }}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<style>
+    .table-hover tbody tr:hover { background-color: rgba(255, 255, 255, 0.02) !important; }
+    .page-link:focus { box-shadow: none; }
+    .table-responsive::-webkit-scrollbar { width: 6px; }
+    .table-responsive::-webkit-scrollbar-thumb { background: #373b3e; border-radius: 10px; }
+    #btnRunCheck:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .italic { font-style: italic; }
+</style>
+
+<script>
+// Logic Ajax gọi Procedure
+document.getElementById('btnRunCheck').addEventListener('click', function() {
+    if (!confirm('Bạn muốn thực hiện rà soát lại toàn bộ dữ liệu?')) return;
+    
+    const btn = this;
+    const alertBox = document.getElementById('statusAlert');
+    const tableBody = document.querySelector('.table-responsive');
+
+    btn.disabled = true;
+    alertBox.classList.remove('d-none');
+    tableBody.style.opacity = '0.3';
+
+    fetch("{{ url_for('run_check_logic_LoaiKH_LoaiGT') }}", { method: "POST" })
+    .then(r => r.json())
+    .then(data => {
+        if(data.status === 'success') {
+            window.location.reload();
+        } else {
+            alert('Lỗi hệ thống: ' + data.message);
+        }
+    })
+    .catch(() => alert('Lỗi kết nối server.'))
+    .finally(() => {
+        btn.disabled = false;
+        alertBox.classList.add('d-none');
+        tableBody.style.opacity = '1';
+    });
+});
+
+// Logic Tìm kiếm nhanh (tại trang)
+document.getElementById('tableSearch').addEventListener('keyup', function() {
+    let val = this.value.toLowerCase();
+    document.querySelectorAll('#errorTable tbody tr').forEach(tr => {
+        tr.style.display = tr.innerText.toLowerCase().includes(val) ? '' : 'none';
+    });
+});
+
+// Logic Xuất CSV
+function exportTableToCSV(filename) {
+    let csv = ["\uFEFF"];
+    let rows = document.querySelectorAll("#errorTable tr");
+    rows.forEach(row => {
+        if (row.style.display !== 'none') {
+            let cols = row.querySelectorAll("td, th");
+            let rowData = Array.from(cols).map(c => `"${c.innerText.trim().replace(/"/g, '""')}"`);
+            csv.push(rowData.join(","));
+        }
+    });
+    let blob = new Blob([csv.join("\n")], { type: 'text/csv;charset=utf-8;' });
+    let link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+}
+</script>
+{% endblock %}

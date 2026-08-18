@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Import Phản hồi Chi nhánh - BC48{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-5">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-success text-white py-2">
+                    <h6 class="mb-0"><i class="fas fa-file-import"></i> Tải lên File Phản hồi từ Chi nhánh</h6>
+                </div>
+                <div class="card-body bg-light">
+                    <form method="POST" action="{{ url_for('import_phan_hoi_chi_nhanh') }}" enctype="multipart/form-data">
+                        
+                        <div class="form-group mb-3 text-center p-4 border rounded bg-white" 
+                             style="border: 2px dashed #28a745 !important; cursor: pointer;"
+                             onclick="document.getElementById('file_excel').click();">
+                            <i class="fas fa-cloud-upload-alt text-success fa-3x mb-2"></i>
+                            <p class="font-weight-bold mb-1 text-secondary">Kéo & Thả file Excel vào đây</p>
+                            <p class="small text-muted mb-0">Hoặc click để duyệt file tự động</p>
+                            <input type="file" name="file_excel" id="file_excel" class="d-none" accept=".xlsx, .xls" required onchange="showFileName(this)">
+                            <div id="file_name_display" class="mt-2 text-primary font-weight-bold small"></div>
+                        </div>
+
+                        <!-- Cập nhật phần lưu ý cấu trúc tương thích với Mapping mới của backend -->
+                        <div class="alert alert-info py-2 px-3 small shadow-sm">
+                            <h6 class="alert-heading font-weight-bold mb-1 text-dark"><i class="fas fa-info-circle"></i> Quy ước tên cột được chấp nhận:</h6>
+                            <ul class="pl-3 mb-0 text-secondary" style="line-height: 1.5;">
+                                <li class="mb-1">
+                                    <strong>Mã giao dịch:</strong> Cột dữ liệu chuẩn <code class="text-danger">ma_giao_dich</code> hoặc tên cột xuất từ chi nhánh <code class="text-primary">magiaodichtrongfile</code>.
+                                </li>
+                                <li class="mb-1">
+                                    <strong>Ngày báo cáo:</strong> Cột dữ liệu chuẩn <code class="text-danger">ngay_baocao</code> hoặc tên cột xuất từ chi nhánh <code class="text-primary">ngaydulieubaocao</code>.
+                                </li>
+                                <li class="mb-1">
+                                    <strong>Trạng thái/Kết quả:</strong> Cột hệ thống <code class="text-success">trang_thai_ghi_nhan</code> hoặc tiêu đề <code class="text-primary">Lý do chưa chỉnh sửa</code>. 
+                                    <div class="mt-1 small text-muted">(Giá trị điền bắt buộc: <span class="badge badge-secondary">DANG_SUA</span>, <span class="badge badge-warning">DA_SUA_CHO_QUET</span>, <span class="badge badge-success">DA_HOAN_THANH</span>).</div>
+                                </li>
+                                <li class="mb-1">
+                                    <strong>Mã hiệu 2:</strong> Cột dữ liệu chuẩn <code class="text-danger">ma_hieu_2</code> hoặc tên cột xuất từ chi nhánh <code class="text-primary">maipcas</code>.
+                                </li>
+                                <li class="mb-1">
+                                    <strong>Mô tả lỗi:</strong> Cột dữ liệu chuẩn <code class="text-danger">mota_loi</code> hoặc tên cột xuất từ chi nhánh <code class="text-primary">motaloinhnn</code>.
+                                </li>
+                                <li>
+                                    <strong>Nội dung giải trình:</strong> Điền chi tiết tại cột <code class="text-success">nguyen_nhan_sai_sot</code>.
+                                </li>
+                            </ul>
+                        </div>
+
+                        <button type="submit" class="btn btn-success btn-block shadow-sm font-weight-bold mt-3">
+                            <i class="fas fa-upload"></i> Thực hiện Import & Cập nhật hệ thống
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-7">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-dark text-white py-2 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="fas fa-history"></i> Lịch sử Cập nhật Tiến độ Khắc phục Lỗi gần đây</h6>
+                    <a href="{{ url_for('giaodien_gui_mail_chi_nhanh') }}" class="btn btn-xs btn-outline-light font-weight-bold py-0" style="font-size: 0.75rem;">
+                        <i class="fas fa-arrow-left"></i> Quay lại (4/5) ket_qua_do_tim_loi; Tách theo macn; ZIP; Mail CSV lỗi đến đơn vị
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 420px;">
+                        <table class="table table-sm table-hover table-striped mb-0" style="font-size: 0.75rem;">
+                            <thead class="bg-secondary text-white text-center">
+                                <tr>
+                                    <th>Mã GD</th>
+                                    <th>Ngày BC</th>
+                                    <th>Bảng gốc</th>
+                                    <th>Trạng thái mới</th>
+                                    <th>Ghi chú xử lý</th>
+                                    <th>Thời gian xử lý</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in lich_su_logs %}
+                                <tr>
+                                    <td class="font-weight-bold text-center">{{ log.ma_giao_dich }}</td>
+                                    <td class="text-center">{{ log.ngay_baocao }}</td>
+                                    <td class="text-center text-muted">{{ log.bang_goc_tim_thay }}</td>
+                                    <td class="text-center">
+                                        {% if log.trang_thai_khac_phuc == 'DA_HOAN_THANH' %}
+                                            <span class="badge badge-success">Xong/Khớp</span>
+                                        {% elif log.trang_thai_khac_phuc == 'DA_SUA_CHO_QUET' %}
+                                            <span class="badge badge-warning">Chờ quét lại</span>
+                                        {% else %}
+                                            <span class="badge badge-info">Đang sửa</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ log.ghi_chu_xu_ly or '' }}</td>
+                                    <td class="text-center text-secondary small">{{ log.ngay_cap_nhat }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center p-3 text-muted">Chưa có bản ghi nào được import hoặc cập nhật trong ngày hôm nay.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Hiển thị tên file trực quan khi người dùng chọn xong
+function showFileName(input) {
+    var displayDiv = document.getElementById('file_name_display');
+    if (input.files && input.files.length > 0) {
+        displayDiv.innerHTML = '<i class="fas fa-file-excel text-success"></i> ' + input.files[0].name;
+    } else {
+        displayDiv.innerHTML = '';
+    }
+}
+</script>
+{% endblock %}

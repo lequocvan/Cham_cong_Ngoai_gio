@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Báo cáo Chi tiết Lương V2 - Điều chỉnh{% endblock %}
+
+{% block content %}
+<style>
+    /* 1. Cấu hình khung bảng và cuộn */
+    .table-container { 
+        max-height: 75vh; 
+        overflow: auto; 
+        border: 1px solid #dee2e6;
+        background: white;
+    }
+    table { border-collapse: separate; border-spacing: 0; font-size: 11.5px; }
+
+    /* 2. Cố định tiêu đề (Sticky Headers) */
+    .sticky-header { position: sticky; top: 0; z-index: 10; background: #2c3e50 !important; color: white; border: 1px solid #455a64 !important; }
+    .sticky-header-2 { position: sticky; top: 31px; z-index: 10; background: #34495e !important; color: white; }
+
+    /* 3. Cố định cột trái (Mã NV, Họ tên) */
+    .sticky-col-1 { position: sticky; left: 0; z-index: 5; background: #f1f5f9 !important; min-width: 80px; border-right: 1px solid #cbd5e0 !important; }
+    .sticky-col-2 { position: sticky; left: 80px; z-index: 5; background: #f1f5f9 !important; min-width: 180px; border-right: 2px solid #94a3b8 !important; }
+
+    /* 4. Định dạng ô dữ liệu */
+    .cell-info { font-size: 9px; color: #64748b; border-bottom: 1px solid #f1f5f9; padding-bottom: 2px; margin-bottom: 2px; }
+    .cell-money { font-weight: bold; color: #1e293b; font-size: 12px; }
+    .bg-alt { background-color: #f8fafc; }
+    
+    /* Loading Overlay */
+    #loadingV2DC {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(255,255,255,0.85); z-index: 9999;
+        display: none; align-items: center; justify-content: center; flex-direction: column;
+    }
+</style>
+
+<div class="container-fluid mt-3">
+    <div class="card shadow-sm mb-3">
+        <div class="card-body py-2 px-3">
+            <form method="GET" action="{{ url_for('v2_dc_report') }}" class="form-inline justify-content-between">
+                <div class="d-flex align-items-center flex-wrap">
+                    <h5 class="mb-0 mr-4 text-dark font-weight-bold"><i class="fas fa-chart-line text-success"></i> BÁO CÁO V2 ĐIỀU CHỈNH</h5>
+                    
+                    <div class="input-group input-group-sm mr-2">
+                        <div class="input-group-prepend"><span class="input-group-text bg-light">Năm</span></div>
+                        <select name="year" class="form-control" id="targetYear">
+                            {% set current_yr = now.year if now else 2026 %}
+                            {% for y in range(2024, current_yr + 11) %}
+                            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    {% if is_admin_or_th %}
+                        <select name="phong_ban" class="form-control form-control-sm mr-2">
+                            <option value="">-- Tất cả Phòng ban --</option>
+                            {% for pb in ds_phong_ban %}
+                            <option value="{{ pb }}" {% if pb == selected_pb %}selected{% endif %}>{{ pb }}</option>
+                            {% endfor %}
+                        </select>
+                    {% else %}
+                        <div class="mr-2">
+                            <span class="badge badge-info p-2" style="font-size: 13px;">{{ selected_pb }}</span>
+                            <input type="hidden" name="phong_ban" value="{{ selected_pb }}">
+                        </div>
+                    {% endif %}
+
+                    <input type="text" name="ma_nv" class="form-control form-control-sm mr-2" placeholder="Tìm mã NV..." value="{{ ma_nv_filter }}">
+                    
+                    <button type="submit" class="btn btn-sm btn-primary px-3"><i class="fas fa-filter"></i> Lọc dữ liệu</button>
+                </div>
+
+                <div class="mt-1 mt-md-0">
+                    {% if is_admin_or_th %}
+                    <button type="button" onclick="calculateGlobalDC()" class="btn btn-sm btn-success shadow-sm">
+                        <i class="fas fa-calculator"></i> Tính lại toàn bộ
+                    </button>
+                    {% endif %}
+
+                    <button type="button" 
+                            onclick="window.location.href='/export-v2-dc-excel/' + document.getElementById('targetYear').value" 
+                            class="btn btn-sm btn-outline-info ml-1">
+                        <i class="fas fa-file-excel"></i> Xuất Excel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-container shadow-sm rounded">
+        <table class="table table-bordered table-sm m-0">
+            <thead>
+                <tr>
+                    <th rowspan="2" class="sticky-header sticky-col-1 text-center align-middle">Mã NV</th>
+                    <th rowspan="2" class="sticky-header sticky-col-2 text-center align-middle">Họ và Tên</th>
+                    <th rowspan="2" class="sticky-header text-center align-middle" style="min-width: 140px;">Phòng ban</th>
+                    {% for m in range(1, 13) %}
+                    <th class="sticky-header text-center border-bottom-0">Tháng {{ m }}</th>
+                    {% endfor %}
+                    <th rowspan="2" class="sticky-header text-center align-middle bg-danger text-white" style="min-width: 130px;">TỔNG NĂM (DC)</th>
+                </tr>
+                <tr>
+                    {% for m in range(1, 13) %}
+                    <th class="sticky-header-2 text-center font-weight-normal" style="min-width: 115px; font-size: 9px; letter-spacing: 0.5px;">V2 | DC | SỐ TIỀN</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% if data %}
+                    {% for emp in data %}
+                    <tr>
+                        <td class="sticky-col-1 text-center font-weight-bold text-primary">{{ emp.ma_nv }}</td>
+                        <td class="sticky-col-2 font-weight-bold">{{ emp.ho_ten }}</td>
+                        <td class="text-muted small">{{ emp.phong_ban }}</td>
+                        
+                        {% for month in emp.months %}
+                        <td class="text-right {% if loop.index % 2 == 0 %}bg-alt{% endif %}">
+                            <div class="cell-info">
+                                {{ "{:.2f}".format(month.hsl_v2) }} &times; <span class="text-success font-weight-bold">{{ "{:.2f}".format(month.hsl_dc) }}</span>
+                            </div>
+                            <div class="cell-money">
+                                {{ "{:,.0f}".format(month.tien) if month.tien > 0 else "-" }}
+                            </div>
+                        </td>
+                        {% endfor %}
+
+                        <td class="text-right font-weight-bold text-danger bg-light" style="font-size: 13px;">
+                            {{ "{:,.0f}".format(emp.tong_nam) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="16" class="text-center py-5 text-muted">Không tìm thấy dữ liệu cho tiêu chí lọc này hoặc bạn không có quyền xem dữ liệu.</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="loadingV2DC">
+    <div class="spinner-grow text-success" role="status"></div>
+    <span class="mt-3 font-weight-bold text-dark">Đang thực thi Procedure tính toán lương V2_DC...</span>
+    <small class="text-muted">Hệ thống đang xử lý dữ liệu cho năm {{ year }}</small>
+</div>
+
+<script>
+    function calculateGlobalDC() {
+        const year = document.getElementById('targetYear').value;
+        if (!confirm(`Xác nhận chạy lại Procedure tính lương V2_DC cho TOÀN BỘ nhân viên năm ${year}?\n\nLưu ý: Các tháng đã phê duyệt/khóa sẽ không bị tính lại.`)) return;
+
+        document.getElementById('loadingV2DC').style.display = 'flex';
+
+        fetch("/calculate-v2dc-global", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ year: year })
+        })
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('loadingV2DC').style.display = 'none';
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert("Lỗi: " + data.message);
+            }
+        })
+        .catch(err => {
+            document.getElementById('loadingV2DC').style.display = 'none';
+            alert("Lỗi kết nối máy chủ.");
+        });
+    }
+</script>
+{% endblock %}

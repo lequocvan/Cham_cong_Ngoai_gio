@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Công, Phép, Lương, Lớp đào tạo, Lịch Đoàn công tác, Trắc nghiệm, Theo dõi hồ sơ</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/all.min.css') }}">
+    
+    <script src="{{ url_for('static', filename='js/AmLichvn.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/confetti.browser.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/sweetalert2.all.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
+
+    <style>
+        :root {
+            --primary-bg: #f4f7fa;
+            --sidebar-color: #1a252f;
+            --accent-color: #3498db;
+            --success-color: #2ecc71;
+            --danger-color: #e74c3c;
+            --text-main: #2c3e50;
+            --card-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            --transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 260px;
+            background: rgba(26, 37, 47, 0.95);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            color: white;
+            padding: 20px 0;
+            position: fixed;
+            height: 100vh;
+            transition: var(--transition);
+            z-index: 1000;
+            overflow-y: auto;
+            border-right: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Trạng thái thu gọn Sidebar */
+        .sidebar.collapsed { width: 80px; }
+        .sidebar.collapsed .sidebar-header, 
+        .sidebar.collapsed .nav-item span, 
+        .sidebar.collapsed .arrow-icon,
+        .sidebar.collapsed .dropdown-header { display: none; }
+        .sidebar.collapsed .nav-item i { margin-right: 0; font-size: 1.3rem; width: 100%; text-align: center; }
+        
+        .sidebar-header {
+            padding: 0 25px 30px;
+            font-size: 1.3rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            background: linear-gradient(to right, #fff, var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            margin-bottom: 20px;
+        }
+
+        .toggle-btn {
+            padding: 15px;
+            text-align: right;
+            cursor: pointer;
+            color: rgba(255,255,255,0.5);
+        }
+        .sidebar.collapsed .toggle-btn { text-align: center; }
+
+        .nav-list { list-style: none; padding: 0; margin: 0; }
+        .nav-item a {
+            display: flex;
+            align-items: center;
+            padding: 14px 25px;
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            transition: var(--transition);
+        }
+        .nav-item a:hover { color: #fff; background: rgba(255,255,255,0.05); }
+        .nav-item.active a { color: white; background: rgba(52, 152, 219, 0.2); border-left: 4px solid var(--accent-color); }
+        .nav-item i { width: 25px; margin-right: 15px; transition: transform 0.3s ease; }
+
+        .nav-item a:hover i { transform: scale(1.2); color: var(--accent-color); }
+
+        /* --- DROPDOWN STYLES --- */
+        .dropdown-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            background: rgba(0, 0, 0, 0.25);
+            max-height: 0;
+            overflow-y: hidden;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .active-dropdown .dropdown-menu { 
+            max-height: 420px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+
+        .dropdown-menu::-webkit-scrollbar {
+            width: 5px;
+        }
+        .dropdown-menu::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        .dropdown-menu::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+        }
+        .dropdown-menu::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-color);
+        }
+        
+        .active-dropdown .arrow-icon { transform: rotate(180deg); }
+        
+        .dropdown-menu li a {
+            padding: 12px 20px 12px 55px !important;
+            font-size: 0.85rem;
+            white-space: normal;
+            display: block;
+            line-height: 1.4;
+            transition: background 0.2s ease;
+        }
+        
+        .dropdown-menu li a small {
+            display: block;
+            padding-left: 0 !important;
+            margin-top: 4px !important;
+            line-height: 1.3;
+            opacity: 0.7;
+        }
+        
+        .dropdown-header { 
+            padding: 15px 25px 5px 25px;
+            font-size: 0.7rem; 
+            color: #7f8c8d; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px;
+        }
+
+        /* --- MAIN CONTENT & GLASSMORPHISM --- */
+        .main-content {
+            flex: 1;
+            margin-left: 260px;
+            padding: 40px;
+            width: calc(100% - 260px);
+            transition: var(--transition);
+            animation: fadeIn 0.8s ease;
+        }
+        .sidebar.collapsed ~ .main-content { margin-left: 80px; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.8) !important;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: var(--transition);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            animation: cardSlideIn 0.6s ease forwards;
+            opacity: 0;
+        }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; margin-bottom: 30px; }
+        .modern-timer { background: #2c3e50; color: #2ecc71 !important; padding: 8px 15px; border-radius: 8px; font-family: monospace; display: inline-block; }
+
+        @keyframes cardSlideIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .stat-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            background: rgba(255, 255, 255, 0.95) !important;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+        }
+
+        .stat-card:nth-child(1) { animation-delay: 0.1s; }
+        .stat-card:nth-child(2) { animation-delay: 0.2s; }
+        .stat-card:nth-child(3) { animation-delay: 0.3s; }
+        .stat-card:nth-child(4) { animation-delay: 0.4s; }
+
+        /* --- SMART COUNTDOWN UI --- */
+        .modern-timer {
+            background: #2c3e50;
+            color: #2ecc71 !important;
+            padding: 8px 15px;
+            border-radius: 8px;
+            display: inline-block;
+            font-family: 'Courier New', monospace;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+            margin-top: 5px;
+            border: 1px solid #34495e;
+        }
+
+        /* --- ALERTS & BADGES --- */
+        .flash {
+            animation: pulse-red 2s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(231, 76, 60, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
+        }
+
+        /* --- CHATBOT UI STYLES --- */
+        .chat-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            background: #ffffff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: #1e293b;
+            color: #fff;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .badge-status {
+            background: #2ecc71;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .btn-clear-chat {
+            background: transparent;
+            border: none;
+            color: #cbd5e1;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: 0.2s;
+        }
+        .btn-clear-chat:hover { color: #e74c3c; background: rgba(255,255,255,0.1); }
+
+        .chat-body {
+            height: 380px;
+            overflow-y: auto;
+            padding: 16px;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .chat-message { display: flex; width: 100%; }
+        .chat-message.user { justify-content: flex-end; }
+        .chat-message.ai { justify-content: flex-start; }
+
+        .chat-bubble {
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 0.92rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        .chat-message.user .chat-bubble {
+            background: #0056b3;
+            color: #ffffff;
+            border-bottom-right-radius: 2px;
+        }
+
+        .chat-message.ai .chat-bubble {
+            background: #ffffff;
+            color: #1e293b;
+            border: 1px solid #e2e8f0;
+            border-bottom-left-radius: 2px;
+        }
+
+        .chat-input-wrapper {
+            border-top: 1px solid #e2e8f0;
+            padding: 10px 14px;
+            background: #fff;
+        }
+
+        .chat-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .btn-attach {
+            color: #64748b;
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 2px 6px;
+            transition: 0.2s;
+        }
+        .btn-attach:hover { color: #0056b3; }
+
+        .file-name-tag {
+            font-size: 0.75rem;
+            background: #e2e8f0;
+            padding: 2px 8px;
+            border-radius: 8px;
+            color: #334155;
+        }
+
+        .chat-input-area {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .chat-input-area textarea {
+            flex: 1;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.95rem;
+            resize: none;
+            max-height: 120px;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .chat-input-area textarea:focus {
+            border-color: #0056b3;
+            box-shadow: 0 0 0 2px rgba(0, 86, 179, 0.15);
+        }
+
+        #btnSubmitChat {
+            background: #0056b3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            height: 38px;
+            transition: 0.2s;
+        }
+        #btnSubmitChat:hover { background: #004085; }
+
+        /* --- SCROLLBAR --- */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: #bdc3c7;
+            border-radius: 10px;
+            border: 2px solid transparent;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent-color); }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="toggle-btn" id="toggleSidebar">
+            <i class="fas fa-bars"></i>
+        </div>
+        <div class="sidebar-header">Menu dọc</div>
+
+        <ul class="nav-list">
+            <li class="nav-item active">
+                <a href="{{ url_for('index') }}">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Tổng quan</span>
+                </a>
+            </li>
+
+            <li class="nav-item has-dropdown">
+                <a href="javascript:void(0)" class="dropdown-toggle">
+                    <span><i class="fas fa-briefcase"></i> <span>Nghiệp vụ</span></span>
+                    <i class="fas fa-chevron-down arrow-icon" style="margin-left: auto; font-size: 0.7rem;"></i>
+                </a>
+                <ul class="dropdown-menu">
+                    <li>
+                        <a href="{{ url_for('lich_cong_tac') }}">
+                            <i class="fas fa-users-cog text-primary mr-2"></i>
+                            <span>Lịch Đoàn Công Tác</span>
+                        </a>
+                    </li>
+
+                    <!-- THÊM MENU PHÂN CÔNG CÔNG TÁC TẠI ĐÂY -->
+                    <li>
+                        <a href="{{ url_for('phan_cong_cong_tac') }}">
+                            <i class="fas fa-tasks text-info mr-2"></i>
+                            <span>Phân công công tác</span>
+                        </a>
+                    </li>
+                    
+                    <li>
+                        <a href="{{ url_for('cham_cong') }}">
+                            <i class="fas fa-calendar-check"></i>
+                            <span>Chấm công hàng tháng</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('theo_doi_nghi_phep') }}">
+                            <i class="fas fa-umbrella-beach text-warning mr-2"></i>
+                            <span>Theo dõi nghỉ phép</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('cham_cong_ngoai_gio') }}">
+                            <i class="fas fa-calendar-check text-success mr-2"></i>
+                            <span>Chấm công ngoài giờ</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{{ url_for('cham_cong_khach') }}">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span>Các ngày trong tháng</span>
+                        </a>
+                    </li>
+                    
+                    <li>
+                        <a href="{{ url_for('trac_nghiem') }}">
+                            <i class="fas fa-edit"></i>
+                            <span>Trắc nghiệm Quiz</span>
+                        </a>
+                    </li>
+
+                    <li style="border-top: 1px solid rgba(255,255,255,0.05); margin-top: 5px;"></li>
+
+                    <li><a href="{{ url_for('admin_ma_hieu_lop') }}"><i class="fas fa-tags text-primary"></i><span>Khai báo Mã hiệu lớp</span></a></li>
+                    <li>
+                        <a href="{{ url_for('theo_doi_lop_hoc') }}">
+                            <i class="fas fa-chalkboard-teacher text-primary"></i><span>Theo dõi Lớp học</span>
+                        </a>
+                    </li>
+
+                    <li style="border-top: 1px solid rgba(255,255,255,0.05); margin-top: 5px;"></li>
+                    
+                    {% if current_user.is_admin or 'bang-luong-v1' in user_allowed_menus %}
+                    <li>
+                        <a href="{{ url_for('bang_luong_v1') }}"><i class="fas fa-table"></i><span>Hệ số lương V1</span></a>
+                    </li>
+                    {% endif %}
+
+                    {% if current_user.is_admin or 'bang-luong-v2' in user_allowed_menus %}
+                    <li>
+                        <a href="{{ url_for('bang_luong_v2') }}">
+                            <i class="fas fa-layer-group text-primary"></i><span>Hệ số lương V2</span>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% if current_user.is_admin or 'bang-luong-dc' in user_allowed_menus %}
+                    <li>
+                        <a href="{{ url_for('bang_luong_dc') }}">
+                            <i class="fas fa-sliders-h text-info"></i><span>Hệ số điều chỉnh (DC)</span>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    <li>
+                        <a href="{{ url_for('theo_doi_ho_so_khen_thuong') }}">
+                            <i class="fas fa-award"></i><span>Theo dõi Hồ sơ khen thưởng</span>
+                        </a>
+                    </li>
+                </ul>
+            </li>
+
+            <li class="nav-item has-dropdown">
+                <a href="javascript:void(0)" class="d-flex align-items-center">
+                    <span><i class="fas fa-toolbox"></i> <span>Tiện ích</span></span>
+                    <i class="fas fa-chevron-down arrow-icon" style="margin-left: auto; font-size: 0.7rem;"></i>
+                </a>
+                <ul class="dropdown-menu">
+                    {% if current_user.is_admin %}
+                        <li class="dropdown-header text-uppercase small pb-1 text-primary fw-bold" style="font-size: 10px; opacity: 0.8; padding-left: 20px;">
+                            Quản trị Mẫu biểu (ITSM tiny)
+                        </li>
+                        
+                        <li class="nav-item">
+                            <a href="{{ url_for('quan_ly_mau_bieu') }}">
+                                <i class="fas fa-folder-plus"></i>
+                                <span>Kho Mẫu biểu</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ url_for('admin_quan_ly_yeu_cau') }}" class="d-flex justify-content-between align-items-center">
+                                <span><i class="fas fa-clipboard-check"></i> <span>Duyệt Nhu cầu</span></span>
+                                {% if pending_count and pending_count > 0 %}
+                                    <span class="badge bg-danger rounded-pill" style="font-size: 10px;">{{ pending_count }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        <hr class="dropdown-divider" style="border-color: rgba(255,255,255,0.05); margin: 5px 15px;">
+                    {% endif %}
+
+                    <li class="dropdown-header text-uppercase small pb-1 text-muted" style="font-size: 10px; padding-left: 20px;">Dịch vụ nội bộ</li>
+                    
+                    <li class="nav-item">
+                        <a href="{{ url_for('download_file', filename='AgribankTokenAgent.exe') }}">
+                            <i class="fas fa-file-download text-success"></i>
+                            <span>Hỗ trợ Ký & Phê duyệt Đơn xin nghỉ phép AgribankTokenAgent</span>
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a href="{{ url_for('user_view_mau') }}">
+                            <i class="fas fa-file-signature text-warning"></i>
+                            <span>Tải & Điền mẫu nhanh</span>
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a href="{{ url_for('yeu_cau_mau_bieu_page') }}">
+                            <i class="fas fa-paper-plane"></i>
+                            <span>Gửi Nhu cầu Mẫu mới</span>
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a href="{{ url_for('chuyen_font_page') }}">
+                            <i class="fas fa-font text-info"></i>
+                            <span>Chuyển đổi Font .VnTime (TCVN3) sang Times New Roman (Unicode)</span>
+                        </a>
+                    </li>
+
+                    <hr class="dropdown-divider" style="border-color: rgba(255,255,255,0.05); margin: 5px 15px;">
+                    <li class="dropdown-header text-uppercase small pb-1 text-muted" style="font-size: 10px; padding-left: 20px;">Cá nhân & Công cụ</li>
+
+                    <li class="nav-item">
+                        <a href="{{ url_for('qr_generator_page') }}">
+                            <i class="fas fa-qrcode"></i>
+                            <span>Tạo mã VietQR</span>
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a href="{{ url_for('change_password') }}">
+                            <i class="fas fa-key"></i>
+                            <span>Đổi mật khẩu</span>
+                        </a>
+                    </li>
+                </ul>
+            </li>
+
+            <li class="nav-item">
+                <a href="{{ url_for('forum.index') }}">
+                    <i class="fas fa-comments"></i>
+                    <span>Diễn đàn Forum</span>
+                </a>
+            </li>
+            
+            <li class="nav-item has-dropdown">
+                {% if can_access_bc48() %}
+                <a href="javascript:void(0)" class="d-flex align-items-center">
+                    <span><i class="fas fa-database"></i> <span>QLDLĐT BC48</span></span>
+                    <i class="fas fa-chevron-down arrow-icon" style="margin-left: auto; font-size: 0.7rem;"></i>
+                </a>
+                <ul class="dropdown-menu">
+                    <!-- NHÓM 1: QUẢN LÝ ĐẦU VÀO & TỔNG HỢP -->
+                    <li class="dropdown-header">Quản lý &amp; Tổng hợp</li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('giaodien_bc48') }}">
+                            <i class="fas fa-file-upload text-warning"></i>
+                            <span>Nạp dữ liệu TXT, CSV</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('giaodien_bc48', view='report') }}">
+                            <i class="fas fa-sync-alt text-info"></i>
+                            <span>Tổng hợp BC48 Toàn hàng</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('giaodien_xu_ly_riengle') }}">
+                            <i class="fas fa-building text-danger"></i>
+                            <span>Tổng hợp 01 Đơn vị</span>
+                        </a>
+                    </li>
+
+                    <hr class="dropdown-divider" style="border-color: rgba(255,255,255,0.05); margin: 5px 15px;">
+
+                    <!-- NHÓM 2: TRA CỨU & BÁO CÁO -->
+                    <li class="dropdown-header">Tra cứu &amp; Báo cáo</li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('saoke_txt') }}">
+                            <i class="fas fa-file-alt text-warning"></i>
+                            <span>Sao kê theo tệp TXT</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('giaodien_bc48', view='history_toan_hang') }}">
+                            <i class="fas fa-history text-success"></i>
+                            <span>BC48 TH 9999 (Toàn hàng)</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('giaodien_bc48', view='history_don_vi') }}">
+                            <i class="fas fa-university text-primary"></i>
+                            <span>BC48 TH Đơn vị</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('bc48_dashboard_hinh_thuc') }}">
+                            <i class="fas fa-clipboard-list text-warning"></i>
+                            <span>Báo cáo 4 loại hình (GLA)</span>
+                            <small class="text-muted">Tổng số, chi tiết ngày, sao kê chi tiết GLA</small>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('view_cau_hinh_nghiep_vu') }}">
+                            <i class="fas fa-list-alt text-secondary"></i>
+                            <span>Cấu hình nghiệp vụ</span>
+                        </a>
+                    </li>
+
+                    <hr class="dropdown-divider" style="border-color: rgba(255,255,255,0.05); margin: 5px 15px;">
+
+                    <!-- NHÓM 3: KIỂM TRA LỖI LOGIC HỆ THỐNG -->
+                    <li class="dropdown-header">Kiểm tra lỗi Logic</li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('ket_qua_logic_kh_gt') }}">
+                            <i class="fas fa-clipboard-check" style="color: #0dcaf0;"></i>
+                            <span>Logic Khách hàng &amp; Giấy tờ</span>
+                            <small class="text-muted">Loại KH, Loại GT, KHCN lỗi ngày sinh, số GT</small>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('ket_qua_logic_ty_gia') }}">
+                            <i class="fas fa-money-bill-wave text-warning"></i>
+                            <span>Logic Tỷ giá &amp; Quy đổi</span>
+                            <small class="text-muted">Loại tiền không phải VND, lỗi quy đổi thập phân</small>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('ket_qua_kiem_tra_danh_muc') }}">
+                            <i class="fas fa-database text-danger"></i>
+                            <span>Đối chiếu Danh mục dữ liệu</span>
+                            <small class="text-muted">Quét đối chiếu 10 danh mục hệ thống</small>
+                        </a>
+                    </li>
+
+                    <hr class="dropdown-divider" style="border-color: rgba(255,255,255,0.05); margin: 5px 15px;">
+
+                    <!-- NHÓM 4: QUY TRÌNH ĐỐI SOÁT & XỬ LÝ LỖI CHI NHÁNH (TỪ 1/5 ĐẾN 5/5) -->
+                    <li class="dropdown-header">Quy trình xử lý lỗi Chi nhánh</li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('bc48_thong_ke_trang_thai') }}">
+                            <i class="fas fa-chart-pie text-success"></i>
+                            <span>(1/5) Thống kê trạng thái lỗi Daily</span>
+                            <small class="text-muted">Số dòng KTraGDLoi, KTraFileThanhCong (CTR, DWT, EFT, PTR)</small>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('giaodien_cuc_pcrt_tra_loi') }}">
+                            <i class="fas fa-chart-bar text-info"></i>
+                            <span>(2/5) Tiếp nhận dữ liệu Cục PCRT</span>
+                            <small class="text-muted">Nhập tệp CSV phản hồi (4 tabs, chi_tiet_loi_master)</small>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('giaodien_ket_qua_do_tim') }}">
+                            <i class="fas fa-search-location text-success"></i>
+                            <span>Dò tìm &amp; Đối chiếu lỗi TXT-CSV</span>
+                            <small class="text-muted">Tìm kiếm theo mã giao dịch trong các tệp GLD, GBS, GLA</small>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('giaodien_boctach_mota_loi') }}">
+                            <i class="fas fa-scissors text-warning"></i>
+                            <span>(3/5) Bóc tách mô tả lỗi CSV</span>
+                            <small class="text-muted">Phân rã mã lỗi, tự động nhận diện lỗi F ảo và theo dõi trạng thái</small>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('giaodien_khai_bao_mail') }}">
+                            <i class="fas fa-envelope-open-text text-warning"></i>
+                            <span>Khai báo Email Chi nhánh</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('giaodien_gui_mail_chi_nhanh') }}">
+                            <i class="fas fa-paper-plane text-info"></i>
+                            <span>(4/5) Gửi Mail lỗi đến đơn vị</span>
+                            <small class="text-muted">Tách dữ liệu theo mã CN, đóng gói ZIP và gửi mail</small>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('nhat_ky_mat_khau') }}">
+                            <i class="fas fa-key text-muted"></i>
+                            <span>Nhật ký mật khẩu Mail</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('giaodien_import_phan_hoi') }}">
+                            <i class="fas fa-file-excel text-success"></i>
+                            <span>(5/5) Tiếp nhận XLSX phản hồi</span>
+                            <small class="text-muted">Nhập file phản hồi kết quả từ các Chi nhánh</small>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('dashboard_theo_doi_loi') }}">
+                            <i class="fas fa-tachometer-alt text-light"></i>
+                            <span style="font-weight: bold; color: var(--accent-color);">Dashboard Tiến độ KPCS</span>
+                        </a>
+                    </li>
+
+                    <hr class="dropdown-divider" style="border-color: rgba(255,255,255,0.05); margin: 5px 15px;">
+
+                    <!-- NHÓM 5: NHẬT KÝ HỆ THỐNG (LOGS) -->
+                    <li class="dropdown-header">Nhật ký hệ thống</li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('giaodien_log_errors') }}">
+                            <i class="fas fa-exclamation-triangle text-danger"></i>
+                            <span>Lỗi khi nạp TXT</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('bc48_file_logs') }}">
+                            <i class="fas fa-history text-muted"></i>
+                            <span>Nhật ký nạp TXT</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('bc48_csv_logs') }}">
+                            <i class="fas fa-file-csv text-primary"></i>
+                            <span>Nhật ký nạp CSV</span>
+                        </a>
+                    </li>
+
+                    <!-- NHÓM 6: QUẢN TRỊ (ADMIN ONLY) -->
+                    {% if current_user.is_admin %}
+                    <hr class="dropdown-divider" style="border-color: rgba(255,255,255,0.05); margin: 5px 15px;">
+                    <li class="dropdown-header">Quản trị hệ thống</li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('admin_permissions_bc48') }}">
+                            <i class="fas fa-user-lock text-warning"></i>
+                            <span>Quản trị phân quyền BC48</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('ttkh_bc48') }}">
+                            <i class="fas fa-users-rectangle text-primary"></i>
+                            <span>Thông tin khách hàng BC48</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+                {% endif %}
+            </li>
+
+            {% if current_user.is_authenticated %}
+            <li class="nav-item has-dropdown">
+                <a href="javascript:void(0)" class="dropdown-toggle">
+                    <span><i class="fas fa-file-invoice-dollar"></i> <span>Báo cáo</span></span>
+                    <i class="fas fa-chevron-down arrow-icon" style="margin-left: auto; font-size: 0.7rem;"></i>
+                </a>
+                <ul class="dropdown-menu">
+                    <li>
+                        <a href="{{ url_for('bao_cao_cong_chi_tiet') }}" class="font-weight-bold">
+                            <i class="fas fa-calendar-alt text-primary"></i> <span>BC Chấm công tổng hợp</span>
+                        </a>
+                    </li>
+                    
+                    <li style="border-top: 1px solid rgba(255,255,255,0.05); margin-top: 5px; padding-top: 5px;"></li>
+                    
+                    <li><a href="{{ url_for('tong_hop_ngoai_gio') }}"><i class="fas fa-chart-pie text-info"></i> <span>Ngoài giờ (Tháng)</span></a></li>
+                    <li><a href="{{ url_for('tong_hop_ngoai_gio_nam') }}"><i class="fas fa-calendar-check text-primary"></i> <span>Ngoài giờ (12 Tháng)</span></a></li>
+                    <li><a href="{{ url_for('ket_qua_ngoai_gio_nam_chot') }}"><i class="fas fa-money-check-alt text-danger"></i> <span>Tiền ngoài giờ năm</span></a></li>
+
+                    <li style="border-top: 1px solid rgba(255,255,255,0.05); margin-top: 5px; padding-top: 5px;"></li>
+                    
+                    <li><a href="{{ url_for('v1_report') }}"><i class="fas fa-file-alt"></i> <span>BC Tiền lương V1</span></a></li>
+                    <li><a href="{{ url_for('v2_report') }}"><i class="fas fa-file-invoice"></i> <span>BC Tiền lương V2</span></a></li>
+                    <li><a href="{{ url_for('v2_dc_report') }}"><i class="fas fa-file-signature text-warning"></i> <span>BC Lương V2_Điều chỉnh</span></a></li>
+                    
+                    <li style="border-top: 1px solid rgba(255,255,255,0.05); margin-top: 5px; padding-top: 5px;"></li>
+                    
+                    <li><a href="{{ url_for('report_v1_v2') }}" class="text-success"><i class="fas fa-plus-circle"></i> <span>Tổng hợp V1 + V2</span></a></li>
+                    <li><a href="{{ url_for('report_v1_v2_dc') }}" class="text-primary"><i class="fas fa-file-signature"></i> <span>Tổng hợp V1 + V2_DC</span></a></li>
+
+                    <li style="border-top: 1px solid rgba(255,255,255,0.05); margin-top: 5px; padding-top: 5px;"></li>
+                    
+                    <li><a href="{{ url_for('bao_cao_tong_hop_dao_tao') }}"><i class="fas fa-chart-bar text-warning"></i> <span>BC Đào tạo (Người học)</span></a></li>
+                    <li><a href="{{ url_for('bao_cao_dao_tao_chuc_vu') }}"><i class="fas fa-chart-bar text-warning"></i> <span>BC Đào tạo (Chức vụ)</span></a></li>
+                </ul>
+            </li>
+            {% endif %}
+
+            {% if current_user.is_authenticated %}
+                {% set allowed_staff = ['200905691', '200900615'] %}
+                {% if current_user.is_admin or current_user.ma_nhan_vien in allowed_staff %}
+                <li class="nav-item has-dropdown">
+                    <a href="javascript:void(0)" class="dropdown-toggle">
+                        <span><i class="fas fa-user-shield"></i> <span>ĐVPB</span></span>
+                        <i class="fas fa-chevron-down arrow-icon" style="margin-left: auto; font-size: 0.7rem;"></i>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a href="{{ url_for('admin_don_vi') }}"><i class="fas fa-university text-primary"></i> <span>Quản lý Đơn vị</span></a></li>
+                        <li><a href="{{ url_for('admin_phong_ban') }}"><i class="fas fa-sitemap text-success"></i> <span>Quản lý Phòng ban</span></a></li>                        
+                    </ul>
+                </li>
+                {% endif %}
+            {% endif %}
+
+            {% if current_user.is_authenticated and current_user.role|upper == 'ADMIN' %}
+                <li class="nav-item">
+                    <p style="color: #7f8c8d; font-size: 0.65rem; margin: 20px 0 5px 25px; text-transform: uppercase;">Human_AI</p>
+                </li>
+                <li class="nav-item has-dropdown">
+                    <a style="color: #f1c40f;">
+                        <span><i class="fas fa-shield-alt"></i> <span>Quản trị</span></span>
+                        <i class="fas fa-chevron-down arrow-icon" style="margin-left: auto; font-size: 0.7rem;"></i>
+                    </a>
+                    <ul class="dropdown-menu">
+                        {% if current_user.is_admin %}
+                            <li style="border-top: 1px solid rgba(255,255,255,0.05); margin-top: 5px; color: #888; font-size: 0.7rem; padding-left: 15px; padding-top: 5px; text-transform: uppercase;">Hệ thống</li>
+                            <li><a href="{{ url_for('danh_sach_nhan_vien') }}"><i class="fas fa-users-cog"></i><span>Danh sách Users</span></a></li>
+                            <li><a href="{{ url_for('admin_permissions') }}"><i class="fas fa-user-shield"></i> <span>Phân quyền Menu</span></a></li>
+                            <li><a href="{{ url_for('config_ngay_le') }}"><i class="fas fa-calendar-alt text-danger"></i> <span>Cấu hình Ngày lễ</span></a></li>
+                            <li><a href="{{ url_for('view_logs') }}"><i class="fas fa-history text-info"></i> <span>Nhật ký hệ thống</span></a></li>
+                            <li><a href="{{ url_for('danh_sach_linh_vuc') }}"><i class="fas fa-layer-group"></i> <span>Quản trị Lĩnh vực</span></a></li>
+                        {% endif %}
+
+                        <li>
+                            <a href="{{ url_for('config_salary') }}"><i class="fas fa-cogs"></i><span>Cấu hình Mức lương</span>
+                                {% if has_missing_config %}
+                                    <span class="badge-dot" style="height: 10px; width: 10px; background-color: #e74c3c; border-radius: 50%; display: inline-block; margin-left: 8px; border: 2px solid #2c3e50;"></span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('admin_questions') }}">
+                                <i class="fas fa-question-circle"></i>
+                                <span>Quản trị câu hỏi Quiz</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-item has-dropdown">
+                            <a href="#"><i class="fas fa-user-shield"></i> <span>Quản trị Hồ sơ khen thưởng</span></a>
+                            <ul class="dropdown-menu">
+                                <li><a href="{{ url_for('admin_nhom_ho_so') }}">Danh mục Nhóm hồ sơ</a></li>
+                                <li><a href="{{ url_for('admin_giay_to') }}">Danh mục Loại giấy tờ</a></li>
+                                
+                                <hr class="my-1 border-light opacity-25">
+                                
+                                <li>
+                                    <a href="{{ url_for('admin_ho_so_permissions') }}"><i class="fas fa-user-lock mr-2"></i>Phân quyền Xử lý Hồ sơ</a>
+                                </li>
+                            </ul>
+                        </li>
+
+                        <li>
+                            <a href="{{ url_for('full_database_backup') }}" 
+                               onclick="if(confirm('Hệ thống sẽ nén toàn bộ Cơ sở dữ liệu thành file ZIP để tải về. Bạn có chắc chắn muốn sao lưu không?')) { 
+                                   this.querySelector('i').className='fas fa-spinner fa-spin'; 
+                                   return true; 
+                               } return false;">
+                                <i class="fas fa-download"></i>
+                                <span>Sao lưu CSDL (macOS error)</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            {% endif %}
+
+            <li class="nav-item" style="margin-top: 30px; border-top: 1px solid rgba(255,255,255,0.05);">
+                {% if current_user.is_authenticated %}
+                    <a href="/logout" style="color: #e74c3c;"><i class="fas fa-sign-out-alt"></i><span>Đăng xuất</span></a>
+                {% else %}
+                    <a href="{{ url_for('login') }}" style="color: #2ecc71;"><i class="fas fa-sign-in-alt"></i><span>Đăng nhập</span></a>
+                {% endif %}
+            </li>
+        </ul>
+    </aside>
+
+    <main class="main-content">
+        {% if view == 'xu_ly_rieng_le' %}
+        <div class="container-fluid mb-4" style="animation: fadeIn 0.5s ease;">
+            <div class="row justify-content-center">
+                <div class="col-12">
+                    <div class="card shadow-sm border-0" style="border-radius: 20px; overflow: hidden;">
+                        <div class="card-header bg-danger text-white p-3">
+                            <h5 class="card-title mb-0"><i class="fas fa-bolt"></i> CÔNG CỤ XỬ LÝ RIÊNG LẺ ĐƠN VỊ</h5>
+                        </div>
+                        <div class="card-body p-4" style="background: #fff;">
+                            <form action="{{ url_for('tonghop_donvi_riengle') }}" method="POST">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="form-group mb-3">
+                                            <label class="font-weight-bold text-dark"><i class="fas fa-fingerprint"></i> Mã ngân hàng (8 số mới):</label>
+                                            <input type="text" name="manh8so_moi" class="form-control form-control-lg" 
+                                                   style="border: 2px solid #f8d7da;" placeholder="Ví dụ: 01204009" required autocomplete="off">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group mb-3">
+                                            <label class="font-weight-bold"><i class="far fa-calendar-alt"></i> Từ tháng (YYYYMM):</label>
+                                            <input type="number" name="start_date" class="form-control form-control-lg" value="202601" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group mb-3">
+                                            <label class="font-weight-bold"><i class="far fa-calendar-alt"></i> Đến tháng (YYYYMM):</label>
+                                            <input type="number" name="end_date" class="form-control form-control-lg" value="202612" required>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="alert alert-warning border-0 shadow-sm mt-3">
+                                    <h6 class="font-weight-bold"><i class="fas fa-exclamation-triangle"></i> Lưu ý quan trọng:</h6>
+                                    <ul class="mb-0 small">
+                                        <li>Hệ thống sẽ xóa toàn bộ dữ liệu BC48 cũ của mã đơn vị này trong khoảng thời gian đã chọn.</li>
+                                        <li>Quá trình này không ảnh hưởng đến dữ liệu của các đơn vị khác hoặc dữ liệu toàn hàng.</li>
+                                    </ul>
+                                </div>
+
+                                <div class="text-right mt-4 pt-3 border-top">
+                                    <a href="{{ url_for('index') }}" class="btn btn-secondary px-4">Hủy bỏ</a>
+                                    <button type="submit" class="btn btn-danger btn-lg px-5 shadow-sm">
+                                        <i class="fas fa-play"></i> Bắt đầu thực thi
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <header class="header-top">
+            <div class="welcome-text">
+                <p style="color: #7f8c8d;"><i class="far fa-calendar-check"></i> <strong>Hôm nay:</strong> {{ weekday_vn }}, ngày {{ current_date }}.</p>
+                {% if current_user.is_authenticated %}
+                    <h1 style="margin:0; font-size: 1.8rem;">Xin chào, <span style="color: var(--accent-color);">{{ current_user.fullname or current_user.ma_nhan_vien }}</span>! 👋</h1>
+                {% else %}
+                    <h1>Chào mừng khách!</h1>
+                    <p style="color: #7f8c8d; margin-top: 5px;">Vui lòng đăng nhập để sử dụng đầy đủ tính năng.</p>
+                {% endif %}
+            </div>
+            <div class="header-actions">
+                <button onclick="location.reload()" class="btn-refresh" style="background: white; border: 1px solid #ddd; padding: 10px 15px; border-radius: 10px; cursor: pointer; transition: 0.3s;">
+                    <i class="fas fa-sync-alt"></i> Làm mới
+                </button>
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <div class="stat-card" style="border-left: 4px solid #e74c3c; background: linear-gradient(145deg, #ffffff, #fffef5);">
+                <i class="fas fa-moon card-icon" style="position: absolute; right: 20px; top: 20px; font-size: 3rem; opacity: 0.1; color: #c0392b;"></i>
+
+                <div style="font-size: 0.8rem; font-weight: 600; color: #7f8c8d; text-transform: uppercase;">Lịch âm & Trạng thái</div>
+                <div id="lunar_date" style="font-size: 1.4rem; font-weight: 800; color: #c0392b; margin: 10px 0;">Đang tính...</div>
+                <div id="can_chi" style="font-size: 0.9rem; line-height: 1.4;">--</div>
+
+                <div style="margin-top: 15px; padding-top: 10px; border-top: 1px dashed #ddd;">
+                    <div id="countdown_label" style="font-size: 0.7rem; color: #95a5a6; font-weight: bold;">ĐANG TẢI...</div>
+                    <div id="countdown_timer" class="modern-timer">00:00:00</div>
+                </div>
+            </div>
+
+            <div class="stat-card" style="border-top: 4px solid var(--accent-color);">
+                <i class="fas fa-database card-icon" style="position: absolute; right: 20px; top: 20px; font-size: 3rem; opacity: 0.1; color: var(--accent-color);"></i>
+                <div class="stat-title">Kết nối Database</div>
+                <div class="stat-value" style="margin: 10px 0;">MySQL Server</div>
+
+                <div>
+                    <span class="status-badge {{ 'bg-success' if 'thành công' in mysql_status.status else 'bg-danger' }}" 
+                          style="padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; {{ 'background:#d4edda;color:#155724' if 'thành công' in mysql_status.status else 'background:#f8d7da;color:#721c24' }}">
+                        <i class="fas fa-circle" style="font-size: 0.5rem; margin-right: 5px;"></i>
+                        {{ mysql_status.status }}
+                    </span>
+                </div>
+
+                <button id="kiem_tra_ket_noi_mysql" style="margin-top: 20px; border: none; background: var(--accent-color); color: white; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.3s;">
+                    <i class="fas fa-plug"></i> Kiểm tra kết nối (usr)
+                </button>
+            </div>
+
+            <div class="stat-card" style="border-top: 4px solid #9b59b6;">
+                <i class="fas fa-server card-icon" style="position: absolute; right: 20px; top: 20px; font-size: 3rem; opacity: 0.1; color: #9b59b6;"></i>
+                <div class="stat-title">Thông tin Server; Trình duyệt truy cập</div>
+                <div class="stat-value" style="margin: 10px 0; color: #9b59b6;">{{ os_system }}</div>
+                <div style="font-size: 0.85rem; color: #7f8c8d; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 8px;">
+                    <i class="fas fa-code-branch"></i> Phiên bản: {{ os_release }}<br>
+                    <i class="fas fa-network-wired"></i> IP: <span style="font-family: monospace;">{{ user_ip }}</span>
+                </div>
+                <i class="fas fa-globe card-icon" style="position: absolute; right: 20px; top: 20px; font-size: 3rem; opacity: 0.1; color: #e67e22;"></i>
+                <div class="stat-value" style="margin: 10px 0; font-size: 1rem;" title="{{ user_agent }}">{{ user_agent[:25] }}...</div>
+                <div style="color: #e67e22; font-weight: 700; font-size: 1.2rem; font-family: 'Courier New', Courier, monospace;">
+                    <i class="far fa-clock"></i> <span id="current_time">00:00:00</span>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4" style="
+                grid-column: 1 / span 3;
+                background: white; 
+                padding: 20px; 
+                border-radius: 20px; 
+                border-left: 8px solid #2ecc71; 
+                box-shadow: -5px 0 20px rgba(46, 204, 113, 0.2), var(--card-shadow); 
+                width: 100%;
+                margin-top: 10px;
+                box-sizing: border-box;
+                transition: var(--transition);
+                position: relative;
+                overflow: hidden;">
+
+                <div style="position: absolute; 
+                            left: 0; top: 0; bottom: 0; width: 2px; 
+                            background: linear-gradient(to bottom, transparent, #fff, transparent); 
+                            opacity: 0.5;">
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="margin:0; font-size: 1rem; font-weight: 700; color: #333; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <i class="fas fa-layer-group" style="margin-right: 8px; color: #3498db;"></i> Hệ thống chức năng
+                    </h3>
+                    <span style="background: rgba(46, 204, 113, 0.1); color: #2ecc71; padding: 4px 12px; border-radius: 30px; font-size: 0.7rem; font-weight: bold; border: 1px solid #2ecc71; box-shadow: 0 0 10px rgba(46, 204, 113, 0.2);">
+                        <i class="fas fa-check-circle"></i> SẴN SÀNG
+                    </span>
+                </div>
+
+                <div style="max-height: 400px; 
+                            overflow-y: auto; 
+                            padding-right: 5px;
+                            scrollbar-width: thin;
+                            scrollbar-color: #cbd5e1 #f1f5f9;">
+                    
+                    <div style="display: grid; 
+                                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); 
+                                gap: 12px; 
+                                width: 100%;">
+                        
+                        {% set functions = [
+                            ('Lịch Đoàn công tác', 'fa-calendar-alt'), 
+                            ('Danh sách chi nhánh', 'fa-building'), 
+                            ('Chấm công hàng tháng', 'fa-clock'), 
+                            ('Theo dõi nghỉ phép', 'fa-calendar-check'), 
+                            ('Chấm công ngoài giờ', 'fa-user-clock'), 
+                            ('Các ngày trong tháng', 'fa-calendar-day'),
+                            ('Trắc nghiệm Quiz', 'fa-vial'), 
+                            ('Theo dõi Lớp học đào tạo', 'fa-chalkboard-teacher'), 
+                            ('Lương V1, V2...', 'fa-money-bill-wave'), 
+                            ('Theo dõi Hồ sơ khen thưởng', 'fa-award'), 
+                            ('Báo cáo tùy chỉnh', 'fa-chart-pie'),
+                            ('Điền mẫu nhanh', 'fa-vial'),
+                            ('Chuyển font .VnTime sang Times New Roman', 'fa-font'),
+                            ('Nạp TXT, CSV vào BC48', 'fa-file-upload'),
+                            ('Lỗi khi nạp TXT', 'fa-exclamation-triangle'),
+                            ('Nhật ký nạp TXT', 'fa-history'),
+                            ('Nhật ký nạp CSV', 'fa-clipboard-list'),
+                            ('Dashboard hình thức file (GLD; GBS; GLA)', 'fa-chart-bar'),
+                            ('Lỗi logic: LoaiKH, LoaiGT, KHCN (ngaysinh, sogt)', 'fa-user-shield'),
+                            ('Lỗi logic: Tỷ giá', 'fa-dollar-sign'),
+                            ('Lỗi logic: Danh mục dữ liệu', 'fa-folder-minus'),
+                            ('Tổng hợp BC48 toàn hàng & chi nhánh', 'fa-server'),
+                            ('Kết quả dò tìm lỗi (chi_tiet_loi_master) theo ma_giao_dich và KIỂM TRA GIAO DỊCH LỖI, ket_qua_do_tim_loi, giao_dich_error_khong_tim_thay', 'fa-search-minus'),
+                            ('Bóc tách mota_loi của CSV', 'fa-scissors')
+                        ] %}
+
+                        {% for name, icon in functions %}
+                        <div style="padding: 10px 15px; 
+                                    border-radius: 12px; 
+                                    background: #f8f9fa; 
+                                    border: 1px solid #eee; 
+                                    display: flex; 
+                                    justify-content: space-between; 
+                                    align-items: center; 
+                                    transition: var(--transition);
+                                    cursor: pointer;
+                                    min-height: 54px;" 
+                             onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='#2ecc71'; this.style.background='#fff'; this.style.boxShadow='0 4px 12px rgba(46, 204, 113, 0.1)';"
+                             onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='#eee'; this.style.background='#f8f9fa'; this.style.boxShadow='none';">
+                            
+                            <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                                <div style="width: 32px; height: 32px; background: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #f0f0f0;">
+                                    <i class="fas {{ icon }}" style="color: #3498db; font-size: 0.85rem;"></i>
+                                </div>
+                                <span style="font-weight: 600; color: #444; font-size: 0.78rem; line-height: 1.2; word-break: break-word;">
+                                    {{ name }}
+                                </span>
+                            </div>
+                            <i class="fas fa-check-circle" style="color: #2ecc71; font-size: 0.75rem; flex-shrink: 0; margin-left: 5px;"></i>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            {% if current_user.is_authenticated and current_user.is_admin %}
+                <div class="stat-card" style="border-top: 4px solid #f39c12; grid-column: span 1;">
+                    <i class="fas fa-folder-open card-icon" style="position: absolute; right: 20px; top: 20px; font-size: 3rem; opacity: 0.1; color: #f39c12;"></i>
+                    <div class="stat-title">Giám sát Ổ đĩa chia sẻ</div>
+                    
+                    <div style="margin-top: 15px;">
+                        <input type="text" id="folderPath" class="form-control" 
+                               placeholder="Dán đường dẫn (VD: Z:\Data hoặc \\Server\Share)"
+                               style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 10px;">
+                        
+                        <div style="display: flex; gap: 10px;">
+                            <button onclick="startWatch()" class="btn-refresh" style="flex: 1; background: #2ecc71; color: white; border: none;">
+                                <i class="fas fa-play"></i> Bắt đầu
+                            </button>
+                            <button onclick="stopWatch()" class="btn-refresh" style="flex: 1; background: #e74c3c; color: white; border: none;">
+                                <i class="fas fa-stop"></i> Dừng
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="monitorStatus" style="margin-top: 10px; font-size: 0.8rem; color: #7f8c8d;">
+                        Trạng thái: <span id="statusText"><i class="fas fa-circle-notch"></i> Đang nghỉ</span>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="card shadow-sm mb-4" style="background: white; padding: 25px; border-radius: 20px; border-left: 8px solid {{ '#e74c3c' if has_missing_config else '#2ecc71' }}; box-shadow: var(--card-shadow);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin:0; font-size: 1.2rem;"><i class="fas fa-file-invoice-dollar text-primary"></i> Khai báo lương {{ selected_year }}</h3>
+                {% if has_missing_config %}
+                    <span class="badge flash" style="background: #e74c3c; color: white; padding: 5px 15px; border-radius: 5px; font-size: 0.8rem; font-weight: bold;">CẢNH BÁO: CHƯA HOÀN TẤT</span>
+                {% else %}
+                    <span style="background: #2ecc71; color: white; padding: 5px 15px; border-radius: 5px; font-size: 0.8rem; font-weight: bold;">DỮ LIỆU ĐÃ SẴN SÀNG</span>
+                {% endif %}
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                {% for item in salary_status %}
+                <div style="padding: 15px; border-radius: 12px; background: #f8f9fa; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: 600;">{{ item.loai }}</span>
+                    <span style="color: {{ '#e74c3c' if item.status == 'CHƯA ĐỦ' else '#2ecc71' }}; font-weight: bold;">
+                        <i class="fas {{ 'fa-times-circle' if item.status == 'CHƯA ĐỦ' else 'fa-check-circle' }}"></i> {{ item.status }}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <footer style="margin-top: 40px; text-align: center; color: #95a5a6; font-size: 0.85rem; padding: 20px; border-top: 1px solid #eee;">
+            <p><i class="fas fa-shield-alt"></i> Tuân thủ Bảo mật là một tiến trình | &copy; 2026 Admin Dashboard</p>
+            <p style="font-style: italic;">Website có sử dụng các câu trả lời từ Google Gemini và tài liệu của người làm cùng công ty</p>
+        </footer>
+    </main>
+
+    <script>
+        // --- 1. SMART TOAST CONFIG (Có kiểm tra an toàn) ---
+        let Toast;
+        if (typeof Swal !== 'undefined') {
+            Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer)
+                    toast.addEventListener('mouseleave', Swal.resumeTimer)
+                }
+            });
+        } else {
+            // Fallback giả lập nếu chưa tải được SweetAlert2 để tránh làm sập trang
+            Toast = { fire: (opt) => console.log(opt.title, opt.text) };
+        }
+
+        // 2. Đồng hồ thời gian thực
+        function updateClock() {
+            const now = new Date();
+            const el = document.getElementById('current_time');
+            if (el) el.textContent = now.toLocaleTimeString('vi-VN', { hour12: false });
+        }
+
+        // 3. Tính lịch âm
+        function loadLunarData() {
+            const today = new Date();
+            const lunarDateEl = document.getElementById('lunar_date');
+            const canChiEl = document.getElementById('can_chi');
+
+            if (typeof AmLich !== 'undefined') {
+                const res = AmLich.convert(today.getDate(), today.getMonth() + 1, today.getFullYear());
+                
+                if (res) {
+                    lunarDateEl.innerHTML = `Ngày ${res.day}/${res.month}${res.isLeap ? ' (Nhuận)' : ''} Âm lịch`;
+                    canChiEl.innerHTML = `
+                        <div style="margin-top:5px;">
+                            <span class="badge bg-primary" style="font-size:0.8rem;">Ngày ${res.canChiNgay}</span>
+                            <span class="badge bg-info" style="font-size:0.8rem;">Tháng ${res.canChiThang}</span>
+                            <span class="badge bg-secondary" style="font-size:0.8rem;">Năm ${res.canChiNam}</span>
+                        </div>
+                    `;
+
+                    if (res.day === 1 && res.month === 1) {
+                        const label = document.getElementById('countdown_label');
+                        if (label) label.innerHTML = "🎊 CHÚC MỪNG NĂM MỚI!";
+                        if (typeof fireShot === 'function') fireShot();
+                    }
+                } else {
+                    lunarDateEl.innerText = "Lỗi dữ liệu lịch";
+                }
+            } else {
+                lunarDateEl.innerText = "Chưa tải AmLich.js";
+            }
+        }
+
+        // 4. Xử lý nút MySQL
+        const btnMysql = document.getElementById('kiem_tra_ket_noi_mysql');
+        if (btnMysql) {
+            btnMysql.addEventListener('click', function() {
+                const btn = this;
+                const originalHTML = btn.innerHTML;
+                
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang kiểm tra...';
+                btn.disabled = true;
+
+                fetch('/test_mysql_connection')
+                    .then(response => {
+                        if (!response.ok) throw new Error("Lỗi Server");
+                        return response.json();
+                    })
+                    .then(data => {
+                        alert(data.message);
+                        if (data.success) location.reload();
+                    })
+                    .catch(error => alert("Lỗi kết nối hệ thống!"))
+                    .finally(() => {
+                        btn.innerHTML = originalHTML;
+                        btn.disabled = false;
+                    });
+            });
+        }
+
+        // --- 5. SMART COUNTDOWN LOGIC ---
+        let celebrationTriggered = false;
+        function updateSmartCountdown() {
+            const now = new Date();
+            const timerEl = document.getElementById('countdown_timer');
+            const labelEl = document.getElementById('countdown_label');
+
+            const workEnd = new Date();
+            workEnd.setHours(17, 0, 0, 0);
+
+            const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+
+            let target;
+            let message = "";
+
+            if (now < workEnd) {
+                target = workEnd;
+                labelEl.innerHTML = '<i class="fas fa-running"></i> Thời gian đến giờ tan làm:';
+                message = "🎉 HẾT GIỜ! VỀ THÔI! 🚀";
+            } else {
+                target = yearEnd;
+                labelEl.innerHTML = '<i class="fas fa-glass-cheers"></i> Đếm ngược kết thúc năm ' + now.getFullYear() + ':';
+                message = "🎆 CHÚC MỪNG NĂM MỚI! 🥂";
+            }
+
+            const diff = target - now;
+            if (diff <= 0 || (now.getHours() === 17 && now.getMinutes() === 0 && now.getSeconds() === 0)) {
+                timerEl.innerHTML = message;
+                timerEl.style.color = "#27ae60";
+                if (!celebrationTriggered) {
+                    fireShot();
+                    celebrationTriggered = true;
+                    setTimeout(() => { celebrationTriggered = false; }, 60000);
+                }
+                return;
+            }
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+            const mins = Math.floor((diff / 1000 / 60) % 60);
+            const secs = Math.floor((diff / 1000) % 60);
+
+            let displayStr = "";
+            if (days > 0) displayStr += `${days}d `;
+            displayStr += `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            
+            timerEl.innerHTML = displayStr;
+            timerEl.style.color = (now < workEnd) ? "#d35400" : "#2980b9";
+        }
+
+        function fireShot() {
+            const duration = 10 * 1000;
+            const end = Date.now() + duration;
+
+            (function frame() {
+                confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#ff0000', '#ffd700'] });
+                confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#ff0000', '#ffd700'] });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.querySelector('.sidebar');
+            const toggleBtn = document.getElementById('toggleSidebar');
+            
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    sidebar.classList.toggle('collapsed');
+                    localStorage.setItem('sidebarState', sidebar.classList.contains('collapsed') ? 'small' : 'large');
+                });
+            }
+            if (localStorage.getItem('sidebarState') === 'small') sidebar.classList.add('collapsed');
+
+            const dropdownLinks = document.querySelectorAll('.has-dropdown > a');
+            
+            dropdownLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const parent = this.parentElement;
+                    
+                    if (sidebar.classList.contains('collapsed')) {
+                        sidebar.classList.remove('collapsed');
+                        localStorage.setItem('sidebarState', 'large');
+                    }
+
+                    document.querySelectorAll('.has-dropdown').forEach(item => {
+                        if (item !== parent) {
+                            item.classList.remove('active-dropdown');
+                        }
+                    });
+
+                    parent.classList.toggle('active-dropdown');
+                });
+            });
+
+            updateClock();
+            loadLunarData();
+            setInterval(updateSmartCountdown, 1000);
+            setInterval(updateClock, 1000);
+        });
+
+        // SocketIO & Monitor Controls
+        var socket = io();
+        socket.on('file_change', function(data) {
+            Toast.fire({
+                icon: data.type === 'XUẤT HIỆN' ? 'success' : 'warning',
+                title: data.type,
+                text: data.message + ' (Lúc ' + data.time + ')'
+            });
+        });
+
+        function startWatch() {
+            const path = document.getElementById('folderPath').value;
+            if (!path) {
+                Swal.fire('Chú ý', 'Vui lòng nhập đường dẫn thư mục!', 'warning');
+                return;
+            }
+
+            fetch('/start_monitor', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ path: path })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('statusText').innerHTML = `<b style="color:#2ecc71">● Đang quét: ${path}</b>`;
+                    Swal.fire('Thành công', data.message, 'success');
+                } else {
+                    Swal.fire('Lỗi', data.message, 'error');
+                }
+            });
+        }
+
+        function stopWatch() {
+            fetch('/stop_monitor', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('statusText').innerHTML = `<span style="color:#e74c3c">○ Đã dừng</span>`;
+                Swal.fire('Thông báo', data.message, 'info');
+            });
+        }
+    </script>
+</body>
+</html>

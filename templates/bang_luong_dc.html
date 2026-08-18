@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}Quản lý Hệ số Điều chỉnh (HSL_DC){% endblock %}
+
+{% block content %}
+<style>
+    .toolbar-card { background: #fff; padding: 8px 15px; border-radius: 8px; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1); }
+    .toolbar-container { display: flex; align-items: center; gap: 15px; flex-wrap: nowrap; }
+    .form-group-inline { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+    .form-control-sm { font-size: 12px; height: 30px; }
+    .table-responsive { max-height: 75vh; overflow: auto; }
+    
+    /* Định dạng ô nhập hệ số */
+    .dc-input { 
+        text-align: center; 
+        font-weight: bold; 
+        color: #2c3e50; 
+        width: 60px;
+        border: 1px solid transparent;
+    }
+    .dc-input:focus { 
+        background-color: #e3f2fd !important; 
+        border-color: #2196f3 !important; 
+        outline: none; 
+    }
+    .dc-input:disabled { background: transparent; color: #5a5c69; border: none; }
+
+    .status-container { line-height: 1.2; font-size: 10px; }
+    .text-approved { color: #28a745; font-weight: bold; }
+    .info-detail { font-size: 9px; color: #858796; display: block; }
+
+    /* Ẩn nút tăng giảm của input number */
+    input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
+        -webkit-appearance: none; margin: 0;
+    }
+    input[type=number] { -moz-appearance: textfield; }
+
+    .sticky-col { position: sticky; left: 0; background: #f8f9fc; z-index: 10; }
+    .sticky-col-2 { position: sticky; left: 80px; background: #f8f9fc; z-index: 10; }
+</style>
+
+<div class="container-fluid mt-2">
+    <div class="toolbar-card mb-3 mt-2">
+        <form action="{{ url_for('bang_luong_dc') }}" method="GET" class="toolbar-container">
+            <div class="form-group-inline">
+                <span class="badge bg-warning px-2 py-2 text-dark font-weight-bold">HỆ SỐ ĐIỀU CHỈNH (DC)</span>
+            </div>
+            <div class="form-group-inline">
+                <label class="mb-0 font-weight-bold">Năm:</label>
+                <input type="number" name="year" value="{{ year }}" class="form-control form-control-sm" style="width: 75px;">
+            </div>
+            <div class="form-group-inline">
+                <label class="mb-0 font-weight-bold">Phòng ban:</label>
+                <select name="phong_ban" class="form-control form-control-sm" style="width: 180px;">
+                    <option value="">-- Tất cả --</option>
+                    {% for pb in ds_phong_ban %}
+                    <option value="{{ pb.id }}" {% if selected_pb == pb.id|string %}selected{% endif %}>{{ pb.ten_phong_ban }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm px-3 shadow-sm">
+                <i class="fas fa-search"></i> TRUY VẤN
+            </button>
+
+            <div class="ml-auto">
+                {% if current_user.role in ['ADMIN', 'KIEM_SOAT'] %}
+                <button type="button" onclick="saveDataDC()" class="btn btn-success btn-sm font-weight-bold px-3 shadow-sm">
+                    <i class="fas fa-check-double mr-1"></i> LƯU & PHÊ DUYỆT
+                </button>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover table-bordered mb-0" style="font-size: 11.5px;">
+                    <thead class="table-dark sticky-top text-center">
+                        <tr>
+                            <th style="width: 80px;" class="sticky-col">Mã NV</th>
+                            <th style="width: 160px;" class="sticky-col-2">Họ và Tên</th>
+                            {% for m in range(1, 13) %}
+                            <th style="width: 65px;">Tháng {{ m }}</th>
+                            {% endfor %}
+                            <th style="width: 150px;">Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if results %}
+                            {% for row in results %}
+                            <tr>
+                                <td class="text-center font-weight-bold text-primary sticky-col">{{ row.ma_nhan_vien }}</td>
+                                <td class="text-nowrap sticky-col-2">{{ row.ho_ten }}</td>
+                                
+                                {% for m in range(1, 13) %}
+                                <td class="p-0">
+                                    {% set val = row['t' ~ m] %}
+                                    <input type="number" step="0.01" 
+                                           class="form-control form-control-sm dc-input month-input" 
+                                           data-ma-nv="{{ row.ma_nhan_vien }}"
+                                           data-month="t{{ m }}"
+                                           value="{{ "%.2f"|format(val|float) if val else "1.00" }}"
+                                           {% if row.approved_by %}disabled{% endif %}>
+                                </td>
+                                {% endfor %}
+
+                                <td class="text-center">
+                                    {% if row.approved_by %}
+                                        <div class="status-container">
+                                            <span class="text-approved"><i class="fas fa-check-circle"></i> Đã duyệt</span>
+                                            <span class="info-detail">Bởi: {{ row.approved_by }}</span>
+                                            {% if current_user.role in ['ADMIN', 'KIEM_SOAT'] %}
+                                            <a href="javascript:void(0)" onclick="unapproveDC('{{ row.ma_nhan_vien }}')" class="text-danger x-small">Gỡ duyệt</a>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted italic small">Chưa phê duyệt</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="15" class="text-center py-4 text-muted">Không tìm thấy dữ liệu nhân viên trong bảng DC.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function saveDataDC() {
+        if (!confirm('Xác nhận lưu thay đổi và phê duyệt Hệ số điều chỉnh? \nSau khi duyệt, dữ liệu sẽ bị khóa.')) return;
+
+        const year = document.getElementsByName('year')[0].value;
+        const updates = {}; 
+
+        // Thu thập dữ liệu từ các ô input chưa bị disable
+        document.querySelectorAll('.month-input:not(:disabled)').forEach(input => {
+            const ma_nv = input.getAttribute('data-ma-nv');
+            const month = input.getAttribute('data-month');
+            const val = parseFloat(input.value) || 1.0;
+
+            if (!updates[ma_nv]) {
+                updates[ma_nv] = { ma_nv: ma_nv };
+            }
+            updates[ma_nv][month] = val;
+        });
+
+        const updateList = Object.values(updates);
+        if (updateList.length === 0) {
+            alert("Không có dữ liệu mới cần cập nhật.");
+            return;
+        }
+
+        fetch('/approve-dc', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ year: year, updates: updateList })
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) { 
+                alert(res.message); 
+                location.reload(); 
+            } else { 
+                alert('Lỗi: ' + res.message); 
+            }
+        });
+    }
+
+    function unapproveDC(ma_nv) {
+        if (!confirm(`Gỡ phê duyệt cho nhân viên ${ma_nv}?`)) return;
+
+        const year = document.getElementsByName('year')[0].value;
+        
+        fetch('/unapprove-dc', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ year: year, ma_nv: ma_nv })
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) {
+                location.reload();
+            } else {
+                alert('Lỗi: ' + res.message);
+            }
+        });
+    }
+</script>
+{% endblock %}

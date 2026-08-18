@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hệ thống Ôn luyện Trắc nghiệm</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --light-bg: #f0f2f5;
+            --white: #ffffff;
+            --gradient-main: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+        }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; padding: 10px; 
+            background-color: var(--light-bg); 
+            color: #333; line-height: 1.6; 
+        }
+
+        /* --- UI COMPONENTS --- */
+        .header-bar { 
+            display: flex; justify-content: space-between; align-items: center; 
+            background: var(--white); padding: 15px 20px; border-radius: 12px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-bottom: 20px;
+            border-bottom: 4px solid var(--primary-color);
+        }
+
+        .timer-box { color: var(--danger-color); font-weight: bold; font-size: 1.2em; background: #fff5f5; padding: 5px 15px; border-radius: 20px; border: 1px solid #feb2b2; }
+
+        .section { 
+            background: var(--white); padding: 20px; border-radius: 15px; 
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05); margin-bottom: 25px; 
+        }
+
+        .collapsible-header { 
+            background: var(--gradient-main); color: white; cursor: pointer; 
+            padding: 15px; width: 100%; border: none; text-align: left; 
+            font-size: 1.1em; font-weight: bold; display: flex; 
+            justify-content: space-between; border-radius: 10px;
+        }
+
+        .collapsible-content { padding: 0 10px; max-height: 0; overflow: hidden; transition: max-height 0.4s ease-in-out; }
+        .collapsible-content.show { max-height: 5000px; padding: 20px 10px; border: 1px solid #e1e8ed; border-radius: 0 0 10px 10px; }
+
+        .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 20px; padding: 15px; background: #fdfdfd; border-radius: 12px; border: 1px dashed #cbd5e0; }
+        .config-item label { font-size: 0.9rem; font-weight: bold; display: block; margin-bottom: 5px;}
+        .config-item input { width: 100%; padding: 10px; border: 2px solid #edf2f7; border-radius: 8px; box-sizing: border-box; }
+
+        .search-box { position: relative; margin-bottom: 15px; }
+        .search-box input { width: 100%; padding: 12px 40px; border-radius: 25px; border: 2px solid var(--primary-color); box-sizing: border-box; font-size: 1rem; }
+        .search-box i { position: absolute; left: 15px; top: 15px; color: var(--primary-color); }
+
+        .topic-list-container { max-height: 350px; overflow-y: auto; border: 1px solid #eee; border-radius: 10px; padding: 5px; background: #fff; }
+        
+        .topic-input-group { 
+            display: flex; align-items: center; margin-bottom: 8px; 
+            padding: 10px; border-radius: 8px; background: #f8fafc;
+            transition: 0.2s; cursor: pointer; user-select: none;
+        }
+        .topic-input-group:hover { background: #e2e8f0; }
+        .topic-input-group.active { background: #ebf8ff; border-left: 5px solid var(--primary-color); }
+        .topic-input-group input[type="number"] { width: 65px; margin-left: auto; padding: 5px; border-radius: 5px; border: 1px solid #cbd5e0; text-align: center; }
+        
+        .highlight { background-color: yellow; font-weight: bold; color: #000; }
+
+        .counter-bar {
+            background: #2d3748; color: white; padding: 10px 15px; border-radius: 30px;
+            display: flex; justify-content: space-between; align-items: center;
+            margin: 15px 0; font-weight: bold; font-size: 0.9rem;
+        }
+        .counter-warning { background: var(--danger-color) !important; animation: shake 0.5s; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        /* --- Question UI --- */
+        .option-item { 
+            border: 2px solid #edf2f7; padding: 15px; margin-bottom: 12px; 
+            border-radius: 12px; cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: flex-start;
+        }
+        .option-item b { margin-right: 10px; }
+        .option-item:hover { background-color: #f7fafc; border-color: var(--primary-color); }
+        .option-item.selected { border-color: var(--primary-color); background-color: #ebf8ff; }
+        .option-item.correct { background-color: #f0fff4 !important; border-color: var(--success-color) !important; color: #276749; font-weight: bold; }
+        .option-item.incorrect { background-color: #fff5f5 !important; border-color: var(--danger-color) !important; color: #9b2c2c; }
+
+        .btn { padding: 12px 20px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; justify-content: center; }
+        .btn-primary { background: var(--gradient-main); color: white; }
+        .btn-success { background: var(--success-color); color: white; }
+        .btn-warning { background: var(--warning-color); color: white; }
+
+        .progress-bar-container { width: 100%; height: 10px; background: #edf2f7; border-radius: 5px; overflow: hidden; margin-top: 5px; }
+        .progress-fill { height: 100%; background: var(--gradient-main); width: 0%; transition: 0.4s; }
+
+        /* Print Style */
+        @media print {
+            .no-print, .header-bar, #setup-container, #quiz-container, .timer-box { display: none !important; }
+            body { padding: 0; background: white; }
+            #result-container { display: block !important; border: 10px double #1a365d; padding: 20px; width: 100%; box-sizing: border-box; }
+        }
+
+        @media (max-width: 600px) {
+            .header-bar { flex-direction: column; gap: 10px; text-align: center; }
+            .btn { width: 100%; }
+            .cert-header h1 { font-size: 2rem !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-bar">
+        <div id="realtime-info" style="font-size: 0.9rem;">
+            <i class="fas fa-calendar-alt"></i> <span id="currentDate"></span><br>
+            <i class="fas fa-clock"></i> <span id="realtimeClock"></span>
+        </div>
+        <div class="timer-box" id="quiz-timer-container" style="display: none;">
+            <i class="fas fa-hourglass-half"></i> <span id="time-left">00:00</span>
+        </div>
+        <a href="/" class="btn no-print" style="background: var(--secondary-color); color: white; padding: 8px 15px;"><i class="fas fa-house"></i></a>
+    </div>
+
+    <div id="setup-container" class="section">
+        <button class="collapsible-header" id="btn-toggle-setup">
+            <span><i class="fas fa-cog"></i> CẤU HÌNH BÀI THI</span>
+            <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="collapsible-content show" id="setup-content">
+            <form id="quiz-settings-form">
+                <div class="config-grid">
+                    <div class="config-item">
+                        <label>Thời gian (phút):</label>
+                        <input type="number" id="duration" value="60" min="1">
+                    </div>
+                    <div class="config-item">
+                        <label>Số câu tối đa:</label>
+                        <input type="number" id="max-total" value="50" min="1">
+                    </div>
+                </div>
+
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="topic-search" placeholder="Tìm kiếm chủ đề...">
+                </div>
+
+                <div class="counter-bar" id="counter-display">
+                    <span><i class="fas fa-list-ol"></i> Đã chọn: <span id="current-sum">0</span> câu</span>
+                    <span>Giới hạn: <span id="limit-val">50</span></span>
+                </div>
+
+                <div class="topic-list-container" id="topic-list">
+                    <p style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</p>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px; font-size: 1.1rem; height: 55px;">
+                    BẮT ĐẦU LÀM BÀI
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div id="quiz-container" class="section" style="display: none;">
+        <div class="d-flex justify-content-between align-items-center">
+            <span id="progress-text" style="font-weight: bold; color: var(--primary-color);">Câu 0/0</span>
+        </div>
+        <div class="progress-bar-container"><div id="progress-fill" class="progress-fill"></div></div>
+        
+        <div id="question-box" style="margin-top: 25px;">
+            <div id="q-text" style="font-size: 1.2rem; font-weight: 600; margin-bottom: 20px; color: #2d3748; line-height: 1.5;"></div>
+            <div id="options-list"></div>
+        </div>
+
+        <div id="answer-feedback" style="display: none; padding: 15px; border-radius: 10px; margin: 15px 0; border: 1px solid #eee; font-size: 0.95rem;"></div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 25px;">
+            <button id="btn-next" class="btn btn-success" style="flex: 2;">Câu tiếp theo <i class="fas fa-arrow-right"></i></button>
+            <button id="btn-submit-early" class="btn btn-warning" style="flex: 1;"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+    <div id="result-container" class="section" style="display: none; text-align: center;">
+        <div class="cert-header">
+            <div style="font-weight: bold; font-size: 1rem;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+            <div style="text-decoration: underline; font-weight: bold; margin-bottom: 30px;">Độc lập - Tự do - Hạnh phúc</div>
+            <h1 style="color: #c53030; font-size: 3rem; font-weight: bold; font-family: 'Times New Roman', serif; margin-bottom: 10px;">GIẤY CHỨNG NHẬN</h1>
+            <p style="font-style: italic; font-size: 1.1rem; margin-bottom: 30px;">Hệ thống ghi nhận kết quả hoàn thành chương trình ôn luyện</p>
+        </div>
+
+        <div id="final-stats" style="text-align: left; max-width: 600px; margin: 0 auto; padding: 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 1.1rem; line-height: 2;"></div>
+
+        <div class="signature-section" style="display: flex; justify-content: space-between; margin-top: 40px; padding: 0 20px;">
+            <div style="text-align: center; width: 45%;">
+                <p style="font-weight: bold; margin-bottom: 60px;">NGƯỜI THỰC HIỆN</p>
+                <p id="cert-footer-name" style="font-weight: bold; text-transform: uppercase; border-top: 1px solid #ccc; padding-top: 5px;"></p>
+            </div>
+            <div style="text-align: center; width: 45%;">
+                <p id="cert-footer-date" style="font-style: italic; font-size: 0.9rem;"></p>
+                <p style="font-weight: bold; margin-bottom: 40px;">XÁC NHẬN HỆ THỐNG</p>
+                <div style="border: 3px solid #c53030; color: #c53030; display: inline-block; padding: 5px 10px; font-weight: bold; transform: rotate(-5deg); font-size: 0.8rem;">ĐÃ XÁC THỰC</div>
+            </div>
+        </div>
+
+        <div class="no-print" style="margin-top: 40px; display: flex; flex-direction: column; gap: 10px;">
+            <button onclick="window.print()" class="btn btn-primary w-100"><i class="fas fa-file-pdf"></i> XUẤT FILE PDF / IN KẾT QUẢ</button>
+            <button onclick="location.reload()" class="btn w-100" style="background: var(--secondary-color); color: white;"><i class="fas fa-sync"></i> LÀM BÀI MỚI</button>
+        </div>
+    </div>
+
+    <script>
+        let allTopics = [];
+        let questionsData = [];
+        let currentIndex = 0;
+        let userResults = [];
+        let timerInterval;
+        let timeLeft = 0;
+
+        // 1. Đồng hồ thời gian thực
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('realtimeClock').textContent = now.toLocaleTimeString('vi-VN');
+            document.getElementById('currentDate').textContent = now.toLocaleDateString('vi-VN', {day: 'numeric', month: 'long', year: 'numeric'});
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // 2. Tải danh sách chủ đề
+        fetch('/get_topics').then(res => res.json()).then(topics => {
+            allTopics = topics;
+            renderTopics(topics);
+        }).catch(err => {
+            document.getElementById('topic-list').innerHTML = '<p style="color:red; text-align:center;">Lỗi tải dữ liệu!</p>';
+        });
+
+        function renderTopics(topics, filter = "") {
+            const list = document.getElementById('topic-list');
+            if(topics.length === 0) {
+                list.innerHTML = '<p style="text-align:center; padding:10px;">Không tìm thấy chủ đề nào.</p>';
+                return;
+            }
+            list.innerHTML = topics.map(t => {
+                let displayTitle = t;
+                if(filter) {
+                    const regex = new RegExp(`(${filter})`, "gi");
+                    displayTitle = t.replace(regex, '<span class="highlight">$1</span>');
+                }
+                return `
+                    <div class="topic-input-group" onclick="handleRowClick(this, event)">
+                        <input type="checkbox" class="topic-check" data-topic="${t}" onclick="event.stopPropagation(); handleCheckboxChange(this);">
+                        <span style="margin-left: 10px; flex: 1;">${displayTitle}</span>
+                        <input type="number" class="topic-count" value="0" min="0" disabled 
+                               onclick="event.stopPropagation()" oninput="updateTotalCount()">
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function handleRowClick(row, event) {
+            const checkbox = row.querySelector('.topic-check');
+            checkbox.checked = !checkbox.checked;
+            handleCheckboxChange(checkbox);
+        }
+
+        function handleCheckboxChange(checkbox) {
+            const row = checkbox.parentElement;
+            const input = row.querySelector('.topic-count');
+            input.disabled = !checkbox.checked;
+            if(checkbox.checked) {
+                row.classList.add('active');
+                if(input.value == 0) input.value = 5;
+                input.focus();
+            } else {
+                row.classList.remove('active');
+                input.value = 0;
+            }
+            updateTotalCount();
+        }
+
+        document.getElementById('topic-search').oninput = function(e) {
+            const val = e.target.value.toLowerCase();
+            const filtered = allTopics.filter(t => t.toLowerCase().includes(val));
+            renderTopics(filtered, val);
+        };
+
+        function updateTotalCount() {
+            const counts = document.querySelectorAll('.topic-count');
+            let sum = 0;
+            counts.forEach(c => sum += parseInt(c.value || 0));
+
+            let limit = parseInt(document.getElementById('max-total').value) || 0;
+            
+            document.getElementById('current-sum').textContent = sum;
+            document.getElementById('limit-val').textContent = limit;
+
+            const bar = document.getElementById('counter-display');
+            if(sum > limit || limit === 0) bar.classList.add('counter-warning');
+            else bar.classList.remove('counter-warning');
+        }
+
+        document.getElementById('max-total').oninput = updateTotalCount;
+
+        // 3. Xử lý bắt đầu làm bài
+        document.getElementById('quiz-settings-form').onsubmit = function(e) {
+            e.preventDefault();
+            const selected = {};
+            const topicInputs = document.querySelectorAll('.topic-check:checked');
+            topicInputs.forEach(ck => {
+                const val = parseInt(ck.parentElement.querySelector('.topic-count').value);
+                if(val > 0) selected[ck.dataset.topic] = val;
+            });
+
+            const totalSelected = parseInt(document.getElementById('current-sum').textContent);
+            const limit = parseInt(document.getElementById('max-total').value);
+
+            if(totalSelected === 0) return alert("Vui lòng chọn ít nhất 1 chủ đề!");
+            if(totalSelected > limit) return alert(`Số câu đã chọn (${totalSelected}) vượt quá giới hạn (${limit})!`);
+
+            // Hiệu ứng loading
+            const btnSubmit = e.target.querySelector('button[type="submit"]');
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang chuẩn bị câu hỏi...';
+
+            fetch('/get_questions', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({topics: selected, max_total: limit})
+            }).then(res => res.json()).then(data => {
+                if(data.error) throw new Error(data.error);
+                
+                questionsData = data;
+                currentIndex = 0;
+                userResults = [];
+                timeLeft = document.getElementById('duration').value * 60;
+                
+                document.getElementById('setup-container').style.display = 'none';
+                document.getElementById('quiz-container').style.display = 'block';
+                document.getElementById('quiz-timer-container').style.display = 'block';
+                
+                startTimer();
+                showQuestion();
+            }).catch(err => {
+                alert(err.message);
+                btnSubmit.disabled = false;
+                btnSubmit.innerText = 'BẮT ĐẦU LÀM BÀI';
+            });
+        };
+
+        function startTimer() {
+            if(timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                const m = Math.floor(timeLeft / 60), s = timeLeft % 60;
+                document.getElementById('time-left').textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+                if(timeLeft <= 0) {
+                    alert("Hết thời gian làm bài!");
+                    endQuiz();
+                }
+            }, 1000);
+        }
+
+        function showQuestion() {
+            const q = questionsData[currentIndex];
+            document.getElementById('progress-text').textContent = `Câu ${currentIndex + 1} / ${questionsData.length}`;
+            document.getElementById('progress-fill').style.width = `${((currentIndex + 1) / questionsData.length) * 100}%`;
+            document.getElementById('q-text').innerHTML = q.content;
+            document.getElementById('answer-feedback').style.display = 'none';
+            
+            const list = document.getElementById('options-list');
+            list.innerHTML = '';
+            const labels = ['A', 'B', 'C', 'D', 'E', 'F'];
+            
+            q.options.forEach((opt, i) => {
+                const div = document.createElement('div');
+                div.className = 'option-item';
+                div.innerHTML = `<b>${labels[i]}.</b> <span>${opt}</span>`;
+                
+                // Nếu đã trả lời rồi thì hiển thị lại trạng thái cũ
+                if (userResults[currentIndex] && userResults[currentIndex].user_answer_text === labels[i]) {
+                    div.classList.add('selected');
+                }
+
+                div.onclick = () => {
+                    const userLabel = labels[i];
+                    const correctLabel = q.answer.trim().toUpperCase();
+                    
+                    userResults[currentIndex] = {
+                        question_id: q.id,
+                        user_answer_text: userLabel,
+                        correct_answer_label: correctLabel
+                    };
+                    
+                    // Khóa không cho chọn lại và đổi màu
+                    document.querySelectorAll('.option-item').forEach(el => el.style.pointerEvents = 'none');
+                    const isCorrect = (userLabel === correctLabel);
+                    div.classList.add(isCorrect ? 'correct' : 'incorrect');
+                    
+                    // Feedback
+                    const fb = document.getElementById('answer-feedback');
+                    fb.style.display = 'block';
+                    fb.style.backgroundColor = isCorrect ? '#f0fff4' : '#fff5f5';
+                    fb.innerHTML = isCorrect ? 
+                        '<b style="color:green"><i class="fas fa-check-circle"></i> CHÍNH XÁC!</b>' : 
+                        `<b style="color:red"><i class="fas fa-times-circle"></i> SAI RỒI!</b> Đáp án đúng là: <b>${correctLabel}</b>.<br><div style="margin-top:5px; color:#555;">${q.explanation || ''}</div>`;
+                };
+                list.appendChild(div);
+            });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        document.getElementById('btn-next').onclick = () => {
+            if(currentIndex < questionsData.length - 1) {
+                currentIndex++;
+                showQuestion();
+            } else {
+                if(confirm("Đây là câu cuối cùng. Bạn muốn nộp bài chứ?")) endQuiz();
+            }
+        };
+
+        document.getElementById('btn-submit-early').onclick = () => {
+            if(confirm("Bạn có chắc chắn muốn nộp bài sớm không?")) endQuiz();
+        };
+
+        function endQuiz() {
+            clearInterval(timerInterval);
+            const totalDuration = document.getElementById('duration').value * 60;
+            const usedTime = totalDuration - timeLeft;
+
+            // Hiệu ứng nộp bài
+            document.getElementById('btn-next').disabled = true;
+            document.getElementById('btn-next').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang chấm điểm...';
+
+            fetch('/submit_quiz', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    duration_seconds: usedTime,
+                    total_in_quiz: questionsData.length,
+                    answers: userResults.filter(item => item !== undefined)
+                })
+            }).then(res => res.json()).then(data => {
+                if (data.status === "success") {
+                    document.getElementById('quiz-container').style.display = 'none';
+                    document.getElementById('quiz-timer-container').style.display = 'none';
+                    displayResult(data);
+                } else {
+                    alert("Lỗi nộp bài: " + data.message);
+                }
+            }).catch(err => alert("Lỗi kết nối máy chủ!"));
+        }
+
+        function displayResult(data) {
+            document.getElementById('result-container').style.display = 'block';
+            document.getElementById('final-stats').innerHTML = `
+                <div><i class="fas fa-user-circle me-2"></i> Nhân viên: <b style="text-transform: uppercase;">${data.ho_ten}</b></div>
+                <div><i class="fas fa-id-badge me-2"></i> Mã số: <b>${data.ma_nhan_vien}</b></div>
+                <div><i class="fas fa-university me-2"></i> Đơn vị: <b>${data.ma_hieu_2}</b></div>
+                <hr>
+                <div style="font-size: 1.6rem; text-align: center; color: #1a202c;">
+                    Kết quả: <b style="color: #c53030;">${data.score} / 100 điểm</b><br>
+                    <span style="font-size: 1rem; color: #4a5568;">(Đúng ${data.correct} / ${data.total} câu)</span>
+                </div>
+            `;
+            document.getElementById('cert-footer-name').innerText = data.ho_ten;
+            const now = new Date();
+            document.getElementById('cert-footer-date').innerText = `Ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}`;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        document.getElementById('btn-toggle-setup').onclick = () => {
+            document.getElementById('setup-content').classList.toggle('show');
+            const icon = document.querySelector('#btn-toggle-setup i.fa-chevron-down');
+            if(icon) icon.style.transform = document.getElementById('setup-content').classList.contains('show') ? 'rotate(0deg)' : 'rotate(-90deg)';
+        };
+    </script>
+</body>
+</html>

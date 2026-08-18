@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid py-4 px-md-5">
+    <!-- TIÊU ĐỀ TRANG -->
+    <div class="d-flex align-items-center justify-content-between mb-4 border-bottom pb-3">
+        <div>
+            <h3 class="font-weight-bold text-primary mb-1">
+                <i class="fas fa-paper-plane mr-2"></i>Tạo Đơn Xin Nghỉ / Phê Duyệt Công Tác
+            </h3>
+            <p class="text-muted small mb-0">Điền thông tin chi tiết dưới đây để gửi đơn trình cấp quản lý phê duyệt.</p>
+        </div>
+        <a href="{{ url_for('cham_cong') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left mr-1"></i> Quay lại Bảng chấm công
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- CỘT 1: FORM TẠO ĐƠN (BÊN TRÁI) -->
+        <div class="col-lg-5 col-xl-4 mb-4">
+            <div class="card border-0 shadow-sm rounded-lg">
+                <div class="card-header bg-primary text-white font-weight-bold py-3">
+                    <i class="fas fa-edit mr-2"></i>Thông Tin Đăng Ký
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" action="{{ url_for('tao_don_xin_nghi') }}">
+                        
+                        <!-- Loại nghỉ -->
+                        <div class="form-group mb-3">
+                            <label class="font-weight-bold text-dark small text-uppercase">
+                                Loại nghỉ / Công tác <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text bg-light"><i class="fas fa-list"></i></span>
+                                </div>
+                                <select id="loai_nghi" name="loai_nghi" class="form-control custom-select" required>
+                                    <option value="">-- Chọn loại hình nghỉ --</option>
+                                    <optgroup label="Đi làm / Công tác">
+                                        <option value="SC">SC - Nghỉ sáng/chiều (0.5 công)</option>
+                                        <option value="B">B - Đi công tác (1.0 công)</option>
+                                    </optgroup>
+                                    <optgroup label="Nghỉ hưởng lương">
+                                        <option value="P">P - Nghỉ phép</option>
+                                        <option value="V">V - Nghỉ hiếu</option>
+                                        <option value="C">C - Nghỉ hỷ (Cưới hỏi)</option>
+                                        <option value="T">T - Nghỉ thai sản</option>
+                                        <option value="S">S - Nghỉ ốm dài ngày</option>
+                                        <option value="M">M - Nghỉ dưỡng sức</option>
+                                        <option value="H">H - Nghỉ đi học / Đào tạo</option>
+                                    </optgroup>
+                                    <optgroup label="Nghỉ không hưởng lương">
+                                        <option value="D">D - Nghỉ tự do</option>
+                                        <option value="N">N - Nghỉ không lương</option>
+                                        <option value="K">K - Nghỉ khác</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Chọn thời gian (Chia 50/50 rộng rãi, chuẩn responsive) -->
+                        <div class="form-row">
+                            <div class="col-6 form-group mb-3">
+                                <label class="font-weight-bold text-dark small text-uppercase">
+                                    Từ ngày <span class="text-danger">*</span>
+                                </label>
+                                <input type="date" id="tu_ngay" name="tu_ngay" class="form-control" required>
+                            </div>
+                            <div class="col-6 form-group mb-3">
+                                <label class="font-weight-bold text-dark small text-uppercase">
+                                    Đến ngày <span class="text-danger">*</span>
+                                </label>
+                                <input type="date" id="den_ngay" name="den_ngay" class="form-control" required>
+                            </div>
+                        </div>
+
+                        <!-- Phạm vi áp dụng / Buổi nghỉ (Radio Buttons hiện đại, trực quan) -->
+                        <div class="form-group mb-3">
+                            <label class="font-weight-bold text-dark small text-uppercase d-block mb-2">
+                                Phạm vi áp dụng / Buổi nghỉ
+                            </label>
+                            <div class="btn-group btn-group-toggle w-100" data-toggle="buttons">
+                                <label class="btn btn-outline-secondary active flex-fill">
+                                    <input type="radio" name="buoi" id="buoi_all" value="ALL" checked> 
+                                    <i class="fas fa-sun mr-1"></i> Cả ngày
+                                </label>
+                                <label class="btn btn-outline-secondary flex-fill">
+                                    <input type="radio" name="buoi" id="buoi_sang" value="SANG"> 
+                                    <i class="fas fa-cloud-sun mr-1"></i> Sáng
+                                </label>
+                                <label class="btn btn-outline-secondary flex-fill">
+                                    <input type="radio" name="buoi" id="buoi_chieu" value="CHIEU"> 
+                                    <i class="fas fa-moon mr-1"></i> Chiều
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Hiển thị tổng số ngày dự kiến -->
+                        <div id="box_so_ngay" class="alert alert-info py-2 px-3 small d-none mb-3">
+                            <i class="fas fa-calendar-alt mr-1"></i> Số ngày đăng ký dự kiến: <strong id="lbl_so_ngay">0</strong> ngày.
+                        </div>
+
+                        <!-- Lý do -->
+                        <div class="form-group mb-4">
+                            <label class="font-weight-bold text-dark small text-uppercase">Lý do / Chi tiết công tác</label>
+                            <textarea name="ly_do" class="form-control" rows="3" placeholder="Nhập chi tiết lý do xin nghỉ hoặc thông tin chuyến công tác..."></textarea>
+                        </div>
+
+                        <!-- Nút gửi -->
+                        <button type="submit" class="btn btn-primary btn-block font-weight-bold py-2 shadow-sm">
+                            <i class="fas fa-paper-plane mr-2"></i>Gửi Đơn Trình Phê Duyệt
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- CỘT 2: GIẢI THÍCH KÝ HIỆU CHẤM CÔNG (BÊN PHẢI) -->
+        <div class="col-lg-7 col-xl-8 mb-4">
+            <div class="card border-0 shadow-sm rounded-lg">
+                <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between">
+                    <h6 class="font-weight-bold text-primary mb-0">
+                        <i class="fas fa-info-circle mr-2"></i>BẢNG GIẢI THÍCH KÝ HIỆU CHẤM CÔNG
+                    </h6>
+                    {% if is_locked %}
+                        <span class="badge badge-danger px-3 py-1"><i class="fas fa-lock mr-1"></i>BẢNG CÔNG ĐÃ KHÓA</span>
+                    {% endif %}
+                </div>
+                <div class="card-body p-4">
+                    
+                    <!-- Nhóm 1: Đi làm & Công tác -->
+                    <h6 class="font-weight-bold text-secondary text-uppercase small d-block mb-2 border-bottom pb-1">
+                        <i class="fas fa-briefcase mr-1"></i> 1. Đi làm & Công tác
+                    </h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6 mb-2">
+                            <div class="p-2 border rounded d-flex align-items-center bg-light">
+                                <span class="badge badge-success px-2 py-1 mr-2" style="min-width: 35px; font-size: 0.9rem;">X</span>
+                                <div>
+                                    <div class="font-weight-bold small">Đi làm (1.0 Ngày công)</div>
+                                    <div class="text-muted extra-small">1 công | 1 lương | 1 ăn ca</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <div class="p-2 border rounded d-flex align-items-center bg-light">
+                                <span class="badge badge-info px-2 py-1 mr-2" style="min-width: 35px; font-size: 0.9rem;">SC</span>
+                                <div>
+                                    <div class="font-weight-bold small">Sáng / Chiều (0.5 Ngày công)</div>
+                                    <div class="text-muted extra-small">0.5 công | 0.5 lương | 0.5 ăn ca</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <div class="p-2 border rounded d-flex align-items-center bg-light">
+                                <span class="badge badge-primary px-2 py-1 mr-2" style="min-width: 35px; font-size: 0.9rem;">B</span>
+                                <div>
+                                    <div class="font-weight-bold small">Đi công tác (1.0 Ngày công)</div>
+                                    <div class="text-muted extra-small">1 công | 1 lương | 1 ăn ca (tạm tính)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Nhóm 2: Nghỉ hưởng lương -->
+                    <h6 class="font-weight-bold text-success text-uppercase small d-block mb-2 border-bottom pb-1">
+                        <i class="fas fa-check-circle mr-1"></i> 2. Nghỉ có hưởng lương (0 công | 1 lương | 0 ăn ca)
+                    </h6>
+                    <div class="row mb-3">
+                        {% set luong_codes = [
+                            ('P', 'Nghỉ phép năm'), ('V', 'Nghỉ hiếu'), ('C', 'Nghỉ hỷ'),
+                            ('T', 'Nghỉ thai sản'), ('S', 'Ốm dài ngày'), ('M', 'Dưỡng sức'), ('H', 'Đi học / Đào tạo')
+                        ] %}
+                        {% for code, name in luong_codes %}
+                        <div class="col-sm-6 col-md-4 mb-2">
+                            <div class="p-2 border rounded d-flex align-items-center">
+                                <span class="badge badge-success px-2 py-1 mr-2" style="min-width: 30px;">{{ code }}</span>
+                                <span class="small font-weight-medium">{{ name }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Nhóm 3: Nghỉ không hưởng lương -->
+                    <h6 class="font-weight-bold text-danger text-uppercase small d-block mb-2 border-bottom pb-1">
+                        <i class="fas fa-times-circle mr-1"></i> 3. Nghỉ không lương / Nghỉ khác (0 công | 0 lương | 0 ăn ca)
+                    </h6>
+                    <div class="row">
+                        {% set noluong_codes = [
+                            ('D', 'Nghỉ tự do'), ('N', 'Nghỉ không lương'), ('K', 'Nghỉ khác'), ('L', 'Nghỉ Lễ / Tết')
+                        ] %}
+                        {% for code, name in noluong_codes %}
+                        <div class="col-sm-6 col-md-3 mb-2">
+                            <div class="p-2 border rounded d-flex align-items-center bg-light">
+                                <span class="badge badge-danger px-2 py-1 mr-2" style="min-width: 30px;">{{ code }}</span>
+                                <span class="small font-weight-medium">{{ name }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- STYLE TÙY CHỈNH NHẸ -->
+<style>
+    .extra-small { font-size: 0.75rem; }
+    .font-weight-medium { font-weight: 500; }
+    .custom-select { height: calc(2.25rem + 2px); }
+</style>
+
+<!-- SCRIPT TÍNH SỐ NGÀY TỰ ĐỘNG THÔNG MINH -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tuNgayInput = document.getElementById('tu_ngay');
+    const denNgayInput = document.getElementById('den_ngay');
+    const boxSoNgay = document.getElementById('box_so_ngay');
+    const lblSoNgay = document.getElementById('lbl_so_ngay');
+    const loaiNghiSelect = document.getElementById('loai_nghi');
+    const buoiRadios = document.querySelectorAll('input[name="buoi"]');
+
+    function getSelectedBuoi() {
+        const checked = document.querySelector('input[name="buoi"]:checked');
+        return checked ? checked.value : 'ALL';
+    }
+
+    // Tự động đồng bộ nếu chọn loại nghỉ là SC (Sáng/Chiều)
+    if (loaiNghiSelect) {
+        loaiNghiSelect.addEventListener('change', function() {
+            if (this.value === 'SC' && getSelectedBuoi() === 'ALL') {
+                document.getElementById('buoi_sang').checked = true;
+                buoiRadios.forEach(r => r.parentElement.classList.remove('active'));
+                document.getElementById('buoi_sang').parentElement.classList.add('active');
+            }
+            calcDays();
+        });
+    }
+
+    function calcDays() {
+        if (!tuNgayInput.value || !denNgayInput.value) {
+            boxSoNgay.classList.add('d-none');
+            return;
+        }
+
+        const d1 = new Date(tuNgayInput.value);
+        const d2 = new Date(denNgayInput.value);
+
+        if (d1 > d2) {
+            boxSoNgay.classList.add('d-none');
+            return;
+        }
+
+        const buoiVal = getSelectedBuoi();
+
+        // Nghỉ nửa ngày (Sáng hoặc Chiều)
+        if (buoiVal === 'SANG' || buoiVal === 'CHIEU') {
+            if (tuNgayInput.value !== denNgayInput.value) {
+                denNgayInput.value = tuNgayInput.value;
+            }
+            lblSoNgay.innerText = '0.5';
+            boxSoNgay.classList.remove('d-none');
+            return;
+        }
+
+        // Tính số ngày nghỉ làm việc (Bỏ qua T7, CN)
+        let count = 0;
+        let cur = new Date(d1);
+        while (cur <= d2) {
+            const dayOfWeek = cur.getDay(); // 0: CN, 6: T7
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                count++;
+            }
+            cur.setDate(cur.getDate() + 1);
+        }
+
+        if (count > 0) {
+            lblSoNgay.innerText = count;
+            boxSoNgay.classList.remove('d-none');
+        } else {
+            boxSoNgay.classList.add('d-none');
+        }
+    }
+
+    tuNgayInput.addEventListener('change', calcDays);
+    denNgayInput.addEventListener('change', calcDays);
+    buoiRadios.forEach(radio => radio.addEventListener('change', calcDays));
+});
+</script>
+{% endblock %}

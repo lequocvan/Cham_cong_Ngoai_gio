@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block content %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/@ttskch/select2-bootstrap4-theme@1.5.2/dist/select2-bootstrap4.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<div class="container mt-3" style="max-width: 900px;">
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-user-edit"></i> Chỉnh sửa nhân viên: {{ nv.ma_nhan_vien }}</h5>
+            <div class="btn-group">
+                <a href="{{ url_for('danh_sach_nhan_vien') }}" class="btn btn-light btn-sm shadow-sm">
+                    <i class="fas fa-arrow-left"></i> Quay lại
+                </a>
+            </div>
+        </div>
+        <div class="card-body bg-light">
+            <form method="POST">
+                <div class="row">
+                    <div class="col-md-6 form-group">
+                        <label class="small font-weight-bold">Họ và tên</label>
+                        <input type="text" name="ho_ten" class="form-control form-control-sm" value="{{ nv.ho_ten }}" required>
+                    </div>
+                    <div class="col-md-3 form-group">
+                        <label class="small font-weight-bold">Ngày sinh</label>
+                        <input type="date" name="ngay_sinh" class="form-control form-control-sm" value="{{ nv.ngay_sinh }}">
+                    </div>
+                    <div class="col-md-3 form-group">
+                        <label class="small font-weight-bold">Giới tính</label>
+                        <select name="gioi_tinh" class="form-control form-control-sm">
+                            <option value="Nam" {{ 'selected' if nv.gioi_tinh == 'Nam' }}>Nam</option>
+                            <option value="Nữ" {{ 'selected' if nv.gioi_tinh == 'Nữ' }}>Nữ</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 form-group">
+                        <label class="small font-weight-bold">Số CCCD/GTTT</label>
+                        <input type="text" name="so_gttt" class="form-control form-control-sm" value="{{ nv.so_gttt }}">
+                    </div>
+                    <div class="col-md-4 form-group">
+                        <label class="small font-weight-bold">Số điện thoại</label>
+                        <input type="text" name="so_dien_thoai" class="form-control form-control-sm" value="{{ nv.so_dien_thoai }}">
+                    </div>
+                    <div class="col-md-4 form-group">
+                        <label class="small font-weight-bold">Email Agribank</label>
+                        <input type="email" name="mail_Agribank" class="form-control form-control-sm" value="{{ nv.mail_Agribank }}">
+                    </div>
+                </div>
+
+                <div class="row p-2 mb-2" style="background-color: #e9ecef; border-radius: 5px;">
+                    <div class="col-md-6 form-group">
+                        <label class="small font-weight-bold text-success"><i class="fas fa-university"></i> Đơn vị quản lý (Luân chuyển)</label>
+                        <select name="ma_hieu_2" id="edit-select-don-vi" class="form-control form-control-sm">
+                            {% if nv.ma_hieu_2 %}
+                                <option value="{{ nv.ma_hieu_2 }}" selected>{{ nv.ma_hieu_2 }} - {{ nv.ten_don_vi }}</option>
+                            {% endif %}
+                        </select>
+                        <small class="text-muted">Nhập tên hoặc mã đơn vị mới để tìm kiếm.</small>
+                    </div>
+
+                    <div class="col-md-6 form-group">
+                        <label class="small font-weight-bold text-success"><i class="fas fa-sitemap"></i> Phòng ban (Theo đơn vị mới)</label>
+                        <select name="ma_phong_ban" id="edit-select-phong-ban" class="form-control form-control-sm">
+                            <option value="">-- Chọn phòng ban --</option>
+                            {% for pb in departments %}
+                                <option value="{{ pb.id }}" {% if nv.ma_phong_ban|string == pb.id|string %}selected{% endif %}>
+                                    {{ pb.ten_phong_ban }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 form-group">
+                        <label class="small font-weight-bold">Chức vụ hiện tại</label>
+                        <input type="text" name="chuc_vu" class="form-control form-control-sm" value="{{ nv.chuc_vu }}" placeholder="VD: Trưởng phòng, Chuyên viên...">
+                    </div>
+                    <div class="col-md-3 form-group">
+                        <label class="small font-weight-bold">Ngày tính phép</label>
+                        <input type="date" name="ngay_tinh_phep" class="form-control form-control-sm" value="{{ nv.ngay_tinh_phep }}">
+                    </div>
+                    <div class="col-md-3 form-group">
+                        <label class="small font-weight-bold">Ngày vào ngành</label>
+                        <input type="date" name="ngay_vao_Agribank" class="form-control form-control-sm" value="{{ nv.ngay_vao_Agribank }}">
+                    </div>
+                    <div class="col-12 form-group">
+                        <label class="small font-weight-bold">Địa chỉ cư trú</label>
+                        <textarea name="dia_chi" class="form-control form-control-sm" rows="1">{{ nv.dia_chi }}</textarea>
+                    </div>
+                </div>
+
+                <div class="row mt-3 border-top pt-3">
+                    <div class="col-md-6 border-right">
+                        <label class="small font-weight-bold text-primary"><i class="fas fa-user-shield"></i> Tài khoản & Quyền hạn</label>
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge {% if nv.role == 'ADMIN' %}badge-danger{% elif nv.role == 'QUAN_LY' %}badge-warning{% else %}badge-info{% endif %} mr-2">
+                                Role: {{ nv.role }}
+                            </span>
+                            <div class="custom-control custom-switch">
+                                <input type="checkbox" class="custom-control-input" id="is_active" name="is_active" 
+                                       {% if nv.is_active %}checked{% endif %}>
+                                <label class="custom-control-label" for="is_active">Hoạt động</label>
+                            </div>
+                        </div>
+                        <small class="text-muted d-block italic">Role tự động cập nhật dựa trên chức vụ/đơn vị khi lưu.</small>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="small font-weight-bold text-danger"><i class="fas fa-calendar-check"></i> Trạng thái nhân sự</label>
+                        <div class="custom-control custom-switch">
+                            <input type="checkbox" class="custom-control-input" id="trang_thai" name="trang_thai" 
+                                   {% if nv.trang_thai %}checked{% endif %}>
+                            <label class="custom-control-label font-weight-bold" for="trang_thai">Đang làm việc</label>
+                        </div>
+                        <small class="text-muted d-block">Tắt nếu nhân sự đã chấm dứt HĐLĐ hoặc nghỉ chế độ.</small>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-success btn-lg px-5 shadow shadow-sm" style="border-radius: 30px;">
+                        <i class="fas fa-save"></i> LƯU THÔNG TIN CẬP NHẬT
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+
+<script>
+    $(document).ready(function() {
+        const $donViSelect = $('#edit-select-don-vi');
+        const $phongBanSelect = $('#edit-select-phong-ban');
+
+        // 1. Cấu hình Select2 để tìm kiếm từ hàng nghìn đơn vị
+        $donViSelect.select2({
+            theme: 'bootstrap4',
+            placeholder: "Gõ để tìm đơn vị...",
+            allowClear: true,
+            ajax: {
+                url: '/api/search_don_vi',
+                dataType: 'json',
+                delay: 300, // Đợi 0.3 giây sau khi ngừng gõ mới gửi yêu cầu để tránh lag
+                data: function (params) {
+                    return { q: params.term }; // Gửi từ khóa tìm kiếm lên server
+                },
+                processResults: function (data) {
+                    return { results: data.results };
+                },
+                cache: true
+            },
+            minimumInputLength: 1 // Buộc Admin phải gõ ít nhất 1 ký tự mới bắt đầu tìm
+        });
+
+        // 2. Logic cập nhật Phòng ban khi Đơn vị thay đổi (Luân chuyển)
+        $donViSelect.on('change', function() {
+            const maDonVi = $(this).val();
+            
+            // Làm trống và vô hiệu hóa ô phòng ban trong khi tải
+            $phongBanSelect.prop('disabled', true).html('<option value="">-- Đang tải phòng ban... --</option>');
+
+            if (!maDonVi) {
+                $phongBanSelect.prop('disabled', false).html('<option value="">-- Chọn phòng ban --</option>');
+                return;
+            }
+
+            // Gọi API lấy danh sách phòng ban tương ứng với đơn vị mới đã chọn
+            fetch(`/api/get_phong_ban/${maDonVi}`)
+                .then(response => response.json())
+                .then(data => {
+                    let options = '<option value="">-- Chọn phòng ban --</option>';
+                    data.forEach(pb => {
+                        options += `<option value="${pb.id}">${pb.ten}</option>`;
+                    });
+                    $phongBanSelect.prop('disabled', false).html(options);
+                });
+        });
+    });
+</script>
+
+<style>
+    /* Tối ưu hiển thị Select2 trong Form-sm */
+    .select2-container--bootstrap4 .select2-selection--single {
+        height: calc(1.5em + 0.5rem + 2px) !important;
+    }
+    .card { border-radius: 10px; overflow: hidden; }
+    .form-group { margin-bottom: 0.8rem; }
+</style>
+{% endblock %}

@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block title %}Chi tiết Ngoài Giờ 12 Tháng - {{ year }}{% endblock %}
+
+{% block content %}
+<style>
+    /* Container bảng có thanh cuộn ngang và dọc */
+    .table-responsive { 
+        max-height: 75vh; 
+        overflow: auto; 
+        border: 1px solid #dee2e6;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+
+    /* Định dạng bảng tổng quát */
+    table { 
+        border-collapse: separate; 
+        border-spacing: 0; 
+        font-size: 11px; 
+    }
+
+    th, td { 
+        white-space: nowrap; 
+        padding: 6px 4px !important; 
+        text-align: center; 
+        border: 1px solid #dee2e6 !important; 
+    }
+    
+    /* CỐ ĐỊNH CỘT (Sticky Columns) */
+    .sticky-col-ma { 
+        position: sticky; 
+        left: 0; 
+        background: #f8f9fc !important; 
+        z-index: 5 !important; 
+        min-width: 80px;
+    }
+    .sticky-col-ten { 
+        position: sticky; 
+        left: 80px; /* Khớp với min-width của cột mã */
+        background: #f8f9fc !important; 
+        z-index: 5 !important; 
+        min-width: 150px;
+        border-right: 2px solid #4e73df !important; 
+        text-align: left !important;
+    }
+    
+    /* CỐ ĐỊNH TIÊU ĐỀ (Sticky Header) */
+    thead th { 
+        position: sticky; 
+        top: 0; 
+        z-index: 10 !important; 
+        background: #4e73df !important; 
+        color: white; 
+    }
+    
+    /* Dòng tiêu đề thứ 2 */
+    thead tr:nth-child(2) th { 
+        top: 28px; /* Độ cao của dòng 1 (khoảng 28-30px) */
+    }
+
+    /* Xử lý z-index cho các ô vừa là Header vừa là Sticky Column */
+    thead th.sticky-col-ma, thead th.sticky-col-ten {
+        z-index: 15 !important;
+    }
+
+    /* Màu sắc các nhóm cột */
+    .bg-month { background-color: #eaecf4 !important; color: #333; font-weight: bold; }
+    .col-thuong { color: #2e59d9; font-weight: 500; }
+    .col-nghi { color: #d6a00a; font-weight: 500; }
+    .col-le { color: #e74a3b; font-weight: 500; }
+    .col-sum { background-color: #f8f9fc; font-weight: bold; color: #000; border-right: 1.5px double #ccc !important; }
+    
+    /* Hiệu ứng dòng */
+    tbody tr:hover td { background-color: #f1f4ff !important; }
+    tbody tr:hover .sticky-col-ma, tbody tr:hover .sticky-col-ten { background-color: #e2e6ea !important; }
+    
+    .text-total { font-weight: bold; background-color: #fffcf0; }
+
+    /* Điều chỉnh select2/form control nhỏ gọn */
+    .form-control-sm { height: calc(1.5em + 0.5rem + 2px); padding: 0.25rem 0.5rem; font-size: 0.875rem; }
+</style>
+
+<div class="container-fluid mt-3">
+    <div class="card shadow">
+        <div class="card-header py-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-calendar-alt mr-2"></i>TỔNG HỢP GIỜ LÀM NGOÀI GIỜ - NĂM {{ year }}
+                </h6>
+                <span class="badge badge-info">Tổng cộng: {{ data|length }} nhân sự</span>
+            </div>
+            
+            <form class="form-row align-items-end" method="GET" id="filterFormNam">
+                <div class="col-md-1 col-sm-6 mb-2">
+                    <label class="small font-weight-bold">Năm:</label>
+                    <input type="number" name="year" id="yearNam" value="{{ year }}" class="form-control form-control-sm">
+                </div>
+
+                <div class="col-md-2 col-sm-6 mb-2">
+                    <label class="small font-weight-bold">Đơn vị:</label>
+                    <select name="ma_hieu_2" id="ma_hieu_2Nam" class="form-control form-control-sm" onchange="this.form.submit()">
+                        {% if is_system_admin %}
+                            <option value="">-- Tất cả Đơn vị --</option>
+                            {% for dv in don_vis_list %}
+                                <option value="{{ dv }}" {% if dv == current_don_vi %}selected{% endif %}>{{ dv }}</option>
+                            {% endfor %}
+                        {% else %}
+                            <option value="{{ current_don_vi }}">{{ current_don_vi }}</option>
+                        {% endif %}
+                    </select>
+                </div>
+
+                <div class="col-md-3 col-sm-6 mb-2">
+                    <label class="small font-weight-bold">Phòng ban:</label>
+                    <select name="ma_phong_ban" id="ma_phong_banNam" class="form-control form-control-sm">
+                        {% if is_admin_or_th %}
+                            <option value="">-- Tất cả phòng ban --</option>
+                        {% endif %}
+                        {% for pb in phong_bans %}
+                            <option value="{{ pb.id }}" {% if current_pb|string == pb.id|string %}selected{% endif %}>
+                                {{ pb.ten_phong_ban }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-2 col-sm-6 mb-2">
+                    <label class="small font-weight-bold">Nhân viên:</label>
+                    <input type="text" name="ma_nhan_vien" id="ma_nvNam" value="{{ current_nv }}" class="form-control form-control-sm" placeholder="Mã hoặc Tên NV...">
+                </div>
+
+                <div class="col-md-4 col-sm-6 mb-2">
+                    <button type="submit" class="btn btn-primary btn-sm px-3">
+                        <i class="fas fa-filter"></i> Lọc
+                    </button>
+                    <button type="button" onclick="exportExcelNam()" class="btn btn-success btn-sm px-3">
+                        <i class="fas fa-file-excel"></i> Xuất Excel
+                    </button>
+                    <a href="{{ url_for('tong_hop_ngoai_gio_nam') }}" class="btn btn-secondary btn-sm px-3">
+                        <i class="fas fa-sync"></i> Làm mới
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-bordered mb-0">
+                    <thead>
+                        <tr>
+                            <th rowspan="2" class="sticky-col-ma">Mã NV</th>
+                            <th rowspan="2" class="sticky-col-ten">Họ Tên</th>
+                            
+                            {% for m in range(1, 13) %}
+                            <th colspan="4" class="bg-month border-bottom-0">Tháng {{ m }}</th>
+                            {% endfor %}
+                            
+                            <th colspan="4" class="bg-dark text-white border-bottom-0">TỔNG CẢ NĂM</th>
+                        </tr>
+                        <tr>
+                            {% for m in range(1, 13) %}
+                            <th class="col-thuong" title="Ngày thường">T</th>
+                            <th class="col-nghi" title="Ngày nghỉ">N</th>
+                            <th class="col-le" title="Ngày lễ">L</th>
+                            <th class="col-sum" title="Tổng tháng {{ m }}">Σ</th>
+                            {% endfor %}
+                            
+                            <th class="text-white" style="background:#5a5c69">T.Thường</th>
+                            <th class="text-white" style="background:#5a5c69">T.Nghỉ</th>
+                            <th class="text-white" style="background:#5a5c69">T.Lễ</th>
+                            <th class="bg-danger text-white">TỔNG CỘNG</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in data %}
+                        <tr>
+                            <td class="sticky-col-ma font-weight-bold text-primary">{{ row.ma_nhan_vien }}</td>
+                            <td class="sticky-col-ten">{{ row.ho_ten }}</td>
+                            
+                            {% for m in row.months %}
+                            <td class="col-thuong">{{ "%.1f"|format(m.thuong) if m.thuong > 0 else '-' }}</td>
+                            <td class="col-nghi">{{ "%.1f"|format(m.nghi) if m.nghi > 0 else '-' }}</td>
+                            <td class="col-le">{{ "%.1f"|format(m.le) if m.le > 0 else '-' }}</td>
+                            <td class="col-sum">{{ "%.1f"|format(m.total) if m.total > 0 else '-' }}</td>
+                            {% endfor %}
+                            
+                            <td class="text-total">{{ "%.1f"|format(row.tong_nam_thuong) }}</td>
+                            <td class="text-total">{{ "%.1f"|format(row.tong_nam_nghi) }}</td>
+                            <td class="text-total">{{ "%.1f"|format(row.tong_nam_le) }}</td>
+                            <td class="bg-danger text-white font-weight-bold">{{ "%.1f"|format(row.tong_tat_ca) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="54" class="py-4 text-center text-muted">Không tìm thấy dữ liệu phù hợp.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-2 d-flex justify-content-between align-items-center">
+        <div class="small text-muted">
+            <b>Ghi chú:</b> 
+            <span class="ml-2 col-thuong"><i class="fas fa-square"></i> T: Thường</span> | 
+            <span class="ml-2 col-nghi"><i class="fas fa-square"></i> N: Nghỉ</span> | 
+            <span class="ml-2 col-le"><i class="fas fa-square"></i> L: Lễ</span> | 
+            <span class="ml-2 font-weight-bold">Σ: Tổng tháng</span>
+        </div>
+        <div class="small text-secondary">
+            <i class="fas fa-mouse-pointer"></i> Cuộn ngang để xem chi tiết 12 tháng.
+        </div>
+    </div>
+</div>
+
+<script>
+function exportExcelNam() {
+    const year = document.getElementById('yearNam').value;
+    const ma_hieu_2 = document.getElementById('ma_hieu_2Nam').value; // Bổ sung lấy mã hiệu 2
+    const ma_pb = document.getElementById('ma_phong_banNam').value;
+    const ma_nv = document.getElementById('ma_nvNam').value;
+
+    const url = `{{ url_for('export_tong_hop_ngoai_gio_nam') }}?year=${year}&ma_hieu_2=${ma_hieu_2}&ma_phong_ban=${ma_pb}&ma_nhan_vien=${ma_nv}`;
+    window.location.href = url;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-2" style="max-width: 1200px;">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="text-dark font-weight-bold mb-0">
+            <i class="fas fa-edit text-primary"></i> Khai báo Mức lương Năm {{ selected_year }}
+        </h5>
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Quay lại
+        </a>
+    </div>
+
+    <form action="{{ url_for('save_salary_config') }}" method="POST" id="salaryForm">
+        <input type="hidden" name="nam" value="{{ selected_year }}">
+
+        <div class="row no-gutters">
+            <div class="col-lg-6 pr-lg-1">
+                <div class="card shadow-sm border-0 mb-2">
+                    <div class="card-header bg-danger text-white py-1 d-flex justify-content-between align-items-center">
+                        <span class="small font-weight-bold">1. LƯƠNG CƠ BẢN (V1)</span>
+                        <button type="button" class="btn btn-xs btn-light text-danger py-0" onclick="applyToAll('v1')">
+                             <small>Sử dụng T1 cho cả năm</small>
+                        </button>
+                    </div>
+                    <div class="card-body p-0 bg-light">
+                        <table class="table table-sm table-bordered mb-0 bg-white">
+                            <tbody>
+                                {% for i in range(1, 13) %}
+                                {% set field_name = 'ky_' ~ i %}
+                                <tr>
+                                    <td class="text-center align-middle bg-light" style="width: 25%"><small class="font-weight-bold">Tháng {{ i }}</small></td>
+                                    <td class="p-0">
+                                        <input type="text" class="form-control form-control-sm border-0 text-right currency-input v1-group {{ 'is-invalid' if not v1_data or v1_data[field_name]|float <= 0 }}" 
+                                               data-target="v1_ky_{{ i }}"
+                                               value="{{ "{:,.0f}".format(v1_data[field_name]) if v1_data and v1_data[field_name] else 0 }}">
+                                        <input type="hidden" name="v1_ky_{{ i }}" id="v1_ky_{{ i }}" value="{{ v1_data[field_name]|int if v1_data and v1_data[field_name] else 0 }}">
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6 pl-lg-1">
+                <div class="card shadow-sm border-0 mb-2">
+                    <div class="card-header bg-success text-white py-1 d-flex justify-content-between align-items-center">
+                        <span class="small font-weight-bold">2. MỨC LƯƠNG V2</span>
+                        <button type="button" class="btn btn-xs btn-light text-success py-0" onclick="applyToAll('v2')">
+                            <small>Sử dụng T1 cho cả năm</small>
+                        </button>
+                    </div>
+                    <div class="card-body p-0 bg-light">
+                        <table class="table table-sm table-bordered mb-0 bg-white">
+                            <tbody>
+                                {% for i in range(1, 13) %}
+                                {% set field_name = 'ky_' ~ i %}
+                                <tr>
+                                    <td class="text-center align-middle bg-light" style="width: 25%"><small class="font-weight-bold">Tháng {{ i }}</small></td>
+                                    <td class="p-0">
+                                        <input type="text" class="form-control form-control-sm border-0 text-right currency-input v2-group {{ 'is-invalid' if not v2_data or v2_data[field_name]|float <= 0 }}" 
+                                               data-target="v2_ky_{{ i }}"
+                                               value="{{ "{:,.0f}".format(v2_data[field_name]) if v2_data and v2_data[field_name] else 0 }}">
+                                        <input type="hidden" name="v2_ky_{{ i }}" id="v2_ky_{{ i }}" value="{{ v2_data[field_name]|int if v2_data and v2_data[field_name] else 0 }}">
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-body d-flex justify-content-end py-2">
+                <button type="submit" class="btn btn-primary btn-sm px-5 font-weight-bold shadow">
+                    <i class="fas fa-save"></i> LƯU DỮ LIỆU
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<style>
+    /* CSS ép chiều cao cực thấp để không phải cuộn */
+    .table-sm td { padding: 0 !important; height: 30px; }
+    .form-control-sm {
+        height: 30px !important;
+        font-size: 0.9rem !important;
+        border-radius: 0;
+        background: transparent;
+    }
+    .form-control:focus { background-color: #fff9e6; outline: none; box-shadow: none; }
+    .is-invalid { background-color: #fff5f5 !important; color: #dc3545; font-weight: bold; }
+    .btn-xs { padding: 1px 5px; font-size: 0.75rem; line-height: 1.5; border-radius: 3px; }
+    
+    @media (min-width: 992px) {
+        .row.no-gutters { display: flex; }
+        .col-lg-6 { flex: 0 0 50%; }
+    }
+</style>
+
+<script>
+    // Hàm định dạng số có dấu phẩy
+    function formatNumber(n) {
+        return n.replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    // Xử lý sự kiện nhập liệu cho tất cả các ô tiền
+    document.querySelectorAll('.currency-input').forEach(input => {
+        input.addEventListener('input', function() {
+            let rawValue = this.value.replace(/\D/g, "");
+            this.value = formatNumber(rawValue);
+            
+            // Cập nhật giá trị vào ô hidden tương ứng
+            const targetId = this.getAttribute('data-target');
+            document.getElementById(targetId).value = rawValue || "0";
+
+            // Xóa cảnh báo viền đỏ nếu đã nhập số > 0
+            if (parseInt(rawValue) > 0) {
+                this.classList.remove('is-invalid');
+            }
+        });
+
+        // Xóa số 0 khi focus để nhập nhanh
+        input.addEventListener('focus', function() {
+            if (this.value === "0") this.value = "";
+        });
+
+        // Nếu bỏ trống khi rời khỏi ô, tự động điền lại số 0
+        input.addEventListener('blur', function() {
+            if (this.value.trim() === "") {
+                this.value = "0";
+                document.getElementById(this.getAttribute('data-target')).value = "0";
+            }
+        });
+    });
+
+    // Hàm áp dụng giá trị Tháng 1 cho tất cả các tháng còn lại
+    function applyToAll(type) {
+        const firstInput = document.querySelector(`.${type}-group`);
+        const val = firstInput.value;
+        const targetId = firstInput.getAttribute('data-target');
+        const rawVal = document.getElementById(targetId).value;
+
+        if (!rawVal || rawVal === "0") {
+            alert("Vui lòng nhập giá trị vào Tháng 1 trước!");
+            firstInput.focus();
+            return;
+        }
+
+        const label = type === 'v1' ? 'Lương Cơ bản (V1)' : 'Mức lương V2';
+        if (confirm(`Áp dụng giá trị ${val} cho toàn bộ 12 tháng của ${label}?`)) {
+            document.querySelectorAll(`.${type}-group`).forEach(input => {
+                input.value = val;
+                document.getElementById(input.getAttribute('data-target')).value = rawVal;
+                input.classList.remove('is-invalid');
+            });
+            
+            // Thông báo nhẹ bằng Toast nếu muốn (Tùy chọn)
+            console.log("Đã áp dụng hàng loạt thành công.");
+        }
+    }
+</script>
+{% endblock %}

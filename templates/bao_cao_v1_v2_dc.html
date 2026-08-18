@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Tổng hợp V1 + V2_DC{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2 class="mb-4 text-center text-success">
+        <i class="fas fa-file-invoice-dollar"></i> Lương V1 + Lương V2 có điều chỉnh [1,0 / 1,2 / 1,3]
+    </h2>
+
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="bg-white p-3 rounded shadow-sm border">
+                <form method="GET" class="form-inline justify-content-between">
+                    <div class="d-flex">
+                        <div class="form-group mx-2">
+                            <label class="mr-2 font-weight-bold">Năm:</label>
+
+                            <select name="nam" class="form-control" onchange="this.form.submit()">
+                                {% for y in all_years %}
+                                    <option value="{{ y }}" {% if y == nam_chon %}selected{% endif %}>{{ y }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group mx-2">
+                            <label class="mr-2 font-weight-bold">Phòng ban:</label>
+                            
+                            {% if is_admin_or_th %}
+                                <select name="phong_ban" class="form-control" style="min-width: 200px;" onchange="this.form.submit()">
+                                    <option value="">-- Tất cả phòng ban --</option>
+                                    {% for dept in all_depts %}
+                                        <option value="{{ dept }}" {% if dept == search_phong_ban %}selected{% endif %}>{{ dept }}</option>
+                                    {% endfor %}
+                                </select>
+                            {% else %}
+                                <span class="badge badge-success py-2 px-3" style="font-size: 14px;">{{ search_phong_ban }}</span>
+                                <input type="hidden" name="phong_ban" value="{{ search_phong_ban }}">
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <a href="{{ url_for('export_v1_v2_dc', nam=nam_chon, phong_ban=search_phong_ban) }}" class="btn btn-success shadow-sm">
+                            <i class="fas fa-file-excel mr-1"></i> Xuất Excel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-body p-0">
+            <div class="table-container">
+                <div class="table-responsive" style="max-height: 75vh;">
+                    <table class="table table-bordered table-sm table-hover mb-0">
+                        <thead class="thead-dark text-center">
+                            <tr>
+                                <th rowspan="2" class="sticky-col align-middle">Mã NV</th>
+                                <th rowspan="2" class="sticky-col-name align-middle">Họ và Tên</th>
+                                <th rowspan="2" class="align-middle" style="min-width: 150px;">Phòng ban</th>
+                                <th colspan="13" class="bg-info text-white">CHI TIẾT LƯƠNG V1</th>
+                                <th colspan="13" class="bg-warning text-dark">CHI TIẾT LƯƠNG V2 (ĐC)</th>
+                                <th rowspan="2" class="bg-primary text-white align-middle">TỔNG THU NHẬP</th>
+                            </tr>
+                            <tr>
+                                {% for i in range(1, 13) %}
+                                    <th class="bg-light text-dark font-weight-normal">T{{i}}</th>
+                                {% endfor %}
+                                <th class="bg-info text-white">Tổng V1</th>
+                                
+                                {% for i in range(1, 13) %}
+                                    <th class="bg-light text-dark font-weight-normal">T{{i}}</th>
+                                {% endfor %}
+                                <th class="bg-warning text-dark">Tổng V2_DC</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if results %}
+                                {% for r in results %}
+                                <tr>
+                                    <td class="text-center sticky-col">{{ r.ma_nhan_vien }}</td>
+                                    <td class="sticky-col-name text-nowrap">{{ r.ho_ten }}</td>
+                                    <td class="text-nowrap">{{ r.ten_phong_ban or "N/A" }}</td>
+                                    
+                                    {% for i in range(1, 13) %}
+                                        <td class="text-right text-muted small">{{ "{:,.0f}".format(r['tien_v1_t' ~ i] or 0) }}</td>
+                                    {% endfor %}
+                                    <td class="text-right font-weight-bold bg-info-light">{{ "{:,.0f}".format(r.tong_v1 or 0) }}</td>
+
+                                    {% for i in range(1, 13) %}
+                                        <td class="text-right text-muted small">{{ "{:,.0f}".format(r['tien_v2dc_t' ~ i] or 0) }}</td>
+                                    {% endfor %}
+                                    <td class="text-right font-weight-bold bg-warning-light">{{ "{:,.0f}".format(r.tong_v2_dc or 0) }}</td>
+
+                                    <td class="text-right font-weight-bold text-primary" style="background-color: #e8f0fe;">
+                                        {{ "{:,.0f}".format(r.tong_thu_nhap or 0) }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="31" class="text-center py-4 text-muted">
+                                        Không tìm thấy dữ liệu cho tiêu chí lọc hiện tại.
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Font size nhỏ để hiển thị được nhiều cột */
+    table { font-size: 11px; border-collapse: separate; border-spacing: 0; }
+    
+    .table-container { border: 1px solid #dee2e6; background: #fff; }
+    
+    /* Sticky Headers cho 2 hàng tiêu đề */
+    .table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        white-space: nowrap;
+        border: 1px solid #455a64 !important;
+    }
+    .table thead tr:nth-child(2) th {
+        top: 31px; /* Chiều cao hàng tiêu đề thứ nhất */
+        z-index: 19;
+    }
+
+    /* Sticky Columns (Mã NV & Họ Tên) */
+    .sticky-col {
+        position: sticky;
+        left: 0;
+        z-index: 21;
+        background-color: #f8f9fa !important;
+        min-width: 80px;
+        box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+    }
+    .sticky-col-name {
+        position: sticky;
+        left: 80px;
+        z-index: 21;
+        background-color: #f8f9fa !important;
+        min-width: 160px;
+        border-right: 2px solid #dee2e6 !important;
+        box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+    }
+
+    /* Màu nền cho các cột tổng */
+    .bg-info-light { background-color: #e7f3ff !important; }
+    .bg-warning-light { background-color: #fff9e6 !important; }
+
+    /* Căn lề số tiền */
+    .text-right { text-align: right !important; padding: 4px 8px !important; }
+    
+    /* Hover hiệu ứng */
+    .table-hover tbody tr:hover td { background-color: #f1f3f5 !important; }
+    .table-hover tbody tr:hover .sticky-col, 
+    .table-hover tbody tr:hover .sticky-col-name { background-color: #e9ecef !important; }
+</style>
+{% endblock %}

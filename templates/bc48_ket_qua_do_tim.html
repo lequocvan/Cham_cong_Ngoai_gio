@@ -1,0 +1,480 @@
+{% extends "base.html" %}
+
+{% block title %}Kết quả dò tìm lỗi BC48{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-gradient-primary text-white d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold">
+                <i class="fas fa-search-plus mr-2"></i>KẾT QUẢ DÒ TÌM CHI TIẾT "KIỂM TRA GIAO DỊCH LỖI" & "MA_GIAO_DICH" giữa các bảng _error và bảng _yyyymm (kết quả của sp_xuly_error_trung_tam; định kỳ 22h30 chạy evt_cap_nhat_loi_hang_ngay; log_loi_xu_ly_bang cho biết lỗi gì khi chạy sp_xuly_error_trung_tam)
+            </h6>
+
+            <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-center bg-white p-1 rounded border shadow-sm" style="gap: 5px;">
+                    <label class="small fw-bold text-danger mb-0 mx-2" style="font-size: 11px;"><i class="fas fa-cogs mr-1"></i> Tiêu chí:</label>
+                    
+                    <button type="button" class="btn btn-sm btn-warning font-weight-bold text-dark py-1 px-3" style="font-size: 11px;" onclick="executeCentralProcedure();">
+                        <i class="fas fa-database mr-1"></i> Chạy chủ động sp_xuly_error_trung_tam để có ket_qua_do_tim_loi (toàn bộ hệ thống)
+                    </button>
+
+                    <div class="d-flex align-items-center border-left pl-2" style="gap: 3px;">
+                        <input type="date" id="proc_tu_ngay" class="form-control form-control-sm py-0 text-center" style="font-size: 11px; width:115px; height: 24px;">
+                        <span class="small text-muted">đến</span>
+                        <input type="date" id="proc_den_ngay" class="form-control form-control-sm py-0 text-center" style="font-size: 11px; width:115px; height: 24px;">
+                        <button type="button" class="btn btn-sm btn-info font-weight-bold text-white py-1 px-2" style="font-size: 11px;" onclick="executeProcedureByDate();">
+                            <i class="fas fa-calendar-alt mr-1"></i> Chạy theo khoảng ngày
+                        </button>
+                    </div>
+
+                    <select id="control_ky_baocao_type" class="form-select form-select-sm border-0 bg-light font-weight-bold text-dark text-center py-1" style="font-size: 11px; width: 160px; cursor: pointer;">
+                        <option value="by_month" selected>Theo kỳ YYYYMM gõ dưới</option>
+                        <option value="all_time">Tất cả các kỳ dữ liệu</option>
+                    </select>
+
+                    <button type="button" class="btn btn-sm btn-danger font-weight-bold py-1 px-3" style="font-size: 11px;" onclick="executeExtractProcess();">
+                        <i class="fas fa-tools mr-1"></i> Chỉ bóc tách mota_loi của CSV
+                    </button>
+
+                    <form id="hiddenDateProcedureForm" action="{{ url_for('chay_sp_theo_ngay_action') }}" method="POST" style="display: none;">
+                        <input type="hidden" name="tu_ngay" id="submit_tu_ngay">
+                        <input type="hidden" name="den_ngay" id="submit_den_ngay">
+                    </form>
+                </div>
+
+                <a href="{{ url_for('export_ket_qua_do_tim', loai_bc=loai_bc, thang_nam=thang_nam, ma_hieu_1=ma_hieu_1, ma_hieu_2=ma_hieu_2, ma_giao_dich=ma_giao_dich, mota_loi=mota_loi, tu_ngay=tu_ngay, den_ngay=den_ngay) }}" class="btn btn-sm btn-light text-primary font-weight-bold shadow-sm">
+                    <i class="fas fa-file-export mr-1"></i> Xuất CSV
+                </a>
+            </div>
+        </div>
+        
+        <div class="card-body">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show p-2 small mb-3" role="alert">
+                            <i class="fas {% if category == 'success' %}fa-check-circle{% elif category == 'danger' or category == 'error' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} mr-2"></i>
+                            {{ message }}
+                            <button type="button" class="btn-close float-end p-1 border-0 bg-transparent" data-bs-dismiss="alert" aria-label="Close" onclick="this.parentElement.style.display='none';">XY</button>
+                        </div>
+                     Galbraith {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form id="filterForm" method="GET" action="{{ url_for('giaodien_ket_qua_do_tim') }}" class="row gx-3 gy-3 align-items-end mb-4" onsubmit="return validateFilterForm();">
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">Loại báo cáo</label>
+                    <select id="filter_loai_bc" name="loai_bc" class="form-select form-select-sm">
+                        <option value="ALL">-- Tất cả --</option>
+                        {% for bc in ['ctr', 'dwt', 'eft', 'ptr'] %}
+                        <option value="{{ bc }}" {% if loai_bc == bc %}selected{% endif %}>{{ bc|upper }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">Tháng báo cáo (YYYYMM)</label>
+                    <input type="text" id="filter_thang_nam" name="thang_nam" class="form-control form-control-sm text-center" 
+                           value="{% if thang_nam %}{{ thang_nam }}{% endif %}" placeholder="Ví dụ: 202605" maxlength="6"
+                           oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">Mã hiệu Cấp 1</label>
+                    <input type="text" name="ma_hieu_1" class="form-control form-control-sm" value="{{ ma_hieu_1 }}" placeholder="Mã Cấp 1">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">Mã hiệu Cấp 2</label>
+                    <input type="text" name="ma_hieu_2" class="form-control form-control-sm" value="{{ ma_hieu_2 }}" placeholder="Mã Cấp 2">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">Mã giao dịch</label>
+                    <input type="text" name="ma_giao_dich" class="form-control form-control-sm" value="{{ ma_giao_dich }}" placeholder="Nhập mã GD">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">Mô tả lỗi từ CSV</label>
+                    <input type="text" name="mota_loi" class="form-control form-control-sm" value="{{ mota_loi }}" placeholder="Từ khóa mô tả lỗi">
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">Từ ngày báo cáo</label>
+                    <input type="date" id="filter_tu_ngay" name="tu_ngay" class="form-control form-control-sm text-center" value="{{ tu_ngay }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">Đến ngày báo cáo</label>
+                    <input type="date" id="filter_den_ngay" name="den_ngay" class="form-control form-control-sm text-center" value="{{ den_ngay }}">
+                </div>
+                <!-- BỔ SUNG TIÊU CHÍ LỌC MỚI -->
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">Tên file gốc</label>
+                    <input type="text" id="filter_ten_file_goc" name="ten_file_goc" class="form-control form-control-sm" value="{{ ten_file_goc }}" placeholder="Nhập tên file gốc">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">Tên file error</label>
+                    <input type="text" id="filter_ten_file_error" name="ten_file_error" class="form-control form-control-sm" value="{{ ten_file_error }}" placeholder="Nhập tên file error">
+                </div>
+                
+                <div class="col-md-12 d-flex justify-content-start align-items-center mt-3 border-top pt-3" style="gap: 10px;">
+                    <button type="submit" class="btn btn-sm btn-primary px-4">
+                        <i class="fas fa-filter mr-1"></i> Lọc dữ liệu
+                    </button>
+
+                    <button type="button" onclick="exportToExcel();" class="btn btn-sm btn-success font-weight-bold px-3">
+                        <i class="fas fa-file-excel mr-1"></i> Xuất Excel
+                    </button>
+                    
+                    <a href="{{ url_for('giaodien_ket_qua_do_tim') }}" class="btn btn-sm btn-outline-secondary px-3">
+                        <i class="fas fa-undo"></i> Làm mới
+                    </a>
+
+                    <div class="text-muted small">
+                        Hiển thị từ bản ghi <b>{{ start_record }}</b> đến <b>{{ end_record }}</b> 
+                        trong tổng số <b>{{ total_records }}</b> bản ghi 
+                        (Trang <b>{{ page }}</b>/<b>{{ total_pages }}</b>)
+                    </div>
+                </div>
+            </form>
+
+            <form id="hiddenProcedureForm" action="{{ url_for('chay_sp_trung_tam_action') }}" method="POST" style="display: none;">
+            </form>
+
+            <form id="hiddenExtractForm" action="{{ url_for('extract_errors_action') }}" method="POST" style="display: none;">
+                <input type="hidden" name="loai_bc" id="submit_loai_bc">
+                <input type="hidden" name="thang_nam" id="submit_thang_nam">
+                <input type="hidden" name="ky_baocao_type" id="submit_ky_baocao_type">
+            </form>
+
+            <div class="table-responsive" style="font-size: 11.5px; min-height: 400px;">
+                <table class="table table-bordered table-hover table-sm">
+                    <thead class="table-dark text-center">
+                        <tr>
+                            <th>ID</th>
+                            <th>Mã Giao Dịch</th>
+                            <th>Loại BC</th>
+                            <th>Tháng Năm</th>
+                            <th>Mã Lỗi</th>
+                            <th>Mã Lỗi F Ảo</th>
+                            <th>Mô tả lỗi từ CSV</th>
+                            <th>DS Mã nghiệp vụ</th>
+                            <th>DS Tên nghiệp vụ</th>
+                            <th>DS Tên cột SQL</th>
+                            <th>DS Mã quy định</th>
+                            <th>Mã CN</th>
+                            <th>Thời điểm</th>
+                            <th>Loại GD</th>
+                            <th>Kiểu KH</th>
+                            <th>Tên Khách Hàng</th>
+                            <th>Loại GT</th>
+                            <th>Số GT/Hộ chiếu</th>
+                            <th>Số thị thực</th>
+                            <th>Đơn vị Cấp 1 (Mã - Tên)</th>
+                            <th>Đơn vị Cấp 2 (Mã - Tên)</th>
+                            <th>Loại tiền</th>
+                            <th>Số tiền</th>
+                            <th>Quy đổi</th>
+                            <th>Bảng gốc tìm thấy</th>
+                            <th>Ngày báo cáo</th>
+                            <th>Tên file gốc</th>
+                            <th>Tên file error</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in data %}
+                        <tr>
+                            <td class="text-center text-muted">{{ row.id }}</td>
+                            <td class="font-weight-bold text-primary table-wrap-hover" data-fulltext="{{ row.ma_giao_dich }}">{{ row.ma_giao_dich }}</td>
+                            <td class="text-center">
+                                <span class="badge {% if row.loai_bc == 'ctr' %}bg-info{% elif row.loai_bc == 'dwt' %}bg-warning{% else %}bg-secondary{% endif %} text-dark">
+                                    {{ row.loai_bc|upper }}
+                                </span>
+                            </td>
+                            <td class="text-center">{{ row.thang_nam }}</td>
+                            <td class="text-danger text-center font-weight-bold">{{ row.ma_loi }}</td>
+                            
+                            <td class="text-muted table-wrap-hover" data-fulltext="{{ row.ma_loi_f_ao }}">{{ row.ma_loi_f_ao if row.ma_loi_f_ao else ''  }}</td>
+                            
+                            <td class="text-muted table-wrap-hover" data-fulltext="{{ row.mota_loi }}">{{ row.mota_loi }}</td>
+                            
+                            <td class="small text-muted text-center table-wrap-hover" data-fulltext="{{ row.ds_ma_nghiep_vu }}" style="max-width: 90px;">{{ row.ds_ma_nghiep_vu if row.ds_ma_nghiep_vu else '' }}</td>
+                            
+                            <td class="small text-muted table-wrap-hover" data-fulltext="{{ row.ds_ten_nghiep_vu }}" style="max-width: 140px;">{{ row.ds_ten_nghiep_vu if row.ds_ten_nghiep_vu else '' }}</td>
+                            
+                            <td class="small text-info table-wrap-hover" data-fulltext="{{ row.ds_ten_cot_sql }}" style="max-width: 110px;"><code>{{ row.ds_ten_cot_sql if row.ds_ten_cot_sql else '' }}</code></td>
+                            
+                            <td class="small text-muted text-center table-wrap-hover" data-fulltext="{{ row.ds_ma_quy_dinh }}" style="max-width: 90px;">{{ row.ds_ma_quy_dinh if row.ds_ma_quy_dinh else '' }}</td>
+                            
+                            <td class="text-center">{{ row.macn }}</td>
+                            <td class="text-center">{{ row.thoidiem }}</td>
+                            <td class="text-center">{{ row.loaigd }}</td>
+                            <td class="text-center">{{ row.kieukh }}</td>
+                            <td class="text-muted table-wrap-hover" data-fulltext="{{ row.tenkh }}">{{ row.tenkh }}</td>
+                            <td class="text-center">{{ row.loaigt }}</td>
+                            <td>{{ row.sogt }}</td>
+                            <td>{{ row.sothithuc }}</td>
+                            <td style="max-width: 180px;">
+                                {% if row.ma_hieu_1 %}
+                                    <span class="badge bg-light text-dark border">{{ row.ma_hieu_1 }}</span> {{ row.ten_ma_hieu_1 }}
+                                {% endif %}
+                            </td>
+                            <td style="max-width: 180px;">
+                                {% if row.ma_hieu_2 %}
+                                    <span class="badge bg-light text-dark border">{{ row.ma_hieu_2 }}</span> {{ row.ten_ma_hieu_2 }}
+                                {% endif %}
+                            </td>
+                            <td class="text-center text-success font-weight-bold">{{ row.loaitien }}</td>
+                            <td class="text-right font-weight-bold">
+                                {% if row.sotien is not none %}{{ "{:,.2f}".format(row.sotien) }}{% endif %}
+                            </td>
+                            <td class="text-right font-weight-bold text-info">
+                                {% if row.quydoi is not none %}{{ "{:,.2f}".format(row.quydoi) }}{% endif %}
+                            </td>
+                            <td>{{ row.bang_goc_tim_thay }}</td>
+                            <td class="text-center text-nowrap">{{ row.ngay_baocao }}</td>
+                            <td class="text-muted table-wrap-hover" data-fulltext="{{ row.ten_file_goc }}">{{ row.ten_file_goc }}</td>
+                            <td class="text-muted table-wrap-hover" data-fulltext="{{ row.ten_file_error }}">{{ row.ten_file_error }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="28" class="text-center py-4 text-muted italic">
+                                <i class="fas fa-folder-open mr-2"></i>Không tìm thấy dữ liệu khớp với điều kiện lọc
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                        {# 1. Lấy toàn bộ tham số lọc hiện tại trên URL chuyển thành dict #}
+                        {% set params = request.args.to_dict() %}
+
+                        {# 2. Nút "Trước": Tạo bản sao, cập nhật đè số trang mới #}
+                        {% set prev_params = params.copy() %}
+                        {% set _ = prev_params.update({'page': page - 1}) %}
+                        <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('giaodien_ket_qua_do_tim', **prev_params) }}">
+                                <i class="fas fa-chevron-left"></i> Trước
+                            </a>
+                        </li>
+
+                        {# 3. Nút "Sau": Tạo bản sao, cập nhật đè số trang mới #}
+                        {% set next_params = params.copy() %}
+                        {% set _ = next_params.update({'page': page + 1}) %}
+                        <li class="page-item {% if not has_next %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('giaodien_ket_qua_do_tim', **next_params) }}">
+                                Sau <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+    }
+    .table-responsive::-webkit-scrollbar {
+        height: 8px;
+    }
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 4px;
+    }
+    
+    .table td, .table th {
+        vertical-align: middle;
+        white-space: nowrap;
+        max-width: 160px; 
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 0.4rem !important;
+    }
+
+    .table td.table-wrap-hover {
+        position: relative; 
+        cursor: pointer;
+    }
+
+    .table td.table-wrap-hover:hover {
+        overflow: visible;
+        white-space: normal;
+    }
+
+    .table td.table-wrap-hover:hover::after {
+        content: attr(data-fulltext); 
+        position: absolute;
+        left: 10px;
+        top: 100%; 
+        min-width: 280px;
+        max-width: 450px;
+        background-color: #2c3e50;
+        color: #ffffff;
+        padding: 8px 12px;
+        border-radius: 4px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.3);
+        z-index: 999;
+        word-break: break-word;
+        white-space: normal;
+        font-size: 11.5px;
+        line-height: 1.4;
+    }
+    
+    .table td.table-wrap-hover:hover::before {
+        content: "";
+        position: absolute;
+        left: 20px;
+        top: calc(100% - 6px);
+        border-width: 0 6px 6px 6px;
+        border-style: solid;
+        border-color: transparent transparent #2c3e50 transparent;
+        z-index: 1000;
+    }
+
+    .text-right {
+        text-align: right;
+    }
+</style>
+
+<script>
+function executeExtractProcess() {
+    const loaiBcSelect = document.getElementById('filter_loai_bc');
+    const thangNamInput = document.getElementById('filter_thang_nam');
+    const kyTypeSelect = document.getElementById('control_ky_baocao_type');
+
+    const currentLoaiBc = loaiBcSelect ? loaiBcSelect.value : "ALL";
+    const currentThangNam = thangNamInput ? thangNamInput.value.trim() : "";
+    const currentKyType = kyTypeSelect ? kyTypeSelect.value : "by_month";
+
+    let targetLogText = "";
+
+    if (currentKyType === 'all_time') {
+        targetLogText = `cho Loại báo cáo [${currentLoaiBc.toUpperCase()}] của TẤT CẢ CÁC KỲ`;
+    } else {
+        if (!currentThangNam) {
+            alert("VUI LÒNG KHÔNG ĐỂ TRỐNG!\nHãy điền giá trị tại ô 'Tháng báo cáo (YYYYMM)' trong bộ lọc trước khi bấm nút bóc tách.");
+            if (thangNamInput) thangNamInput.focus();
+            return false;
+        }
+        if (currentThangNam.length !== 6 || isNaN(currentThangNam)) {
+            alert("ĐỊNH DẠNG KHÔNG HỢP LỆ!\nTháng báo cáo phải nhập đúng chuỗi số gồm 6 chữ số viết liền (Ví dụ: 202601).");
+            if (thangNamInput) thangNamInput.focus();
+            return false;
+        }
+        targetLogText = `cho Loại báo cáo [${currentLoaiBc.toUpperCase()}] thuộc Kỳ báo cáo: ${currentThangNam}`;
+    }
+
+    const isConfirm = confirm(`⚠️ CẢNH BÁO AN TOÀN HỆ THỐNG:\nHành động này sẽ XÓA SẠCH toàn bộ dữ liệu log phân tách cũ ${targetLogText} và tiến hành chạy bóc tách mới.\n\nBạn có chắc chắn muốn thực thi không?`);
+    
+    if (!isConfirm) {
+        return false;
+    }
+
+    document.getElementById('submit_loai_bc').value = currentLoaiBc;
+    document.getElementById('submit_thang_nam').value = currentThangNam;
+    document.getElementById('submit_ky_baocao_type').value = currentKyType;
+
+    document.getElementById('hiddenExtractForm').submit();
+}
+
+function executeCentralProcedure() {
+    const confirmRun = confirm(
+        "🚨 XÁC NHẬN CHẠY TIẾN TRÌNH ĐỐI CHIẾU TRUNG TÂM:\n\n" +
+        "Hệ thống sẽ thực hiện:\n" +
+        "1. Lệnh TRUNCATE (Xóa trắng) toàn bộ bảng dữ liệu kết quả cũ (danh_sach_bang_error_da_quet; log_loi_xu_ly_bang; chi_tiet_loi_master; ket_qua_do_tim_loi; giao_dich_error_khong_tim_thay; bang_tonghop_ktra_gd_loi).\n" +
+        "2. Gọi Stored Procedure [sp_xuly_error_trung_tam()] để quét lại toàn bộ dữ liệu lỗi.\n\n" +
+        "Tiến trình có thể mất từ vài giây đến vài phút tùy lượng dữ liệu. Bạn chắc chắn muốn tiếp tục?"
+    );
+    
+    if (confirmRun) {
+        document.getElementById('hiddenProcedureForm').submit();
+    }
+}
+
+// BỔ SUNG MỚI: Hàm thu thập động tiêu chí lọc từ form và đẩy sang route Excel của Flask
+function exportToExcel() {
+    const form = document.getElementById('filterForm');
+    if (!form) return;
+
+    const loaiBc = document.getElementById('filter_loai_bc') ? document.getElementById('filter_loai_bc').value : 'ALL';
+    // Đảm bảo lấy giá trị text và .trim() sạch sẽ
+    const thangNam = document.getElementById('filter_thang_nam') ? document.getElementById('filter_thang_nam').value.trim() : '';
+    
+    const maHieu1 = form.querySelector('input[name="ma_hieu_1"]') ? form.querySelector('input[name="ma_hieu_1"]').value.trim() : '';
+    const maHieu2 = form.querySelector('input[name="ma_hieu_2"]') ? form.querySelector('input[name="ma_hieu_2"]').value.trim() : '';
+    const maGiaoDich = form.querySelector('input[name="ma_giao_dich"]') ? form.querySelector('input[name="ma_giao_dich"]').value.trim() : '';
+    const motaLoi = form.querySelector('input[name="mota_loi"]') ? form.querySelector('input[name="mota_loi"]').value.trim() : '';
+    const tuNgay = document.getElementById('filter_tu_ngay') ? document.getElementById('filter_tu_ngay').value : '';
+    const denNgay = document.getElementById('filter_den_ngay') ? document.getElementById('filter_den_ngay').value : '';
+
+    // Route xử lý xuất Excel thực tế tại backend
+    let baseUrl = "{{ url_for('export_excel_ket_qua') }}";
+
+    const params = new URLSearchParams({
+        loai_bc: loaiBc,
+        thang_nam: thangNam,
+        ma_hieu_1: maHieu1,
+        ma_hieu_2: maHieu2,
+        ma_giao_dich: maGiaoDich,
+        mota_loi: motaLoi,
+        tu_ngay: tuNgay,
+        den_ngay: denNgay
+    });
+
+    window.location.href = `${baseUrl}?${params.toString()}`;
+}
+
+function executeProcedureByDate() {
+    const tuNgayInput = document.getElementById('proc_tu_ngay');
+    const denNgayInput = document.getElementById('proc_den_ngay');
+    
+    if (!tuNgayInput.value || !denNgayInput.value) {
+        alert("⚠️ VUI LÒNG CHỌN ĐẦY ĐỦ THỜI GIAN!\nHãy chọn cả ngày bắt đầu và ngày kết thúc trước khi thực hiện.");
+        return false;
+    }
+
+    if (new Date(tuNgayInput.value) > new Date(denNgayInput.value)) {
+        alert("⚠️ DỮ LIỆU KHÔNG HỢP LỆ!\nNgày bắt đầu không được lớn hơn ngày kết thúc.");
+        return false;
+    }
+
+    const confirmRun = confirm(
+        `🚨 XÁC NHẬN CHẠY ĐỐI CHIẾU THEO KHOẢNG NGÀY:\n\n` +
+        `Hệ thống sẽ xóa kết quả lưu vết cũ thuộc khoảng từ [${tuNgayInput.value}] đến [${denNgayInput.value}] và gọi Stored Procedure để quét lại.\n` +
+        `Các khoảng ngày khác sẽ được giữ nguyên dữ liệu.\n\n` +
+        `Bạn chắc chắn muốn tiếp tục?`
+    );
+    
+    if (confirmRun) {
+        document.getElementById('submit_tu_ngay').value = tuNgayInput.value;
+        document.getElementById('submit_den_ngay').value = denNgayInput.value;
+        document.getElementById('hiddenDateProcedureForm').submit();
+    }
+}
+
+function validateFilterForm() {
+    const thangNamInput = document.getElementById('filter_thang_nam');
+    if (thangNamInput && thangNamInput.value.trim() !== "") {
+        const val = thangNamInput.value.trim();
+        if (val.length !== 6 || isNaN(val)) {
+            alert("⚠️ THÁNG BÁO CÁO KHÔNG HỢP LỆ!\nNếu nhập tháng báo cáo, vui lòng nhập đúng 6 chữ số dạng YYYYMM (Ví dụ: 202605).");
+            thangNamInput.focus();
+            return false; // Ngăn không cho submit form lỗi lên server
+        }
+    }
+
+    const tuNgayInput = document.getElementById('filter_tu_ngay');
+    const denNgayInput = document.getElementById('filter_den_ngay');
+    if (tuNgayInput && denNgayInput && tuNgayInput.value && denNgayInput.value) {
+        if (new Date(tuNgayInput.value) > new Date(denNgayInput.value)) {
+            alert("⚠️ THỜI GIAN LỌC KHÔNG HỢP LỆ!\n'Từ ngày báo cáo' không được lớn hơn 'Đến ngày báo cáo'.");
+            tuNgayInput.focus();
+            return false;
+        }
+    }
+    return true; // Hợp lệ cho phép lọc dữ liệu
+}
+</script>
+{% endblock %}

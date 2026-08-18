@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Nền tảng hiện đại dựa trên Bootstrap 4 */
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+        transition: all 0.2s ease;
+    }
+    
+    .page-link.rounded-circle {
+        width: 35px;
+        height: 35px;
+        border-radius: 50% !important;
+        margin: 0 2px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+    }
+
+    .bg-info-soft {
+        background-color: #e1f5fe;
+        color: #0288d1;
+        padding: 0.25rem 0.6rem;
+        border-radius: 6px;
+        font-size: 0.7rem;
+        font-weight: 700;
+    }
+
+    .bg-secondary-soft {
+        background-color: #f8f9fa;
+        color: #6c757d;
+        border: 1px solid #dee2e6;
+    }
+
+    .table-responsive {
+        max-height: 65vh;
+        overflow-y: auto;
+    }
+
+    /* Tùy chỉnh thanh cuộn cho bảng */
+    .table-responsive::-webkit-scrollbar {
+        width: 6px;
+    }
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #e0e0e0;
+        border-radius: 10px;
+    }
+
+    .sticky-top-bs4 {
+        position: -webkit-sticky;
+        position: sticky;
+        top: 20px;
+        z-index: 1010;
+    }
+    
+    .btn-action-group .btn {
+        padding: 6px 14px;
+        background: #fff;
+    }
+
+    .btn-action-group .btn:hover {
+        background: #f8f9fa;
+    }
+    
+    code.text-primary {
+        background: #f0f7ff;
+        padding: 3px 8px;
+        border-radius: 5px;
+        font-family: 'Monaco', 'Consolas', monospace;
+    }
+
+    /* Hiệu ứng loading khi submit */
+    .btn-loading {
+        position: relative;
+        color: transparent !important;
+    }
+    .btn-loading::after {
+        content: "";
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        top: 50%;
+        left: 50%;
+        margin: -8px 0 0 -8px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<div class="container-fluid py-4">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb bg-transparent p-0 small">
+            <li class="breadcrumb-item"><a href="#">Admin</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Quản lý mẫu biểu</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-xl-3 col-lg-4 mb-4">
+            <div class="card border-0 shadow-sm sticky-top-bs4">
+                <div class="card-header bg-primary text-white py-3 border-0">
+                    <h6 class="mb-0 font-weight-bold"><i class="fas fa-file-medical mr-2"></i>Khai báo mẫu mới</h6>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('quan_ly_mau_bieu') }}" method="POST" enctype="multipart/form-data" id="formUpload">
+                        <div class="form-group">
+                            <label class="small font-weight-bold text-uppercase text-muted">Tên mẫu biểu:</label>
+                            <input type="text" name="ten_mau" class="form-control border-0 bg-light shadow-none" 
+                                   placeholder="VD: Giấy đi đường" required maxlength="100">
+                        </div>
+                        <div class="form-group">
+                            <label class="small font-weight-bold text-uppercase text-muted">Mã định danh (ID):</label>
+                            <input type="text" name="ma_mau" class="form-control border-0 bg-light shadow-none" required maxlength="100" 
+                                   placeholder="VD: GIAY_DI_DUONG" required>
+                            <small class="form-text text-info mt-2">
+                                <i class="fas fa-info-circle mr-1"></i>Chỉ dùng chữ cái, số và dấu gạch dưới.
+                            </small>
+                        </div>
+                        <div class="form-group mb-4">
+                            <label class="small font-weight-bold text-uppercase text-muted">File Word mẫu (.docx):</label>
+                            <div class="custom-file">
+                                <input type="file" name="file_mau" id="fileInput" class="custom-file-input" accept=".docx" required>
+                                <label class="custom-file-label border-0 bg-light text-truncate" for="fileInput">Chọn file...</label>
+                            </div>
+                            <small id="fileSizeError" class="text-danger mt-1 d-none">File không được vượt quá 5MB</small>
+                        </div>
+                        <button type="submit" id="btnSubmit" class="btn btn-primary btn-block font-weight-bold shadow-sm py-2">
+                            <i class="fas fa-save mr-2"></i>LƯU HỆ THỐNG
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-9 col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h5 class="mb-0 font-weight-bold text-dark">
+                                Kho mẫu hệ thống 
+                                <span class="badge bg-secondary-soft ml-2 font-weight-normal">
+                                    {{ pagination.total }} bản ghi
+                                </span>
+                            </h5>
+                        </div>
+                        <div class="col-md-6 mt-3 mt-md-0">
+                            <form method="GET" action="{{ url_for('quan_ly_mau_bieu') }}" class="input-group shadow-sm rounded">
+                                <input type="text" name="search" class="form-control border-0 bg-light shadow-none" 
+                                       placeholder="Tìm tên hoặc mã mẫu..." value="{{ search or '' }}">
+                                <div class="input-group-append">
+                                    <button class="btn btn-primary px-3" type="submit">
+                                        <i class="fas fa-search"></i>
+                                    </button>
+                                    {% if search %}
+                                    <a href="{{ url_for('quan_ly_mau_bieu') }}" class="btn btn-light border-left">
+                                        <i class="fas fa-times text-muted"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light text-uppercase">
+                                <tr style="font-size: 0.7rem; letter-spacing: 0.8px;">
+                                    <th class="pl-4 py-3 border-0" width="20%">Mã định danh</th>
+                                    <th class="py-3 border-0" width="55%">Thông tin mẫu biểu</th>
+                                    <th class="text-right pr-4 py-3 border-0">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for m in ds_mau %}
+                                <tr>
+                                    <td class="pl-4 align-middle">
+                                        <code class="text-primary font-weight-bold">{{ m.ma_mau }}</code>
+                                    </td>
+                                    <td class="align-middle">
+                                        <div class="font-weight-bold text-dark mb-0">{{ m.ten_mau }}</div>
+                                        <div class="mt-1 d-flex align-items-center">
+                                            <span class="bg-info-soft mr-2">DOCX</span>
+                                            <small class="text-muted text-truncate" style="max-width: 250px;">
+                                                <i class="far fa-folder-open mr-1"></i>/static/uploads/templates/...
+                                            </small>
+                                        </div>
+                                    </td>
+                                    <td class="text-right pr-4 align-middle">
+                                        <div class="btn-group btn-action-group border rounded shadow-sm">
+                                            <a href="{{ url_for('in_mau_bieu', ma_mau=m.ma_mau) }}" 
+                                               class="btn btn-white text-primary border-right" 
+                                               data-toggle="tooltip" title="Tải file gốc">
+                                                <i class="fas fa-download"></i>
+                                            </a>
+                                            <a href="{{ url_for('xoa_mau_bieu', id=m.id) }}" 
+                                               class="btn btn-white text-danger" 
+                                               onclick="return confirm('Xác nhận xóa mẫu {{ m.ma_mau }}?')"
+                                               data-toggle="tooltip" title="Xóa mẫu">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center py-5 text-muted">
+                                        <div class="py-4">
+                                            <i class="fas fa-search-minus fa-3x mb-3" style="opacity: 0.1;"></i>
+                                            <p class="mb-1 font-weight-bold">Không tìm thấy dữ liệu</p>
+                                            <small><a href="{{ url_for('quan_ly_mau_bieu') }}" class="text-primary">Quay lại danh sách đầy đủ</a></small>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {% if pagination.pages > 1 %}
+                <div class="card-footer bg-white border-top-0 py-4">
+                    <nav>
+                        <ul class="pagination pagination-sm justify-content-center mb-0">
+                            <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
+                                <a class="page-link rounded-circle bg-light text-dark" 
+                                   href="{{ url_for('quan_ly_mau_bieu', page=1, search=search) }}">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </a>
+                            </li>
+
+                            {% for p in pagination.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
+                                {% if p %}
+                                    <li class="page-item {{ 'active' if p == pagination.page else '' }}">
+                                        <a class="page-link rounded-circle {{ 'bg-primary text-white shadow-sm' if p == pagination.page else 'bg-light text-dark' }}" 
+                                           href="{{ url_for('quan_ly_mau_bieu', page=p, search=search) }}">{{ p }}</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link bg-transparent border-0">...</span></li>
+                                {% endif %}
+                            {% endfor %}
+
+                            <li class="page-item {{ 'disabled' if not pagination.has_next }}">
+                                <a class="page-link rounded-circle bg-light text-dark" 
+                                   href="{{ url_for('quan_ly_mau_bieu', page=pagination.pages, search=search) }}">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const fileInput = document.getElementById('fileInput');
+        const fileLabel = document.querySelector('.custom-file-label');
+        const btnSubmit = document.getElementById('btnSubmit');
+        const formUpload = document.getElementById('formUpload');
+        const maInput = document.querySelector('input[name="ma_mau"]');
+
+        // 1. Xử lý hiển thị tên file và kiểm tra dung lượng
+        if(fileInput) {
+            fileInput.addEventListener('change', function() {
+                const file = this.files[0];
+                if (file) {
+                    fileLabel.textContent = file.name;
+                    const fileType = file.name.split('.').pop().toLowerCase();
+                    const fileSize = file.size / 1024 / 1024; // MB
+
+                    if (fileType !== 'docx') {
+                        alert('LỖI: Chỉ chấp nhận định dạng .docx');
+                        this.value = '';
+                        fileLabel.textContent = 'Chọn file...';
+                    } else if (fileSize > 5) {
+                        alert('LỖI: Dung lượng file không được vượt quá 5MB');
+                        this.value = '';
+                        fileLabel.textContent = 'Chọn file...';
+                    }
+                }
+            });
+        }
+
+        // 2. Tự động chuẩn hóa Mã định danh (Viết hoa, thay khoảng trắng)
+        if(maInput) {
+            maInput.addEventListener('input', function() {
+                let start = this.selectionStart;
+                let end = this.selectionEnd;
+                // Chỉ cho phép chữ, số và gạch dưới
+                this.value = this.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+                this.setSelectionRange(start, end);
+            });
+        }
+
+        // 3. Hiệu ứng loading khi bấm submit để tránh click trùng
+        formUpload.addEventListener('submit', function() {
+            btnSubmit.classList.add('btn-loading');
+            btnSubmit.disabled = true;
+        });
+
+        // 4. Kích hoạt Tooltip của Bootstrap 4
+        $(function () {
+            $('[data-toggle="tooltip"]').tooltip();
+        });
+    });
+</script>
+{% endblock %}

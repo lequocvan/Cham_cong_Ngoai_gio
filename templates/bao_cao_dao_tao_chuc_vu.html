@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Báo cáo Đào tạo theo Chức vụ{% endblock %}
+
+{% block content %}
+<style>
+    .table thead th { vertical-align: middle; text-transform: uppercase; font-size: 0.75rem; background-color: #4e73df; color: white; border: 1px solid #ffffff33; text-align: center; }
+    .filter-bar { background-color: #f8f9fc; border: 1px solid #e3e6f0; border-radius: 5px; }
+    .badge-direct { background-color: #36b9cc; color: white; padding: 5px 8px; border-radius: 4px; }
+    .badge-online { background-color: #1cc88a; color: white; padding: 5px 8px; border-radius: 4px; }
+    .col-highlight { background-color: #f4f6ff; font-weight: bold; color: #e74a3b !important; }
+    .text-small { font-size: 0.85rem; }
+</style>
+
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h4 mb-0 text-gray-800 font-weight-bold">
+            <i class="fas fa-chart-pie mr-2 text-primary"></i>BÁO CÁO THỐNG KÊ ĐÀO TẠO THEO CHỨC VỤ
+        </h1>
+        <a href="{{ url_for('bao_cao_dao_tao_chuc_vu', export='excel', tu_ngay=tu_ngay, den_ngay=den_ngay, hinh_thuc=hinh_thuc) }}" 
+           class="btn btn-sm btn-success shadow-sm px-3">
+            <i class="fas fa-file-excel mr-1"></i> Xuất Excel toàn bộ
+        </a>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-body filter-bar py-3">
+            <form method="GET" class="form-inline" id="filterForm">
+                <input type="hidden" name="page" value="1">
+                <div class="form-group mb-2 mr-3">
+                    <label class="mr-2 small font-weight-bold">Từ ngày:</label>
+                    <input type="date" name="tu_ngay" class="form-control form-control-sm" value="{{ tu_ngay }}">
+                </div>
+                <div class="form-group mb-2 mr-3">
+                    <label class="mr-2 small font-weight-bold">Đến ngày:</label>
+                    <input type="date" name="den_ngay" class="form-control form-control-sm" value="{{ den_ngay }}">
+                </div>
+                <div class="form-group mb-2 mr-3">
+                    <label class="mr-2 small font-weight-bold">Hình thức:</label>
+                    <select name="hinh_thuc" class="form-control form-control-sm">
+                        <option value="">-- Tất cả --</option>
+                        <option value="Trực tiếp" {% if hinh_thuc == 'Trực tiếp' %}selected{% endif %}>Trực tiếp</option>
+                        <option value="Trực tuyến" {% if hinh_thuc == 'Trực tuyến' %}selected{% endif %}>Trực tuyến</option>
+                    </select>
+                </div>
+                <div class="form-group mb-2">
+                    <button type="submit" class="btn btn-primary btn-sm px-3 mr-2"><i class="fas fa-filter mr-1"></i> Lọc dữ liệu</button>
+                    <a href="{{ url_for('bao_cao_dao_tao_chuc_vu') }}" class="btn btn-secondary btn-sm px-3"><i class="fas fa-undo mr-1"></i> Xóa bộ lọc</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover text-small" id="reportTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>1. STT</th>
+                            <th>2. Tên Lớp Học</th>
+                            <th>3. Lãnh đạo ĐV</th>
+                            <th>4. Lãnh đạo Phòng</th>
+                            <th>5. Chuyên viên</th>
+                            <th>6. Tổng cộng</th>
+                            <th>7. Số ngày</th>
+                            <th>8. Thời gian đào tạo</th>
+                            <th>9. Địa điểm học</th>
+                            <th>10. Hình thức</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in results %}
+                        <tr class="text-center">
+                            <td class="font-weight-bold text-gray-600">{{ (current_page - 1) * 15 + loop.index }}</td>
+                            <td class="text-left font-weight-bold text-dark">{{ row.ten_lop_hoc }}</td>
+                            <td>{{ row.lanh_dao_don_vi }}</td>
+                            <td>{{ row.lanh_dao_phong }}</td>
+                            <td>{{ row.chuyen_vien }}</td>
+                            <td class="col-highlight">{{ row.tong_cong }}</td>
+                            <td>{{ row.so_ngay_hoc }}</td>
+                            <td style="white-space: nowrap;">
+                                {% if row.tu_ngay_dt and row.den_ngay_dt %}
+                                    {{ row.tu_ngay_dt.strftime('%d/%m/%Y') }} - {{ row.den_ngay_dt.strftime('%d/%m/%Y') }}
+                                {% else %}
+                                    ---
+                                {% endif %}
+                            </td>
+                            <td class="text-left">{{ row.dia_diem or '---' }}</td>
+                            <td>
+                                <span class="badge {% if row.hinh_thuc_hoc == 'Trực tiếp' %}badge-direct{% else %}badge-online{% endif %}">
+                                    {{ row.hinh_thuc_hoc }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="10" class="text-center py-4">Không tìm thấy dữ liệu phù hợp.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <div class="pagination-info small text-muted">
+                    Đang hiển thị từ <b>{{ (current_page - 1) * 15 + 1 if total_records > 0 else 0 }}</b> đến <b>{{ (current_page - 1) * 15 + results|length }}</b> trong tổng <b>{{ total_records }}</b>
+                </div>
+                {% if total_pages > 1 %}
+                <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item {{ 'disabled' if current_page == 1 }}">
+                            <a class="page-link" href="{{ url_for('bao_cao_dao_tao_chuc_vu', page=current_page-1, tu_ngay=tu_ngay, den_ngay=den_ngay, hinh_thuc=hinh_thuc) }}">Trước</a>
+                        </li>
+                        {% for p in range([1, current_page - 2]|max, [total_pages + 1, current_page + 3]|min) %}
+                        <li class="page-item {{ 'active' if p == current_page }}">
+                            <a class="page-link" href="{{ url_for('bao_cao_dao_tao_chuc_vu', page=p, tu_ngay=tu_ngay, den_ngay=den_ngay, hinh_thuc=hinh_thuc) }}">{{ p }}</a>
+                        </li>
+                        {% endfor %}
+                        <li class="page-item {{ 'disabled' if current_page == total_pages }}">
+                            <a class="page-link" href="{{ url_for('bao_cao_dao_tao_chuc_vu', page=current_page+1, tu_ngay=tu_ngay, den_ngay=den_ngay, hinh_thuc=hinh_thuc) }}">Sau</a>
+                        </li>
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        $('#reportTable').DataTable({
+            "paging": false,
+            "info": false,
+            "ordering": true,
+            "language": { "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Vietnamese.json" }
+        });
+    });
+</script>
+{% endblock %}

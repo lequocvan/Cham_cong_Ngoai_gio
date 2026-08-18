@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+
+{% block title %}Tra cứu Thông tin Khách hàng BC48{% endblock %}
+
+{% block content %}
+<div class="container-fluid pt-3">
+    <div class="row mb-3">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb bg-white shadow-sm py-2 px-3 rounded">
+                    <li class="breadcrumb-item"><a href="/"><i class="fas fa-home"></i> Trang chủ</a></li>
+                    <li class="breadcrumb-item text-muted">QLDLĐT BC48</li>
+                    <li class="breadcrumb-item active" aria-current="page">TTKH BC48</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center bg-white p-3 rounded shadow-sm">
+                <div>
+                    <h4 class="mb-1 text-primary fw-bold"><i class="fas fa-users shadow-sm p-2 bg-light rounded text-primary me-2"></i>Tra cứu Thông tin Khách hàng BC48</h4>
+                    <small class="text-muted">Quản lý, tra cứu và kết xuất dữ liệu định danh khách hàng tập trung</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white font-weight-bold text-secondary border-bottom py-3">
+            <i class="fas fa-filter text-warning mr-1"></i> Bộ lọc tra cứu nhanh
+        </div>
+        <div class="card-body bg-light-custom py-4">
+            <form method="GET" action="{{ url_for('ttkh_bc48') }}" id="searchForm" class="row">
+                <div class="form-group col-md-3">
+                    <label class="font-weight-600 text-muted small">Số giấy tờ (CMND/CCCD/Hộ chiếu)</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text bg-white border-right-0"><i class="fas fa-id-card text-muted"></i></span>
+                        </div>
+                        <input type="text" class="form-control border-left-0 bg-white" name="sogt" value="{{ sogt or '' }}" placeholder="Nhập số giấy tờ...">
+                    </div>
+                </div>
+                
+                <div class="form-group col-md-3">
+                    <label class="font-weight-600 text-muted small">Tên khách hàng</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text bg-white border-right-0"><i class="fas fa-user text-muted"></i></span>
+                        </div>
+                        <input type="text" class="form-control border-left-0 bg-white" name="tenkh" value="{{ tenkh or '' }}" placeholder="Nhập họ tên cần tìm...">
+                    </div>
+                </div>
+                
+                <div class="form-group col-md-3">
+                    <label class="font-weight-600 text-muted small">Tháng dữ liệu (data_month)</label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text bg-white border-right-0"><i class="fas fa-calendar-alt text-muted"></i></span>
+                        </div>
+                        <input type="text" class="form-control border-left-0 bg-white" name="data_month" value="{{ data_month or '' }}" placeholder="Ví dụ: 202606">
+                    </div>
+                </div>
+                
+                <div class="col-md-3 d-flex align-items-end form-group">
+                    <div class="btn-group w-100 shadow-sm">
+                        <button type="submit" class="btn btn-primary font-weight-bold flex-grow-1">
+                            <i class="fas fa-search mr-1"></i> Tìm kiếm
+                        </button>
+                        <a href="{{ url_for('ttkh_bc48') }}" class="btn btn-secondary" title="Làm mới bộ lọc">
+                            <i class="fas fa-undo"></i>
+                        </a>
+                        <!-- Hàm xuất sang CSV -->
+                        <button type="button" onclick="exportToCSV()" class="btn btn-success font-weight-bold" title="Xuất file báo cáo dạng luồng CSV">
+                            <i class="fas fa-file-csv mr-1"></i> Xuất CSV
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 border-bottom">
+            <span class="text-muted small font-weight-bold">
+                <i class="fas fa-list-ol text-info mr-1"></i> Kết quả tìm kiếm: 
+                <span class="badge badge-pill badge-info px-2 py-1 ml-1">{{ "{:,}".format(total) }} dòng</span>
+            </span>
+            <span class="text-muted small">Cấu hình hiển thị tối đa: <b class="text-dark">50 dòng/trang</b></span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped table-bordered text-nowrap mb-0" style="vertical-align: middle;">
+                    <thead class="bg-light text-secondary text-center">
+                        <tr>
+                            <th width="60">STT</th>
+                            <th>Tháng dữ liệu</th>
+                            <th>Kiểu KH</th>
+                            <th>Số giấy tờ</th>
+                            <th>Tên khách hàng</th>
+                            <th>Ngày sinh</th>
+                            <th>Quốc tịch</th>
+                            <th>Địa chỉ thường trú</th>
+                            <th>Số điện thoại</th>
+                            <th>Nguồn dữ liệu</th>
+                            <th>Ngày tạo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if data %}
+                            {% for row in data %}
+                            <tr>
+                                <td class="text-center text-muted small">{{ loop.index + (page - 1) * per_page }}</td>
+                                <td class="text-center font-weight-bold text-dark">{{ row.data_month }}</td>
+                                <td class="text-center">{{ row.kieukh or '' }}</td>
+                                <td class="font-weight-bold text-monospace">{{ row.sogt or '' }}</td>
+                                <td class="text-uppercase font-weight-bold text-primary">{{ row.tenkh or '' }}</td>
+                                <td class="text-center">
+                                    {{ row.ngaysinh.strftime('%d/%m/%Y') if row.ngaysinh else '' }}
+                                </td>
+                                <td class="text-center">{{ row.quoctich or '' }}</td>
+                                <td class="text-wrap" style="max-width: 320px; white-space: normal;">{{ row.diachitt or '' }}</td>
+                                <td class="text-center font-weight-bold text-success">{{ row.sodt or '' }}</td>
+                                <td class="text-center">
+                                    <span class="badge badge-light border border-info text-info px-2 py-1">{{ row.data_source or '' }}</span>
+                                </td>
+                                <td class="text-center text-muted small">
+                                    {{ row.created_at.strftime('%d/%m/%Y %H:%M:%S') if row.created_at else '' }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="11" class="text-center py-5 text-muted bg-white">
+                                    <i class="fas fa-folder-open fa-3x d-block mb-3 text-light"></i>
+                                    <h5>Không tìm thấy dữ liệu khách hàng nào</h5>
+                                    <p class="small text-muted mb-0">Vui lòng thay đổi thông tin bộ lọc và nhấn nút tìm kiếm lại.</p>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if total_pages > 1 %}
+        <div class="card-footer bg-white d-flex justify-content-between align-items-center py-3 border-top">
+            <span class="text-muted small">Trang <b>{{ "{:,}".format(page) }}</b> trên tổng số <b>{{ "{:,}".format(total_pages) }}</b> trang</span>
+            
+            <nav aria-label="Page navigation">
+                <ul class="pagination pagination-sm m-0">
+                    <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('ttkh_bc48', page=1, sogt=sogt, tenkh=tenkh, data_month=data_month) }}" title="Trang đầu"><i class="fas fa-angle-double-left"></i></a>
+                    </li>
+                    
+                    <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('ttkh_bc48', page=page-1, sogt=sogt, tenkh=tenkh, data_month=data_month) }}"><i class="fas fa-angle-left"></i></a>
+                    </li>
+
+                    {# Tính toán hiển thị cụm trang thông minh #}
+                    {% set start_page = [1, page - 2]|max %}
+                    {% set end_page = [total_pages, page + 2]|min %}
+                    
+                    {% for p in range(start_page, end_page + 1) %}
+                    <li class="page-item {% if p == page %}active{% endif %}">
+                        <a class="page-link font-weight-bold" href="{{ url_for('ttkh_bc48', page=p, sogt=sogt, tenkh=tenkh, data_month=data_month) }}">{{ p }}</a>
+                    </li>
+                    {% endfor %}
+
+                    <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('ttkh_bc48', page=page+1, sogt=sogt, tenkh=tenkh, data_month=data_month) }}"><i class="fas fa-angle-right"></i></a>
+                    </li>
+                    
+                    <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('ttkh_bc48', page=total_pages, sogt=sogt, tenkh=tenkh, data_month=data_month) }}" title="Trang cuối"><i class="fas fa-angle-double-right"></i></a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    function exportToCSV() {
+        // Trích xuất điều kiện tìm kiếm hiện hữu từ form dữ liệu để gửi lên backend
+        const form = document.getElementById('searchForm');
+        const formData = new FormData(form);
+        const searchParams = new URLSearchParams();
+        
+        for (const [key, value] of formData.entries()) {
+            if (value.trim() !== "") {
+                searchParams.append(key, value.trim());
+            }
+        }
+        
+        Swal.fire({
+            title: 'Xác nhận kết xuất dữ liệu CSV?',
+            text: "Hệ thống sẽ tải xuống tệp dữ liệu dạng luồng (Stream) theo tiêu chí bạn đã lọc!",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: '<i class="fas fa-download mr-1"></i> Tải file ngay',
+            cancelButtonText: 'Đóng lại'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Đang mở luồng tải dữ liệu...',
+                    text: 'Hệ thống đang truyền dữ liệu trực tiếp về máy tính của bạn. Vui lòng đợi trong giây lát!',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Gọi API Route download file trực tiếp dạng Stream từ máy chủ
+                window.location.href = "/ttkh_bc48/export?" + searchParams.toString();
+                
+                // Đóng hộp thoại loading sau 3 giây (vì cơ chế stream phản hồi tải xuống ngay lập tức)
+                setTimeout(() => { Swal.close(); }, 3000);
+            }
+        });
+    }
+</script>
+<style>
+    /* Bổ sung các class nhỏ bổ trợ cho font chữ đẹp hơn */
+    .font-weight-600 { font-weight: 600; }
+    .bg-light-custom { background-color: #fcfdfe; }
+</style>
+{% endblock %}

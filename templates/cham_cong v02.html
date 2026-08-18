@@ -1,0 +1,613 @@
+{% extends "base.html" %}
+
+{% block title %}Chấm Công Hàng Tháng{% endblock %}
+
+{% block content %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    /* 1. TỐI ƯU KÍCH THƯỚC CHỮ VÀ BỐ CỤC CHUNG */
+    :root {
+        --font-size-table: 12px;
+        --col-day-width: 25px;
+        --highlight-color: #e2e6ea;
+    }
+
+    .container-fluid { font-size: 13px; }
+
+    /* Custom Select2 cho nhỏ gọn phù hợp toolbar */
+    .select2-container--default .select2-selection--single {
+        height: 30px !important;
+        font-size: 12px !important;
+        border: 1px solid #d1d3e2 !important;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 28px !important;
+    }
+
+    /* 2. THANH CÔNG CỤ */
+    .toolbar-card {
+        background: #fff;
+        padding: 10px 15px;
+        border-radius: 8px;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1);
+    }
+    .toolbar-container {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap; 
+    }
+    .form-group-inline {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        white-space: nowrap;
+    }
+    .form-control-sm { font-size: 12px; height: 30px; }
+
+    /* CỤM ĐIỀN NHANH KHOA HỌC */
+    .quick-fill-container {
+        background: #f1f3f9;
+        padding: 5px 12px;
+        border-radius: 20px;
+        border: 1px solid #d1d3e2;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* 3. CẤU HÌNH BẢNG */
+    .table-responsive { 
+        max-height: 70vh; 
+        overflow: auto; 
+        border: 1px solid #d1d3e2; 
+    }
+    
+    table#attendanceTable { 
+        table-layout: fixed; 
+        width: 1600px; 
+        border-collapse: separate; 
+        border-spacing: 0; 
+        font-size: var(--font-size-table);
+    }
+
+    .table-attendance th, .table-attendance td {
+        padding: 0 !important;
+        height: 32px;
+        vertical-align: middle;
+        border: 1px solid #d1d3e2 !important;
+        text-align: center;
+    }
+
+    /* Chiều rộng cột */
+    .col-ma { width: 55px; }
+    .col-ten { width: 135px; }
+    .day-header, .day-cell { width: var(--col-day-width); }
+    .col-tong { width: 65px; line-height: 1.2; font-size: 11px; }
+
+    /* CỐ ĐỊNH CỘT (STICKY) */
+    .sticky-left-1 { position: sticky; left: 0; z-index: 9; background: #fff !important; }
+    .sticky-left-2 { position: sticky; left: 55px; z-index: 9; background: #fff !important; border-right: 2px solid #4e73df !important; }
+    
+    .sticky-right-3 { position: sticky; right: 130px; z-index: 8; background: #f8f9fc !important; border-left: 2px solid #4e73df !important; }
+    .sticky-right-2 { position: sticky; right: 65px; z-index: 8; background: #f8f9fc !important; }
+    .sticky-right-1 { position: sticky; right: 0; z-index: 8; background: #f8f9fc !important; }
+
+    thead th { position: sticky; top: 0; z-index: 10; background-color: #f8f9fc; }
+
+    .day-input {
+        width: 100%; height: 100%; border: none; text-align: center;
+        font-weight: bold; background: transparent; outline: none;
+        text-transform: uppercase; font-size: 13px;
+    }
+
+    /* Bôi đậm ô đang focus .day-input:focus { background-color: #e8f0fe; }*/
+    .day-input:focus { background-color: #fff2cc !important; border: 1px solid #4e73df; }
+    .day-input:disabled { background-color: #f4f6f9; cursor: not-allowed; color: #6c757d; }
+
+    /* Màu highlight cho cột và dòng */
+    .highlight-crosshair { background-color: var(--highlight-color) !important; }
+    tr.highlight-row td { background-color: var(--highlight-color) !important; }
+
+    /* 4. CHÚ THÍCH */
+    .legend-box {
+        background: #fff; padding: 15px; border-radius: 8px;
+        border: 1px solid #e3e6f0; margin-top: 15px; font-size: 12px;
+    }
+    .legend-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 8px;
+    }
+    .badge-code { 
+        display: inline-block; width: 35px; text-align: center; 
+        background: #4e73df; color: white; border-radius: 3px; font-weight: bold; margin-right: 8px;
+    }
+    .text-muted-small { font-size: 11px; color: #858796; display: block; margin-left: 43px; }
+
+    .day-input.is-invalid {
+        background-color: #ff8d97 !important;
+        color: white !important;
+        animation: shake 0.2s ease-in-out 0s 2;
+    }
+
+    @keyframes shake {
+        0% { margin-left: 0rem; }
+        25% { margin-left: 0.2rem; }
+        75% { margin-left: -0.2rem; }
+        100% { margin-left: 0rem; }
+    }
+</style>
+
+<div class="container-fluid">
+    <div class="toolbar-card mb-3 mt-2">
+        <div class="toolbar-container">
+            <form action="{{ url_for('cham_cong') }}" method="GET" class="d-flex align-items-center flex-wrap" style="gap:15px">
+                <div class="form-group-inline">
+                    <label class="mb-0 font-weight-bold">Đơn vị:</label>
+                    {% if is_admin_or_th %}
+                        <select name="ma_hieu_2" id="selectDonVi" class="form-control" style="width: 250px;">
+                            <option value="">-- Chọn đơn vị --</option>
+                            {% for dv in don_vis %}
+                            <option value="{{ dv.ma_hieu_2 }}" {% if current_don_vi == dv.ma_hieu_2 %}selected{% endif %}>
+                                {{ dv.ma_hieu_2 }} - {{ dv.ten_ma_hieu_2 }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    {% else %}
+                        <span class="badge badge-primary p-2">{{ current_don_vi }}</span>
+                        <input type="hidden" name="ma_hieu_2" value="{{ current_don_vi }}">
+                    {% endif %}
+                </div>
+
+                <div class="form-group-inline">
+                    <label class="mb-0 font-weight-bold">Bộ phận:</label>
+                    {% if is_admin_or_th %}
+                        <select name="ma_phong_ban" id="selectPhongBan" class="form-control form-control-sm" style="width: 160px;">
+                            <option value="">-- Tất cả --</option>
+                            {% for pb in phong_bans %}
+                            <option value="{{ pb.id }}" {% if current_pb|string == pb.id|string %}selected{% endif %}>{{ pb.ten_phong_ban }}</option>
+                            {% endfor %}
+                        </select>
+                    {% else %}
+                        {# Cách lấy tên bộ phận an toàn nhất: Duyệt danh sách phong_bans truyền từ Backend #}
+                        {% set display_pb_name = "Chưa xác định" %}
+                        {% for pb in phong_bans %}
+                            {% if pb.id|string == current_pb|string %}
+                                {% set display_pb_name = pb.ten_phong_ban %}
+                            {% endif %}
+                        {% endfor %}
+
+                        {# Nếu vẫn chưa tìm thấy, thử lấy từ nhân viên đầu tiên trong danh sách (vì cùng phòng) #}
+                        {% if display_pb_name == "Chưa xác định" and staff_list|length > 0 %}
+                            {% set display_pb_name = staff_list[0][1] %}
+                        {% endif %}
+
+                        <span class="badge badge-info p-2" style="font-size: 13px;">{{ display_pb_name }}</span>
+                        <input type="hidden" name="ma_phong_ban" value="{{ current_pb }}">
+                    {% endif %}
+                </div>
+
+                <div class="form-group-inline">
+                    <label class="mb-0 font-weight-bold">Tháng:</label>
+                    <input type="number" name="month" value="{{ month }}" min="1" max="12" class="form-control form-control-sm" style="width: 50px;">
+                    <label class="mb-0 font-weight-bold ml-1">Năm:</label>
+                    <input type="number" name="year" value="{{ year }}" class="form-control form-control-sm" style="width: 70px;">
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm px-3"><i class="fas fa-search"></i> Xem</button>
+            </form>
+
+            <div class="quick-fill-container ml-2">
+                <span class="small font-weight-bold text-dark"><i class="fas fa-bolt text-warning"></i> Điền nhanh:</span>
+                <input type="number" id="quickFillDay" min="1" max="31" class="form-control form-control-sm" style="width: 55px;" placeholder="Ngày" {% if is_locked %}disabled{% endif %}>
+                <select id="quickFillValue" class="form-control form-control-sm" style="width: 65px;" {% if is_locked %}disabled{% endif %}>
+                    <option value="X">X</option>
+                    <option value="SC">SC</option>
+                    <option value="B">B</option>
+                    <option value="P">P</option>
+                    <option value="L">L</option>
+                </select>
+                <button type="button" class="btn btn-dark btn-sm px-3" onclick="applyQuickFill()" {% if is_locked %}disabled{% endif %}>Áp dụng</button>
+            </div>
+
+            <div class="ml-auto d-flex align-items-center" style="gap:8px">
+                {% if is_admin_or_th %}
+                    {% if is_locked %}
+                    <button type="button" onclick="toggleLockStatus(false)" class="btn btn-warning btn-sm">
+                        <i class="fas fa-unlock"></i> MỞ KHÓA BẢNG
+                    </button>
+                    {% else %}
+                    <button type="button" onclick="toggleLockStatus(true)" class="btn btn-danger btn-sm">
+                        <i class="fas fa-lock"></i> KHÓA BẢNG
+                    </button>
+                    {% endif %}
+                {% endif %}
+
+                <button type="button" onclick="exportExcelCurrentData()" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-download"></i> Excel Chấm công
+                </button>
+                
+                {% if current_user.is_authenticated %}
+                <button type="button" id="btnSave" onclick="validateAndSave()" class="btn btn-success btn-sm font-weight-bold px-3" {% if is_locked %}disabled{% endif %}>
+                    <i class="fas fa-save"></i> LƯU VÀO MYSQL
+                </button>
+
+                <a href="{{ url_for('export_excel', month=month, year=year, ma_hieu_2=current_don_vi, ma_phong_ban=current_pb) }}" 
+                   class="btn btn-info btn-sm px-3 ml-2">
+                    <i class="fas fa-file-excel"></i> Xuất EXCEL
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('cham_cong', month=month, year=year, ma_hieu_2=current_don_vi, ma_phong_ban=current_pb) }}" id="mainForm">
+        <div class="table-responsive shadow-sm bg-white">
+            <table class="table table-bordered table-attendance" id="attendanceTable">
+                <thead>
+                    <tr>
+                        <th class="sticky-left-1 col-ma">Mã NV</th>
+                        <th class="sticky-left-2 col-ten">Họ Tên</th>
+                        {% for d in range(1, 32) %}
+                        <th class="day-header" data-column="{{ d }}">{{ d }}</th>
+                        {% endfor %}
+                        <th class="sticky-right-3 col-tong">CÔNG TT</th>
+                        <th class="sticky-right-2 col-tong">NGÀY LƯƠNG</th>
+                        <th class="sticky-right-1 col-tong">ĂN CA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for staff, ten_pb, ten_dv in staff_list %}
+                    <tr>
+                        <td class="sticky-left-1 col-ma font-weight-bold">{{ staff.ma_nhan_vien }}</td>
+                        <td class="sticky-left-2 col-ten text-left pl-2" title="Đơn vị: {{ ten_dv }}">{{ staff.ho_ten }}</td>
+
+                        {# Lấy record bằng string key #}
+                        {% set record = att_dict.get(staff.ma_nhan_vien|string) %}
+
+                        {% for d in range(1, 32) %}
+                        <td class="day-cell" data-column="{{ d }}">
+                            {# Bây giờ record chắc chắn là dict, dùng ['d1'] thoải mái #}
+                            {% set field_val = record['d' ~ d] if record and record['d' ~ d] is not none else '' %}
+                            <input type="text" name="d{{ d }}_{{ staff.ma_nhan_vien }}" 
+                                   value="{{ field_val }}" class="day-input">
+                        </td>
+                        {% endfor %}
+
+                        {# Hiển thị giá trị tổng từ dict - ĐÃ THÊM CLASS ĐỂ KHỚP VỚI JAVASCRIPT #}
+                        <td class="total-cong">{{ record['tong_cong_thanh_toan'] if record else 0 }}</td>
+                        <td class="total-luong">{{ record['luong'] if record else 0 }}</td>
+                        <td class="total-anca">{{ record['an_ca'] if record else 0 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+
+    <div class="legend-box shadow-sm">
+        <h6 class="font-weight-bold border-bottom pb-2 mb-3 text-primary"><i class="fas fa-info-circle mr-2"></i>GIẢI THÍCH KÝ HIỆU CHẤM CÔNG {% if is_locked %}<span class="text-danger ml-2">(BẢNG ĐÃ KHÓA)</span>{% endif %}</h6>
+        <div class="legend-grid">
+            <div class="legend-item"><span class="badge-code">X</span> Đi làm (1.0 Ngày Công)<span class="text-muted-small">// 1 ngày công, 1 ngày lương, 1 ăn ca</span></div>
+            <div class="legend-item"><span class="badge-code">SC</span> Chấm công sáng chiều (0.5 Ngày Công)<span class="text-muted-small">// 0.5 ngày công, 0.5 ngày lương, 0.5 ăn ca</span></div>
+            <div class="legend-item"><span class="badge-code">B</span> Đi công tác (1.0 Ngày Công)<span class="text-muted-small">// 1 ngày công, 1 ngày lương, 1 ăn ca (tạm tính)</span></div>
+            <div class="legend-item"><span class="badge-code" style="background:#27ae60">P</span> Nghỉ phép (1.0 Ngày Lương)<span class="text-muted-small">// 0 ngày công, 1 ngày lương, 0 ăn ca</span></div>
+            <div class="legend-item"><span class="badge-code" style="background:#27ae60">V</span> Nghỉ hiếu (1.0 Ngày Lương)<span class="text-muted-small">// 0 ngày công, 1 ngày lương, 0 ăn ca</span></div>
+            <div class="legend-item"><span class="badge-code" style="background:#27ae60">C</span> Nghỉ hỷ (1.0 Ngày Lương)<span class="text-muted-small">// 0 ngày công, 1 ngày lương, 0 ăn ca</span></div>
+            <div class="legend-item"><span class="badge-code" style="background:#27ae60">T</span> Nghỉ thai sản (1.0 Ngày Lương)<span class="text-muted-small">// 0 ngày công, 1 ngày lương, 0 ăn ca</span></div>
+            <div class="legend-item"><span class="badge-code" style="background:#27ae60">S</span> Nghỉ ốm dài ngày (1.0 Ngày Lương)<span class="text-muted-small">// 0 ngày công, 1 ngày lương, 0 ăn ca</span></div>
+            <div class="legend-item"><span class="badge-code" style="background:#27ae60">M</span> Nghỉ dưỡng sức (1.0 Ngày Lương)<span class="text-muted-small">// 0 ngày công, 1 ngày lương, 0 ăn ca</span></div>
+            <div class="legend-item"><span class="badge-code" style="background:#27ae60">H</span> Nghỉ đi học (1.0 Ngày Lương)<span class="text-muted-small">// 0 ngày công, 1 ngày lương, 0 ăn ca</span></div>
+            <div class="legend-item"><span class="badge-code" style="background:#e74c3c">D</span> Nghỉ tự do (0 Ngày Lương)<span class="text-muted-small">// 0 ngày công, 0 ngày lương, 0 ăn ca</span></div>
+            <div class="legend-item"><span class="badge-code" style="background:#e74c3c">N</span> Nghỉ không lương (0 Ngày Lương)<span class="text-muted-small">// 0 ngày công, 0 ngày lương, 0 ăn ca</span></div>
+            <div class="legend-item"><span class="badge-code" style="background:#e74c3c">K</span> Nghỉ khác (0 Ngày Lương)<span class="text-muted-small">// 0 ngày công, 0 ngày lương, 0 ăn ca</span></div>
+            <div class="legend-item"><span class="badge-code" style="background:#e74c3c">L</span> Nghỉ Lễ (0 Ngày Lương)<span class="text-muted-small">// 0 ngày công, 0 ngày lương, 0 ăn ca</span></div>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+    const attendanceRules = {
+        'X':  { cong: 1.0, luong: 1.0, anca: 1.0 },
+        'SC': { cong: 0.5, luong: 0.5, anca: 1.0 },
+        'B':  { cong: 1.0, luong: 1.0, anca: 1.0 },
+        'P':  { cong: 0.0, luong: 1.0, anca: 0.0 },
+        'V':  { cong: 0.0, luong: 1.0, anca: 0.0 },
+        'C':  { cong: 0.0, luong: 1.0, anca: 0.0 },
+        'T':  { cong: 0.0, luong: 0.0, anca: 0.0 },
+        'S':  { cong: 0.0, luong: 1.0, anca: 0.0 },
+        'M':  { cong: 0.0, luong: 1.0, anca: 0.0 },
+        'H':  { cong: 0.0, luong: 1.0, anca: 1.0 },
+        'D':  { cong: 0.0, luong: 0.0, anca: 0.0 },
+        'N':  { cong: 0.0, luong: 0.0, anca: 0.0 },
+        'K':  { cong: 0.0, luong: 0.0, anca: 0.0 },
+        'L':  { cong: 0.0, luong: 0.0, anca: 0.0 }
+    };
+
+    function calculateRowTotals(row) {
+        if (!row) return;
+        let tc = 0, tl = 0, ta = 0;
+        row.querySelectorAll('.day-input').forEach(inp => {
+            const val = inp.value.trim().toUpperCase();
+            const isValidRule = attendanceRules.hasOwnProperty(val);
+            const isValidNumber = !isNaN(val) && val !== "";
+
+            if (val === "" || isValidRule || isValidNumber) {
+                inp.classList.remove('is-invalid');
+            } else {
+                inp.classList.add('is-invalid');
+            }
+
+            if (isValidRule) {
+                tc += attendanceRules[val].cong;
+                tl += attendanceRules[val].luong;
+                ta += attendanceRules[val].anca;
+            } else if (isValidNumber) {
+                const n = parseFloat(val);
+                tc += n; tl += n;
+                ta += (n >= 0.5 ? 1 : 0);
+            }
+        });
+
+        console.log("Đang tính cho hàng:", row.querySelector('.col-ma')?.innerText, "Kết quả:", {tc, tl, ta});
+
+        // Cập nhật an toàn với kiểm tra null
+        const updateCell = (selector, val) => {
+            const cell = row.querySelector(selector);
+            if (cell) {
+                cell.innerText = val % 1 === 0 ? val : val.toFixed(1);
+            } else {
+                // DÒNG DEBUG QUAN TRỌNG:
+                console.error("KHÔNG TÌM THẤY Ô VỚI SELECTOR: " + selector + " TRONG HÀNG:", row);
+            }
+        };
+        
+        updateCell('.total-cong', tc);
+        updateCell('.total-luong', tl);
+        updateCell('.total-anca', ta);
+    }
+
+    function applyQuickFill() {
+        const day = document.getElementById('quickFillDay').value;
+        const val = document.getElementById('quickFillValue').value;
+        if (!day || day < 1 || day > 31) { alert("Vui lòng nhập ngày từ 1-31"); return; }
+        const inputs = document.querySelectorAll(`input[name^="d${day}_"]:not(:disabled)`);
+        if (inputs.length === 0) { alert("Ngày này không tồn tại hoặc đã bị khóa."); return; }
+        if (confirm(`Điền "${val}" cho toàn bộ nhân viên ngày ${day}?`)) {
+            inputs.forEach(input => {
+                input.value = val;
+                calculateRowTotals(input.closest('tr'));
+            });
+        }
+    }
+
+    function toggleLockStatus(lock) {
+        const action = lock ? "KHÓA" : "MỞ KHÓA";
+        if (confirm(`Bạn có chắc chắn muốn ${action} bảng chấm công này?`)) {
+            const url = `/lock_attendance/{{ month }}/{{ year }}?status=${lock}&ma_hieu_2={{ current_don_vi }}&ma_phong_ban={{ current_pb }}`;
+            window.location.href = url;
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const year = {{ year }};
+        const month = {{ month }};
+        const holidays = {{ holidays | tojson | default([]) }};
+        const isLocked = {{ 'true' if is_locked else 'false' }};
+        const table = document.getElementById('attendanceTable');
+
+        // --- 1. LOGIC HIGHLIGHT (Dòng & Cột) ---
+        table.addEventListener('mouseover', (e) => {
+            const cell = e.target.closest('td, th'); // Bắt cả ô header và ô dữ liệu
+            if (!cell) return;
+
+            const colIndex = cell.getAttribute('data-column');
+            const row = cell.closest('tr');
+
+            // Xóa highlight cũ
+            document.querySelectorAll('.highlight-crosshair').forEach(el => el.classList.remove('highlight-crosshair'));
+            document.querySelectorAll('.highlight-row').forEach(el => el.classList.remove('highlight-row'));
+
+            // Highlight dòng hiện tại (Chỉ highlight dòng trong tbody)
+            if (row && row.closest('tbody')) {
+                row.classList.add('highlight-row');
+            }
+
+            // Highlight cột hiện tại dựa trên data-column
+            if (colIndex) {
+                document.querySelectorAll(`[data-column="${colIndex}"]`).forEach(el => {
+                    el.classList.add('highlight-crosshair');
+                });
+            }
+        });
+
+        // Xóa highlight khi chuột rời khỏi bảng
+        table.addEventListener('mouseleave', () => {
+            document.querySelectorAll('.highlight-crosshair').forEach(el => el.classList.remove('highlight-crosshair'));
+            document.querySelectorAll('.highlight-row').forEach(el => el.classList.remove('highlight-row'));
+        });
+
+
+        // --- 2. HỖ TRỢ PHÍM MŨI TÊN (Di chuyển như Excel) ---
+        table.addEventListener('keydown', function(e) {
+            const currentInput = e.target;
+            if (!currentInput.classList.contains('day-input')) return;
+
+            const keys = ["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp", "Enter"];
+            if (!keys.includes(e.key)) return;
+
+            const cell = currentInput.closest('td');
+            const row = cell.closest('tr');
+            const colIdx = cell.cellIndex; // Vị trí cột vật lý trong DOM
+
+            let targetInput;
+
+            if (e.key === "ArrowRight") {
+                targetInput = cell.nextElementSibling?.querySelector('input');
+            } 
+            else if (e.key === "ArrowLeft") {
+                targetInput = cell.previousElementSibling?.querySelector('input');
+            } 
+            else if (e.key === "ArrowDown" || e.key === "Enter") {
+                // Enter thường dùng để xuống dòng trong các bảng nhập liệu
+                targetInput = row.nextElementSibling?.cells[colIdx]?.querySelector('input');
+                if (e.key === "Enter") e.preventDefault(); // Chặn xuống dòng mặc định của form
+            } 
+            else if (e.key === "ArrowUp") {
+                targetInput = row.previousElementSibling?.cells[colIdx]?.querySelector('input');
+            }
+
+            if (targetInput && !targetInput.disabled) {
+                e.preventDefault();
+                targetInput.focus();
+                targetInput.select(); // Tự động bôi đen để người dùng nhập đè nội dung mới ngay lập tức
+            }
+        });
+
+        // --- 3. TỰ ĐỘNG RENDER NGÀY THÁNG (Code cũ của bạn nhưng tối ưu hơn) ---
+        document.querySelectorAll('.day-header').forEach(header => {
+            const day = parseInt(header.getAttribute('data-column'));
+            const date = new Date(year, month - 1, day);
+            const inputs = document.querySelectorAll(`input[name^="d${day}_"]`);
+
+            // Kiểm tra ngày có tồn tại trong tháng không (ví dụ 31/04)
+            if (date.getMonth() !== month - 1) {
+                header.style.display = 'none'; // Ẩn cột ngày không tồn tại
+                document.querySelectorAll(`[data-column="${day}"]`).forEach(el => el.style.display = 'none');
+                return;
+            }
+
+            const dayOfWeek = date.getDay(); // 0: Chủ nhật, 6: Thứ bảy
+            if (holidays.includes(day)) {
+                header.style.backgroundColor = '#dc3545';
+                header.style.color = '#fff';
+                inputs.forEach(inp => inp.parentElement.style.backgroundColor = '#f8d7da');
+            } else if (dayOfWeek === 0 || dayOfWeek === 6) {
+                header.style.backgroundColor = '#ffeeba';
+                inputs.forEach(inp => inp.parentElement.style.backgroundColor = '#fff9e6');
+            }
+        });
+    });
+
+    $(document).ready(function() {
+        // Khởi tạo Select2
+        $('#selectDonVi').select2({
+            placeholder: "Gõ mã hoặc tên đơn vị để tìm...",
+            allowClear: true
+        });
+
+        // TỰ ĐỘNG LỌC PHÒNG BAN KHI CHỌN ĐƠN VỊ (Cho Admin)
+        $('#selectDonVi').on('change', function() {
+            const ma_hieu_2 = $(this).val();
+            const $pbSelect = $('#selectPhongBan');
+            
+            // Xóa sạch danh sách cũ, hiện trạng thái đang tải
+            $pbSelect.empty().append('<option value="">-- Đang tải... --</option>');
+            
+            if (!ma_hieu_2) {
+                $pbSelect.empty().append('<option value="">-- Tất cả --</option>');
+                return;
+            }
+
+            // Gọi API lấy danh sách phòng ban thuộc đơn vị này
+            fetch(`/get_phong_ban_by_don_vi/${ma_hieu_2}`)
+                .then(response => response.json())
+                .then(data => {
+                    $pbSelect.empty().append('<option value="">-- Tất cả --</option>');
+                    data.forEach(pb => {
+                        // Kiểm tra nếu id này trùng với current_pb từ server (để giữ trạng thái selected nếu cần)
+                        const selected = (String(pb.id) === "{{ current_pb }}") ? "selected" : "";
+                        $pbSelect.append(`<option value="${pb.id}" ${selected}>${pb.ten_phong_ban}</option>`);
+                    });
+                })
+                .catch(error => {
+                    console.error('Lỗi:', error);
+                    $pbSelect.empty().append('<option value="">-- Lỗi tải dữ liệu --</option>');
+                });
+        });
+
+
+        // --- 2. RENDER GIAO DIỆN & TỰ ĐỘNG ĐIỀN ---
+        const year = {{ year }};
+        const month = {{ month }};
+        const holidays = {{ holidays | tojson | default([]) }};
+        const hasDataStaffIds = {{ has_data_staff_ids | tojson | default([]) }}.map(String);
+        
+        const rowsToCalculate = new Set();
+
+        document.querySelectorAll('.day-header').forEach(header => {
+            const day = parseInt(header.innerText);
+            const date = new Date(year, month - 1, day);
+            
+            // 1. Khai báo inputs trước khi dùng
+            const inputs = document.querySelectorAll(`input[name^="d${day}_"]`);
+
+            // 2. Logic ngày thừa của tháng
+            if (date.getMonth() !== month - 1) {
+                header.style.background = '#e9ecef';
+                inputs.forEach(input => {
+                    input.disabled = true;
+                    input.parentElement.style.background = '#e9ecef';
+                    input.value = "";
+                });
+                return;
+            }
+
+            const dw = date.getDay();
+            const isHoliday = holidays.includes(day);
+
+            // 3. Logic điền tự động và tính toán
+            inputs.forEach(input => {
+                const maNV = input.name.split('_')[1];
+                
+                if (isHoliday) input.parentElement.style.backgroundColor = '#f8d7da';
+                else if (dw === 0 || dw === 6) input.parentElement.style.backgroundColor = '#fff9e6';
+
+                if (!input.value && !{{ 'true' if is_locked else 'false' }} && !hasDataStaffIds.includes(maNV)) {
+                    if (isHoliday) input.value = "L";
+                    else if (dw !== 0 && dw !== 6) input.value = "X";
+                    
+                    rowsToCalculate.add(input.closest('tr'));
+                }
+            });
+        });
+
+        // Tính các hàng có điền dữ liệu tự động
+        rowsToCalculate.forEach(row => calculateRowTotals(row));
+
+        // --- 3. EVENT LISTENERS ---
+        document.querySelectorAll('.day-input').forEach(input => {
+            input.addEventListener('input', function() {
+                this.value = this.value.toUpperCase();
+                calculateRowTotals(this.closest('tr'));
+            });
+        });
+
+        // Tính tổng toàn bảng sau khi đã load xong
+        document.querySelectorAll('tbody tr').forEach(row => calculateRowTotals(row));
+    });
+
+    function exportExcelCurrentData() {
+        const mainForm = document.getElementById('mainForm');
+        const originalAction = mainForm.action;
+        mainForm.action = "{{ url_for('export_excel_guest', month=month, year=year, ma_hieu_2=current_don_vi, ma_phong_ban=current_pb) }}";
+        mainForm.submit();
+        mainForm.action = originalAction;
+    }
+
+    function validateAndSave() {
+        const errorInputs = document.querySelectorAll('.day-input.is-invalid');
+        if (errorInputs.length > 0) {
+            alert(`Có ${errorInputs.length} ô nhập sai ký hiệu quy định. Vui lòng kiểm tra lại!`);
+            errorInputs[0].focus();
+            return;
+        }
+        if (confirm("Bạn có chắc chắn muốn lưu dữ liệu?")) {
+            document.getElementById('mainForm').submit();
+        }
+    }
+</script>
+{% endblock %}

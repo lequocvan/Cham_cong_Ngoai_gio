@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+
+{% block title %}Chấm Công Ngoài Giờ{% endblock %}
+
+{% block content %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+<style>
+    :root {
+        --font-size-table: 12px;
+        --col-day-width: 28px;
+    }
+
+    .container-fluid { font-size: 13px; }
+
+    /* TOOLBAR */
+    .toolbar-card {
+        background: #fff; padding: 10px 15px; border-radius: 8px;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1);
+    }
+    .toolbar-container { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .form-group-inline { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+
+    /* Custom Select2 */
+    .select2-container--default .select2-selection--single {
+        height: 31px !important; font-size: 12px !important; border: 1px solid #d1d3e2 !important;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 28px !important;
+    }
+
+    /* BẢNG CHỐNG TRÀN & STICKY */
+    .table-responsive { max-height: 72vh; overflow: auto; border: 1px solid #d1d3e2; border-radius: 4px; }
+    table#overtimeTable { 
+        table-layout: fixed; width: 1850px; 
+        border-collapse: separate; border-spacing: 0; font-size: var(--font-size-table);
+    }
+
+    .table-attendance th, .table-attendance td {
+        padding: 0 !important; height: 40px; vertical-align: middle;
+        border: 1px solid #d1d3e2 !important; text-align: center;
+    }
+
+    /* ĐỘ RỘNG CỘT */
+    .col-ma { width: 65px; }
+    .col-ten { width: 180px; } 
+    .day-header, .day-cell { width: var(--col-day-width); }
+    .col-stat { width: 75px; background-color: #f8f9fc; }
+    .col-tong { width: 85px; background-color: #fff1f1; }
+
+    /* CỐ ĐỊNH CỘT (STICKY) */
+    .sticky-left-1 { position: sticky; left: 0; z-index: 9; background: #fff !important; }
+    .sticky-left-2 { position: sticky; left: 65px; z-index: 9; background: #fff !important; border-right: 2px solid #4e73df !important; }
+    
+    .sticky-right-4 { position: sticky; right: 235px; z-index: 8; background: #f8f9fc !important; border-left: 2px solid #4e73df !important; }
+    .sticky-right-3 { position: sticky; right: 160px; z-index: 8; background: #f8f9fc !important; }
+    .sticky-right-2 { position: sticky; right: 85px; z-index: 8; background: #f8f9fc !important; }
+    .sticky-right-1 { position: sticky; right: 0; z-index: 8; background: #fff1f1 !important; }
+
+    thead th { position: sticky; top: 0; z-index: 10; background-color: #f8f9fc; border-bottom: 2px solid #d1d3e2 !important; }
+
+    /* INPUT */
+    .day-input {
+        width: 100%; height: 100%; border: none; text-align: center;
+        font-weight: bold; background: transparent; outline: none; font-size: 13px;
+        transition: all 0.2s;
+    }
+    .day-input:focus { background-color: #fff3cd !important; box-shadow: inset 0 0 5px rgba(0,0,0,0.1); }
+    .day-input:disabled { cursor: not-allowed; }
+
+    /* MÀU SẮC */
+    .header-holiday { background-color: #e74a3b !important; color: white !important; }
+    .cell-holiday { background-color: #ffdce0 !important; }
+    .header-weekend { background-color: #ffeeba !important; }
+    .cell-weekend { background-color: #fff9e6 !important; }
+    .cell-disabled { background-color: #f2f2f2 !important; color: #ccc; }
+    
+    .dept-name { display: block; font-size: 10px; color: #6e707e; font-weight: normal; margin-top: -2px; }
+
+    /* LOADING OVERLAY */
+    #loading-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(255,255,255,0.85); z-index: 9999;
+        display: none; align-items: center; justify-content: center; flex-direction: column;
+    }
+</style>
+
+<div id="loading-overlay">
+    <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+    <div class="h5 font-weight-bold text-primary">Đang đồng bộ và cập nhật bảng tổng hợp...</div>
+    <div class="text-muted small">Vui lòng không đóng trình duyệt</div>
+</div>
+
+<div class="container-fluid">
+    <div class="toolbar-card mb-3 mt-2">
+        <form action="{{ url_for('cham_cong_ngoai_gio') }}" method="GET" class="toolbar-container" id="filterForm">
+            <div class="form-group-inline">
+                <label class="mb-0 font-weight-bold small">Đơn vị:</label>
+                {% if is_admin_or_th %}
+                    <select name="ma_hieu_2" id="ma_hieu_2" class="form-control form-control-sm select2" style="width: 280px;" onchange="this.form.submit()">
+                        <option value="">-- Tất cả đơn vị --</option>
+                        {% for dv in don_vis %}
+                        <option value="{{ dv.ma_hieu_2 }}" {% if current_don_vi == dv.ma_hieu_2 %}selected{% endif %}>
+                            [{{ dv.ma_hieu_2 }}] - {{ dv.ten_ma_hieu_2 }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                {% else %}
+                    <span class="badge badge-info p-2">
+                        {% for dv in don_vis if dv.ma_hieu_2 == current_don_vi %}
+                            [{{ dv.ma_hieu_2 }}] - {{ dv.ten_ma_hieu_2 }}
+                        {% else %}
+                            {{ current_don_vi }}
+                        {% endfor %}
+                    </span>
+                    <input type="hidden" name="ma_hieu_2" value="{{ current_don_vi }}">
+                {% endif %}
+            </div>
+
+            <div class="form-group-inline ml-2">
+                <label class="mb-0 font-weight-bold small">Phòng ban:</label>
+                {% if is_admin_or_th %}
+                    <select name="ma_phong_ban" id="ma_phong_ban" class="form-control form-control-sm select2" style="width: 200px;">
+                        <option value="">-- Tất cả phòng --</option>
+                        {% for pb in phong_bans %}
+                        <option value="{{ pb.id }}" {% if current_pb|string == pb.id|string %}selected{% endif %}>{{ pb.ten_phong_ban }}</option>
+                        {% endfor %}
+                    </select>
+                {% else %}
+                    <span class="badge badge-info p-2">{{ current_pb_name }}</span>
+                    <input type="hidden" name="ma_phong_ban" value="{{ current_pb }}">
+                {% endif %}
+            </div>
+
+            <div class="form-group-inline ml-2">
+                <label class="mb-0 font-weight-bold small">Tháng/Năm:</label>
+                <input type="number" name="month" value="{{ month }}" min="1" max="12" class="form-control form-control-sm" style="width: 50px;">
+                <input type="number" name="year" value="{{ year }}" class="form-control form-control-sm" style="width: 70px;">
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-sm px-3 shadow-sm" title="Tìm kiếm"><i class="fas fa-search"></i></button>
+
+            {% if current_user.is_authenticated %}
+            <button type="button" onclick="submitMainForm();" class="btn btn-success btn-sm ml-auto font-weight-bold px-3 shadow-sm">
+                <i class="fas fa-save mr-1"></i> XÁC NHẬN LƯU
+            </button>
+            {% endif %}
+        </form>
+    </div>
+
+    <form method="POST" action="{{ url_for('cham_cong_ngoai_gio', month=month, year=year, ma_hieu_2=current_don_vi, ma_phong_ban=current_pb) }}" id="mainForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
+        <div class="table-responsive shadow-sm bg-white border">
+            <table class="table table-bordered table-attendance" id="overtimeTable">
+                <thead>
+                    <tr>
+                        <th class="sticky-left-1 col-ma">Mã NV</th>
+                        <th class="sticky-left-2 col-ten">Họ Tên</th>
+                        {% for d in range(1, 32) %}
+                        <th class="day-header" data-day="{{ d }}">{{ d }}</th>
+                        {% endfor %}
+                        <th class="sticky-right-4 col-stat">N.Thường</th>
+                        <th class="sticky-right-3 col-stat">N.Nghỉ</th>
+                        <th class="sticky-right-2 col-stat">N.Lễ</th>
+                        <th class="sticky-right-1 col-tong">TỔNG</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for staff, ten_phong_ban, ten_ma_hieu_2 in staff_list %}
+                    <tr>
+                        <td class="sticky-left-1 col-ma font-weight-bold text-primary">{{ staff.ma_nhan_vien }}</td>
+                        <td class="sticky-left-2 col-ten text-left pl-2">
+                            <span class="font-weight-bold">{{ staff.ho_ten }}</span>
+                            <span class="dept-name text-truncate" title="{{ ten_ma_hieu_2 }} | {{ ten_phong_ban }}">
+                                {{ ten_ma_hieu_2 }} - {{ ten_phong_ban }}
+                            </span>
+                        </td>
+                        
+                        {% set record = att_dict.get(staff.ma_nhan_vien) %}
+                        {% for d in range(1, 32) %}
+                        <td class="day-cell">
+                            {# Sửa lỗi record['d' ~ d] thành getattr(record, 'd' ~ d) #}
+                            {% set day_val = getattr(record, 'd' ~ d) if record else 0 %}
+                            <input type="text" name="d{{ d }}_{{ staff.ma_nhan_vien }}" 
+                                   class="day-input" 
+                                   value="{{ "%.1f"|format(day_val) if day_val > 0 else '' }}"
+                                   data-day="{{ d }}"
+                                   inputmode="decimal">
+                        </td>
+                        {% endfor %}
+                        
+                        <td class="sticky-right-4 col-stat font-weight-bold text-dark total-thuong">0.0</td>
+                        <td class="sticky-right-3 col-stat font-weight-bold text-warning total-nghi">0.0</td>
+                        <td class="sticky-right-2 col-stat font-weight-bold text-danger total-le">0.0</td>
+                        <td class="sticky-right-1 col-tong font-weight-bold text-danger total-all" style="font-size: 14px;">0.0</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+
+    <div class="legend-box shadow-sm border-left-primary bg-white p-3 mt-3 border rounded">
+        <div class="row align-items-center">
+            <div class="col-md-4 border-right">
+                <h6 class="font-weight-bold text-primary small mb-2"><i class="fas fa-palette mr-1"></i> CHÚ GIẢI MÀU SẮC</h6>
+                <div class="d-flex align-items-center mb-1 small">
+                    <div style="width: 25px; height: 18px; background: #ffdce0; border:1px solid #e74a3b; margin-right: 10px;"></div> Ngày Lễ (x3.0)
+                </div>
+                <div class="d-flex align-items-center mb-1 small">
+                    <div style="width: 25px; height: 18px; background: #fff9e6; border:1px solid #f6c23e; margin-right: 10px;"></div> Ngày Nghỉ (x2.0)
+                </div>
+                <div class="d-flex align-items-center small">
+                    <div style="width: 25px; height: 18px; background: #fff; border:1px solid #ddd; margin-right: 10px;"></div> Ngày Thường (x1.5)
+                </div>
+            </div>
+            <div class="col-md-8 small">
+                <h6 class="font-weight-bold text-success mb-1"><i class="fas fa-info-circle mr-1"></i> QUY ĐỊNH NHẬP LIỆU</h6>
+                <ul class="mb-0 pl-3">
+                    <li>Hệ thống tự động nhận diện <b>Thứ 7, Chủ Nhật</b> và <b>Ngày lễ</b>.</li>
+                    <li>Chỉ nhập số (VD: 2.5, 4). Các cột tổng tính toán theo số giờ thực tế trước khi nhân hệ số ở Procedure.</li>
+                    <li>Sau khi nhấn <b>XÁC NHẬN LƯU</b>, hệ thống sẽ tự động đồng bộ sang bảng tổng hợp năm.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+    function submitMainForm() {
+        if (!confirm("Hệ thống sẽ lưu dữ liệu và tính toán lại bảng tổng hợp năm. Tiếp tục?")) return;
+        document.getElementById('loading-overlay').style.display = 'flex';
+        // Một chút delay để overlay kịp hiển thị trước khi trình duyệt treo để submit
+        setTimeout(() => {
+            document.getElementById('mainForm').submit();
+        }, 100);
+    }
+
+    $(document).ready(function() {
+        // 1. Khởi tạo Select2
+        $('.select2').select2({
+            theme: 'bootstrap4',
+            placeholder: "Tìm mã hoặc tên đơn vị...",
+            allowClear: true,
+            width: 'resolve'
+        });
+
+        const year = {{ year }};
+        const month = {{ month }};
+        // Đảm bảo holidayDays là mảng số để so sánh chính xác
+        const holidayDays = {{ holiday_days|tojson }}.map(Number); 
+        
+        // 1. XỬ LÝ GIAO DIỆN BẢNG
+        document.querySelectorAll('.day-header').forEach(header => {
+            const day = parseInt(header.getAttribute('data-day'));
+            const date = new Date(year, month - 1, day);
+            const inputs = document.querySelectorAll(`input[name^="d${day}_"]`);
+            
+            // Kiểm tra ngày hợp lệ (ví dụ: ngày 31/02)
+            if (date.getMonth() !== month - 1) {
+                header.classList.add('cell-disabled');
+                header.innerText = '-';
+                inputs.forEach(input => {
+                    input.disabled = true;
+                    input.value = "";
+                    input.parentElement.classList.add('cell-disabled');
+                    input.setAttribute('data-type', 'disabled');
+                });
+            } else {
+                const dw = date.getDay(); // 0: CN, 6: T7
+                if (holidayDays.includes(day)) {
+                    header.classList.add('header-holiday');
+                    inputs.forEach(input => {
+                        input.parentElement.classList.add('cell-holiday');
+                        input.setAttribute('data-type', 'le');
+                    });
+                } else if (dw === 0 || dw === 6) { 
+                    header.classList.add('header-weekend');
+                    inputs.forEach(input => {
+                        input.parentElement.classList.add('cell-weekend');
+                        input.setAttribute('data-type', 'nghi');
+                    });
+                } else {
+                    inputs.forEach(input => input.setAttribute('data-type', 'thuong'));
+                }
+            }
+        });
+
+        // 2. HÀM TÍNH TOÁN (Sửa lỗi hiển thị số 0)
+        function calculateOvertimeRow(row) {
+            let t_thuong = 0, t_nghi = 0, t_le = 0;
+            row.querySelectorAll('.day-input:not(:disabled)').forEach(inp => {
+                const val = parseFloat(inp.value) || 0;
+                const type = inp.getAttribute('data-type');
+                if (type === 'le') t_le += val;
+                else if (type === 'nghi') t_nghi += val;
+                else if (type === 'thuong') t_thuong += val;
+            });
+
+            // Chỉ hiển thị số nếu > 0 để bảng thoáng hơn (tùy chọn)
+            const formatTotal = (num) => num > 0 ? num.toFixed(1) : '0';
+            row.querySelector('.total-thuong').innerText = formatTotal(t_thuong);
+            row.querySelector('.total-nghi').innerText = formatTotal(t_nghi);
+            row.querySelector('.total-le').innerText = formatTotal(t_le);
+            row.querySelector('.total-all').innerText = formatTotal(t_thuong + t_nghi + t_le);
+        }
+
+        // 3. LẮNG NGHE SỰ KIỆN
+        document.querySelectorAll('.day-input').forEach(input => {
+            input.addEventListener('input', function() {
+                let val = this.value.replace(/[^0-9.]/g, '');
+                const parts = val.split('.');
+                if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
+                this.value = val;
+                calculateOvertimeRow(this.closest('tr'));
+            });
+            
+            input.addEventListener('focus', function() {
+                this.closest('tr').style.backgroundColor = 'rgba(78, 115, 223, 0.08)';
+            });
+
+            input.addEventListener('blur', function() {
+                this.closest('tr').style.backgroundColor = '';
+                if (this.value !== "") {
+                    const num = parseFloat(this.value);
+                    if (isNaN(num) || num === 0) {
+                        this.value = ""; // Nếu là 0 thì xóa trống cho sạch bảng
+                    } else {
+                        this.value = num.toFixed(1);
+                    }
+                    calculateOvertimeRow(this.closest('tr')); // Tính lại sau khi format
+                }
+            });
+        });
+
+        // 4. CHẠY LẦN ĐẦU
+        document.querySelectorAll('#overtimeTable tbody tr').forEach(row => calculateOvertimeRow(row));
+    });
+</script>
+{% endblock %}

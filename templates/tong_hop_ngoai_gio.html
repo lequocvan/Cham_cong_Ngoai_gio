@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}Tổng Hợp Công Ngoài Giờ{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h3 class="h4 mb-3 text-gray-800">
+        <i class="fas fa-chart-bar mr-2 text-primary"></i>Báo Cáo Tổng số Giờ Làm Ngoài Giờ (Tháng)
+    </h3>
+
+    <div class="card shadow mb-4 border-left-primary">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('tong_hop_ngoai_gio') }}" id="filterForm" class="row g-3 align-items-end">
+                <div class="col-md-1 col-6">
+                    <label class="small font-weight-bold">Tháng</label>
+                    <select name="month" id="month" class="form-control form-control-sm">
+                        {% for m in range(1, 13) %}
+                        <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-1 col-6">
+                    <label class="small font-weight-bold">Năm</label>
+                    <input type="number" name="year" id="year" value="{{ year }}" class="form-control form-control-sm">
+                </div>
+
+                <div class="col-md-3">
+                    <label class="small font-weight-bold text-danger">Đơn vị (Mã hiệu 2)</label>
+                    <select name="ma_hieu_2" id="ma_hieu_2" class="form-control select2" onchange="this.form.submit()">
+                        {% if is_system_admin %}
+                            <option value="">-- Tất cả Đơn vị --</option>
+                            {% for dv in don_vis_list %}
+                                <option value="{{ dv }}" {% if dv == current_don_vi %}selected{% endif %}>{{ dv }}</option>
+                            {% endfor %}
+                        {% else %}
+                            <option value="{{ current_don_vi }}">{{ current_don_vi }}</option>
+                        {% endif %}
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="small font-weight-bold">Phòng ban</label>
+                    <select name="ma_phong_ban" id="ma_phong_ban" class="form-control form-control-sm">
+                        <option value="">-- Tất cả Phòng --</option>
+                        {% for pb in phong_bans %}
+                            <option value="{{ pb.id }}" {% if current_pb|string == pb.id|string %}selected{% endif %}>
+                                {{ pb.ten_phong_ban }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="small font-weight-bold">Mã/Tên nhân viên</label>
+                    <input type="text" name="ma_nhan_vien" id="ma_nhan_vien" value="{{ current_nv }}" class="form-control form-control-sm" placeholder="Tìm kiếm...">
+                </div>
+
+                <div class="col-md-3">
+                    <div class="btn-group w-100">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="fas fa-filter"></i> Lọc
+                        </button>
+                        <button type="button" onclick="exportExcel()" class="btn btn-success btn-sm">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                        <a href="{{ url_for('tong_hop_ngoai_gio') }}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-undo"></i> Reset
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-header py-3 bg-light d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Dữ liệu tháng {{ month }}/{{ year }} {% if current_don_vi %}- Đơn vị: {{ current_don_vi }}{% endif %}</h6>
+            <span class="badge badge-info px-3 py-2">Tổng cộng: {{ results|length }} nhân viên</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover table-sm" id="reportTable">
+                    <thead class="thead-light text-center">
+                        <tr>
+                            <th class="sticky-col first-col">Mã NV</th>
+                            <th class="sticky-col second-col">Họ và Tên</th>
+                            <th>Đơn vị</th>
+                            <th>Phòng Ban</th>
+                            <th class="text-info">Ngày Thường</th>
+                            <th class="text-warning">Ngày Nghỉ</th>
+                            <th class="text-danger">Ngày Lễ</th>
+                            <th class="bg-gray-100 font-weight-bold">TỔNG</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for res in results %}
+                        <tr>
+                            <td class="text-center font-weight-bold text-primary sticky-col first-col">{{ res.ma_nhan_vien }}</td>
+                            <td class="font-weight-bold text-nowrap sticky-col second-col">{{ res.ho_ten }}</td>
+                            <td class="text-center small">{{ res.ma_hieu_2 }}</td>
+                            <td class="small">{{ res.ten_phong_ban }}</td>
+                            <td class="text-center">{{ "%.1f"|format(res.tong_gio_ngay_thuong or 0) }}</td>
+                            <td class="text-center">{{ "%.1f"|format(res.tong_gio_ngay_nghi or 0) }}</td>
+                            <td class="text-center">{{ "%.1f"|format(res.tong_gio_ngay_le or 0) }}</td>
+                            <td class="text-center font-weight-bold text-primary bg-light">
+                                {{ "%.1f"|format(res.tong_gio_ngoai_gio or 0) }}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="fas fa-folder-open fa-3x d-block mb-3"></i>
+                                Không tìm thấy dữ liệu phù hợp cho đơn vị/thời gian đã chọn.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<script>
+    $(document).ready(function() {
+        // Khởi tạo Select2 với Ajax cho Đơn vị
+        $('.select2-remote').select2({
+            theme: 'bootstrap4',
+            width: '100%',
+            placeholder: "-- Gõ tên hoặc mã đơn vị --",
+            allowClear: true,
+            ajax: {
+                url: "{{ url_for('api_search_don_vi') }}",
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return { q: params.term }; // Từ khóa tìm kiếm
+                },
+                processResults: function (data) {
+                    return { results: data.results };
+                },
+                cache: true
+            }
+        });
+    });
+    
+    // Hàm cập nhật danh sách phòng ban khi chọn đơn vị
+    function updatePhongBan() {
+        const ma_hieu_2 = document.getElementById('ma_hieu_2').value;
+        const pbSelect = document.getElementById('ma_phong_ban');
+        
+        // Xóa danh sách cũ
+        pbSelect.innerHTML = '<option value="">-- Đang tải... --</option>';
+
+        if (!ma_hieu_2) {
+            pbSelect.innerHTML = '<option value="">-- Tất cả Phòng --</option>';
+            return;
+        }
+
+        // GỌI ĐÚNG ROUTE: /api/get_phong_ban/<ma_don_vi> như bạn đã viết trong app.py
+        fetch(`/api/get_phong_ban/${encodeURIComponent(ma_hieu_2)}`)
+            .then(response => response.json())
+            .then(data => {
+                pbSelect.innerHTML = '<option value="">-- Tất cả Phòng --</option>';
+                data.forEach(pb => {
+                    const option = document.createElement('option');
+                    option.value = pb.id;
+                    option.text = pb.ten; // API của bạn trả về field 'ten'
+                    pbSelect.add(option);
+                });
+            })
+            .catch(err => {
+                console.error('Lỗi khi tải phòng ban:', err);
+                pbSelect.innerHTML = '<option value="">-- Lỗi tải dữ liệu --</option>';
+            });
+    }
+
+    function exportExcel() {
+        // Sử dụng jQuery để lấy giá trị chính xác từ Select2
+        const month = $('#month').val();
+        const year = $('#year').val();
+        const ma_hieu_2 = $('#ma_hieu_2').val() || '';
+        const ma_pb = $('#ma_phong_ban').val() || '';
+        const ma_nv = $('#ma_nhan_vien').val() || '';
+
+        const params = new URLSearchParams({
+            month: month,
+            year: year,
+            ma_hieu_2: ma_hieu_2,
+            ma_phong_ban: ma_pb,
+            ma_nhan_vien: ma_nv
+        });
+
+        window.location.href = `{{ url_for('export_tong_hop_ngoai_gio') }}?${params.toString()}`;
+    }
+</script>
+
+<style>
+    .table-responsive { max-height: 650px; overflow: auto; border: 1px solid #e3e6f0; }
+    #reportTable thead th { position: sticky; top: 0; z-index: 100; background: #f8f9fa; border-top: none; }
+
+    .sticky-col { position: sticky; z-index: 5; background: #fff !important; }
+    .first-col { left: 0; min-width: 90px; border-right: 1px solid #e3e6f0 !important; }
+    .second-col { left: 90px; min-width: 180px; border-right: 2px solid #e3e6f0 !important; box-shadow: 2px 0 5px rgba(0,0,0,0.05); }
+    
+    #reportTable thead th.sticky-col { z-index: 110; background: #f8f9fa !important; }
+    
+    .bg-gray-100 { background-color: #f8f9fc !important; }
+    .text-nowrap { white-space: nowrap; }
+    tbody tr:hover { background-color: #f1f4ff !important; }
+    .table-sm td, .table-sm th { padding: .5rem; vertical-align: middle; }
+</style>
+{% endblock %}

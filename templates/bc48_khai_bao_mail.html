@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Khai báo Mail đơn vị nhận csv để xử lý lỗi{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Tiêu đề trang -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <h4 class="text-uppercase font-weight-bold">
+                <i class="fas fa-envelope-open-text text-primary"></i> 
+                Quản lý khai báo mail đơn vị nhận csv để xử lý lỗi
+            </h4>
+            <hr>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Cột bên trái: Form khai báo/cập nhật -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-primary text-white py-2">
+                    <h6 class="mb-0 small font-weight-bold"><i class="fas fa-edit"></i> FORM CẤU HÌNH</h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="mailForm">
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold">Mã Chi nhánh (Ma_Hieu_1)</label>
+                            <input type="text" name="ma_hieu_1" id="ma_hieu_1" class="form-control form-control-sm" required placeholder="Ví dụ: brcd">
+                        </div>
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold">Tên Chi nhánh</label>
+                            <input type="text" name="ten_chi_nhanh" id="ten_chi_nhanh" class="form-control form-control-sm" placeholder="Ví dụ: CN Hà Nội">
+                        </div>
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold">Email Nhận Báo Cáo</label>
+                            <input type="email" name="email_nhan" id="email_nhan" class="form-control form-control-sm" required placeholder="abc@agribank.com.vn">
+                        </div>
+                        <div class="form-group mb-2">
+                            <label class="small font-weight-bold">Email CC (Nếu có)</label>
+                            <textarea name="email_cc" id="email_cc" class="form-control form-control-sm" rows="2" placeholder="email1@..., email2@..."></textarea>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label class="small font-weight-bold">Ghi chú</label>
+                            <input type="text" name="ghi_chu" id="ghi_chu" class="form-control form-control-sm">
+                        </div>
+                        <div class="custom-control custom-switch mb-3">
+                            <input type="checkbox" class="custom-control-input" name="trang_thai" id="trang_thai" checked>
+                            <label class="custom-control-label small" for="trang_thai">Kích hoạt mail nhận</label>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <button type="submit" class="btn btn-primary btn-sm btn-block">
+                                    <i class="fas fa-save"></i> Cập nhật
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button type="button" class="btn btn-outline-secondary btn-sm btn-block" onclick="resetForm()">
+                                    <i class="fas fa-sync"></i> Làm mới
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cột bên phải: Danh sách và Tìm kiếm -->
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white py-2">
+                    <h6 class="mb-0 text-primary font-weight-bold small"><i class="fas fa-list"></i> DANH SÁCH KHAI BÁO HIỆN TẠI</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered table-hover w-100" id="mailTable">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>Mã CN</th>
+                                    <th>Tên Chi Nhánh</th>
+                                    <th>Email Nhận</th>
+                                    <th>Email CC</th>
+                                    <th>Trạng thái</th>
+                                    <th class="d-none">Ghi chú</th> <!-- Cột Ghi chú được ẩn để lưu dữ liệu -->
+                                    <th class="text-center">Sửa</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in danh_sach %}
+                                <tr>
+                                    <td class="font-weight-bold text-info">{{ item.ma_hieu_1 }}</td>
+                                    <td>{{ item.ten_chi_nhanh }}</td>
+                                    <td>{{ item.email_nhan }}</td>
+                                    <td><small>{{ item.email_cc or '' }}</small></td>
+                                    <td class="text-center">
+                                        {% if item.trang_thai == 1 %}
+                                        <span class="badge badge-success px-2">Active</span>
+                                        {% else %}
+                                        <span class="badge badge-danger px-2">Deactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="d-none">{{ item.ghi_chu or '' }}</td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-primary border-0" 
+                                                onclick="editRow(this)">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-white small text-muted">
+                    <i class="fas fa-info-circle"></i> <b>Tip:</b> Bạn có thể xuất CSV/Excel bằng các nút chức năng phía trên bảng.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Khởi tạo DataTables với các thư viện bạn đã nhúng trong base.html
+    var table = $('#mailTable').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Vietnamese.json"
+        },
+        "dom": "<'row'<'col-sm-12 col-md-6'B><'col-sm-12 col-md-6'f>>" +
+               "<'row'<'col-sm-12'tr>>" +
+               "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+        "buttons": [
+            {
+                extend: 'csv',
+                text: '<i class="fas fa-file-csv"></i> Xuất CSV',
+                className: 'btn btn-success btn-sm mr-2'
+            },
+            {
+                extend: 'excel',
+                text: '<i class="fas fa-file-excel"></i> Xuất Excel',
+                className: 'btn btn-info btn-sm'
+            }
+        ],
+        "pageLength": 10,
+        "order": [[0, "asc"]]
+    });
+});
+
+// Hàm đẩy dữ liệu từ dòng vào Form
+function editRow(btn) {
+    // Lấy dữ liệu từ dòng chứa nút bấm thông qua DataTable API
+    var row = $(btn).closest('tr');
+    var data = $('#mailTable').DataTable().row(row).data();
+    
+    // data[0]: Mã, data[1]: Tên, data[2]: Email, data[3]: CC (đã bỏ tag small), data[4]: Trạng thái (HTML), data[5]: Ghi chú (ẩn)
+    
+    $('#ma_hieu_1').val(data[0]).attr('readonly', true); // Khóa mã hiệu khi sửa
+    $('#ten_chi_nhanh').val(data[1]);
+    $('#email_nhan').val(data[2]);
+    
+    // Xử lý text từ CC (loại bỏ tag HTML nếu có)
+    var ccText = row.find('td:eq(3)').text().trim();
+    $('#email_cc').val(ccText);
+    
+    // Lấy ghi chú từ cột ẩn
+    var ghiChuText = row.find('td:eq(5)').text().trim();
+    $('#ghi_chu').val(ghiChuText);
+    
+    // Kiểm tra trạng thái dựa trên text trong badge
+    var statusText = row.find('td:eq(4)').text();
+    $('#trang_thai').prop('checked', statusText.includes('Đang chạy'));
+
+    // Hiệu ứng trực quan
+    $('#ma_hieu_1').addClass('bg-light');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Reset form
+function resetForm() {
+    $('#mailForm').trigger('reset');
+    $('#ma_hieu_1').attr('readonly', false).removeClass('bg-light');
+}
+</script>
+
+<style>
+    /* Làm đẹp các nút của DataTables */
+    .dt-buttons { margin-bottom: 15px; }
+    .dataTables_filter { text-align: right; }
+    #mailTable thead th { font-size: 12px; text-transform: uppercase; }
+    #mailTable tbody td { font-size: 13px; vertical-align: middle; }
+    .card-header { border-bottom: 1px solid rgba(0,0,0,.05); }
+</style>
+{% endblock %}

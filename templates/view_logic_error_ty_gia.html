@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Kết quả tự dò tìm lỗi logic Tỷ giá, quydoi sai định dạng{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h4 class="text-warning mb-1">
+                <i class="fas fa-money-bill-wave me-2"></i>Kết quả tự dò tìm lỗi logic Tỷ giá, quydoi sai định dạng có phần thập phân (sp_KiemTraLogic_TyGia)
+            </h4>
+            <p class="text-muted small mb-0">
+                Hệ thống quét tự động các giao dịch có lỗi: <span class="badge bg-danger">Loại tiền ≠ VND</span> nhưng <span class="badge bg-danger">Số tiền = Quy đổi; quydoi sai định dạng có phần thập phân</span>.
+            </p>
+            <p class="text-muted small mb-0">ĐVXL: <strong>Trung tâm Quản lý dữ liệu</strong></p>
+        </div>
+    </div>
+
+    <div class="card border-warning mb-4 shadow-sm">
+        <div class="card-header bg-warning text-dark fw-bold py-2">
+            <i class="fas fa-filter me-1"></i> Tùy chọn phạm vi kiểm tra hệ thống
+        </div>
+        <div class="card-body py-3">
+            <form id="filterForm" method="GET" action="{{ url_for('ket_qua_logic_ty_gia') }}" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label for="thang_nam" class="form-label small fw-bold text-secondary">Gõ NamThang (yyyymm)</label>
+                    <input type="month" class="form-control form-control-sm" id="thang_nam" name="thang_nam" value="{{ selected_thang_nam or '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="ngay_baocao" class="form-label small fw-bold text-secondary">Chọn Ngày báo cáo (tên file chứa ngày)</label>
+                    <input type="date" class="form-control form-control-sm" id="ngay_baocao" name="ngay_baocao" value="{{ selected_ngay_baocao or '' }}">
+                </div>
+                <div class="col-md-6 d-flex justify-content-end gap-2">
+                    <button type="submit" class="btn btn-sm btn-secondary fw-bold px-3">
+                        <i class="fas fa-search me-1"></i> Lọc danh sách xem
+                    </button>
+                    <button type="button" id="btnRunCheck" class="btn btn-sm btn-warning text-dark fw-bold px-3 border border-dark-subtle shadow-sm">
+                        <i class="fas fa-sync-alt me-1" id="iconSync"></i> Chạy rà soát hệ thống
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <div class="card border-start border-warning border-3 shadow-sm">
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-muted small text-uppercase fw-bold">Tổng số dòng lỗi hiển thị</span>
+                            <h3 class="mb-0 fw-bold text-danger">{{ "{:,}".format(total_records) }}</h3>
+                        </div>
+                        <i class="fas fa-exclamation-triangle fa-2x text-warning opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+            <span class="fw-bold text-secondary"><i class="fas fa-list me-1"></i> Danh sách chi tiết bản ghi nghi ngờ</span>
+            <span class="badge bg-secondary">Trang {{ page }} / {{ total_pages if total_pages > 0 else 1 }}</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0 align-middle small">
+                    <thead class="table-dark">
+                        <tr>
+                            <th width="5%" class="text-center">STT</th>
+                            <th width="15%">Tên bảng gốc</th>
+                            <th width="15%">Mã giao dịch</th>
+                            <th width="10%" class="text-center">Loại tiền</th>
+                            <th width="15%" class="text-end">Số tiền giao dịch</th>
+                            <th width="15%" class="text-end">Số quy đổi (VND)</th>
+                            <th width="15%" class="text-center">Thời điểm quét</th>
+                            <th width="10%">Ghi chú lỗi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if data %}
+                            {% for item in data %}
+                            <tr>
+                                <td class="text-center text-muted">{{ loop.index + (page - 1) * 50 }}</td>
+                                <td><strong class="text-primary">{{ item.ten_bang_goc }}</strong></td>
+                                <td><span class="font-monospace text-dark">{{ item.ma_giao_dich }}</span></td>
+                                <td class="text-center"><span class="badge bg-info text-dark fw-bold">{{ item.loaitien }}</span></td>
+                                <td class="text-end fw-bold text-navy">
+                                    {% if item.sotien is number %}
+                                        {{ "{:,.2f}".format(item.sotien) }}
+                                    {% else %}
+                                        {{ item.sotien }}
+                                    {% endif %}
+                                </td>
+                                
+                                <td class="text-end fw-bold text-success">
+                                    {% if item.quydoi is number %}
+                                        {% if item.loaitien != 'VND' %}
+                                            {{ "{:,.2f}".format(item.quydoi) }}
+                                        {% else %}
+                                            {{ "{:,.0f}".format(item.quydoi) }}
+                                        {% endif %}
+                                    {% else %}
+                                        {{ item.quydoi }}
+                                    {% endif %}
+                                </td>
+                                
+                                <td class="text-center text-muted small">
+                                    {{ item.thoi_diem_kiem_tra.strftime('%d/%m/%Y %H:%M:%S') if item.thoi_diem_kiem_tra else '' }}
+                                </td>
+                                <td><span class="text-danger small"><i class="fas fa-times-circle me-1"></i>{{ item.ghi_chu }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center py-4 text-muted">
+                                    <i class="fas fa-check-circle text-success fa-2x mb-2 d-block"></i>
+                                    Không tìm thấy lỗi logic tỷ giá nào trong hệ thống bộ lọc hiện tại.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if total_pages > 1 %}
+        <div class="card-footer bg-light d-flex justify-content-center py-2">
+            <nav aria-label="Page navigation">
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('ket_qua_logic_ty_gia', page=page-1, thang_nam=selected_thang_nam, ngay_baocao=selected_ngay_baocao) }}"><i class="fas fa-chevron-left"></i></a>
+                    </li>
+
+                    {% for p in range(1, total_pages + 1) %}
+                        {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                            <li class="page-item {% if page == p %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('ket_qua_logic_ty_gia', page=p, thang_nam=selected_thang_nam, ngay_baocao=selected_ngay_baocao) }}">{{ p }}</a>
+                            </li>
+                        {% elif p == page - 3 or p == page + 3 %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('ket_qua_logic_ty_gia', page=page+1, thang_nam=selected_thang_nam, ngay_baocao=selected_ngay_baocao) }}"><i class="fas fa-chevron-right"></i></a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+$(document).ready(function() {
+    $('#btnRunCheck').on('click', function() {
+        let $btn = $(this);
+        let $icon = $('#iconSync');
+
+        // Lấy giá trị từ các ô input
+        let thangNamRaw = $('#thang_nam').val(); // Định dạng: "YYYY-MM" từ input[type=month]
+        let ngayBaoCao = $('#ngay_baocao').val();  // Định dạng: "YYYY-MM-DD" từ input[type=date]
+
+        // Đổi định dạng "YYYY-MM" thành "YYYYMM" để khớp cấu trúc DB
+        let thangNam = "";
+        if (thangNamRaw) {
+            thangNam = thangNamRaw.replace('-', '');
+        }
+
+        // Tạo câu text thông báo linh hoạt dựa trên lựa chọn lọc của User
+        let confirmText = "Hệ thống sẽ gọi Stored Procedure để quét toàn bộ dữ liệu lịch sử.";
+        if (ngayBaoCao) {
+            confirmText = `Hệ thống sẽ chạy quét lỗi riêng cho ngày cụ thể: ${ngayBaoCao}`;
+        } else if (thangNam) {
+            confirmText = `Hệ thống sẽ chạy quét lỗi cho tất cả các bảng thuộc tháng: ${thangNamRaw}`;
+        }
+
+        Swal.fire({
+            title: 'Xác nhận rà soát?',
+            text: confirmText + " Quá trình này có thể mất vài phút tùy lượng dữ liệu.",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#ffc107',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Đồng ý, chạy ngay!',
+            cancelButtonText: 'Hủy'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $btn.prop('disabled', true);
+                $icon.addClass('fa-spin');
+
+                Swal.fire({
+                    title: 'Đang tiến hành quét...',
+                    text: 'Vui lòng không đóng trình duyệt cho đến khi tiến trình xử lý xong.',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                // Thực thi AJAX POST truyền kèm dữ liệu cấu hình lọc lên Backend
+                $.ajax({
+                    url: "{{ url_for('run_check_logic_ty_gia') }}",
+                    type: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify({
+                        thang_nam: thangNam || null,
+                        ngay_baocao: ngayBaoCao || null
+                    }),
+                    dataType: "json",
+                    success: function(response) {
+                        Swal.fire({
+                            title: 'Thành công!',
+                            text: response.message,
+                            icon: 'success'
+                        }).then(() => {
+                            // Tải lại trang giữ nguyên tham số lọc để người dùng xem kết quả mới của ngày/tháng đó ngay lập tức
+                            window.location.reload(); 
+                        });
+                    },
+                    error: function(xhr) {
+                        let errMsg = 'Lỗi không xác định khi thực thi cơ sở dữ liệu.';
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errMsg = xhr.responseJSON.message;
+                        }
+                        Swal.fire({
+                            title: 'Thất bại!',
+                            text: errMsg,
+                            icon: 'error'
+                        });
+                    },
+                    complete: function() {
+                        $btn.prop('disabled', false);
+                        $icon.removeClass('fa-spin');
+                    }
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

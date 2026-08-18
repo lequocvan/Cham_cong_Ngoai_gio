@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Báo cáo Chi tiết Lương V2{% endblock %}
+
+{% block content %}
+<style>
+    /* 1. Cấu hình khung bảng và cuộn */
+    .table-container { 
+        max-height: 75vh; 
+        overflow: auto; 
+        border: 1px solid #dee2e6;
+        background: white;
+    }
+    table { border-collapse: separate; border-spacing: 0; }
+
+    /* 2. Cố định tiêu đề (Sticky Headers) */
+    .sticky-header { position: sticky; top: 0; z-index: 100; background: #212529 !important; color: white; }
+    .sticky-header-2 { position: sticky; top: 31px; z-index: 100; background: #343a40 !important; color: white; }
+
+    /* 3. Cố định cột trái */
+    .sticky-col-1 { position: sticky; left: 0; z-index: 95; background: #f8f9fa !important; min-width: 80px; border-right: 1px solid #dee2e6 !important; }
+    .sticky-col-2 { position: sticky; left: 80px; z-index: 95; background: #f8f9fa !important; min-width: 160px; border-right: 2px solid #adb5bd !important; }
+
+    /* 4. Định dạng cột dữ liệu */
+    .col-hsl { background-color: #fffdf2; width: 45px; text-align: center; color: #555; }
+    .col-cong { background-color: #f0f7ff; width: 50px; text-align: center; font-weight: bold; }
+    .col-tien { background-color: #fff5f5; width: 100px; text-align: right; font-weight: bold; color: #d63031; }
+    
+    .month-group { border-left: 2px solid #adb5bd !important; }
+    .low-work { background-color: #ffeaa7 !important; color: #d35400 !important; }
+
+    th, td { font-size: 11px !important; padding: 6px 4px !important; vertical-align: middle; white-space: nowrap; }
+    
+    .btn-export { background-color: #27ae60; color: white; transition: 0.3s; }
+    .btn-export:hover { background-color: #219150; color: white; }
+
+    .filter-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: nowrap;
+    }
+
+    /* Hiệu ứng loading khi tính toán */
+    .overlay-loading {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(255,255,255,0.75);
+        z-index: 9999;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+</style>
+
+<div id="loadingV2" class="overlay-loading">
+    <div class="spinner-border text-danger" role="status"></div>
+    <span class="mt-2 fw-bold text-dark">Đang tính toán lương V2 toàn cơ quan...</span>
+</div>
+
+<div class="container-fluid mt-3">
+    <div class="card shadow border-0">
+        <div class="card-header bg-dark text-white py-2">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 text-nowrap">
+                    <i class="fas fa-table me-2 text-warning"></i> LƯƠNG V2 {{ year }}
+                </h6>
+                
+                <form method="GET" action="{{ url_for('v2_report') }}" class="filter-row">
+                    {% if is_admin_or_th %}
+                    <button type="button" class="btn btn-danger btn-sm fw-bold px-3" onclick="calculateAllV2()">
+                        <i class="fas fa-calculator me-1"></i> TÍNH TOÀN CƠ QUAN
+                    </button>
+                    <div class="vr mx-2 bg-light"></div>
+                    {% endif %}
+
+                    <input type="number" id="targetYear" name="year" class="form-control form-control-sm text-center" value="{{ year }}" style="width: 70px;">
+                    
+                    {% if is_admin_or_th %}
+                        <select name="phong_ban" class="form-select form-select-sm" style="width: 140px;">
+                            <option value="">-- Tất cả Phòng --</option>
+                            {% for pb in ds_phong_ban %}
+                            <option value="{{ pb }}" {% if selected_pb == pb %}selected{% endif %}>{{ pb }}</option>
+                            {% endfor %}
+                        </select>
+                    {% else %}
+                        <span class="badge bg-info text-dark py-2 px-3">{{ selected_pb }}</span>
+                        <input type="hidden" name="phong_ban" value="{{ selected_pb }}">
+                    {% endif %}
+                    
+                    <input type="text" name="ma_nv" class="form-control form-control-sm" placeholder="Mã NV..." value="{{ ma_nv_filter or '' }}" style="width: 100px;">
+                    
+                    <div class="btn-group">
+                        <button type="submit" class="btn btn-primary btn-sm px-3" title="Lọc"><i class="fas fa-filter"></i></button>
+                        <a href="{{ url_for('v2_report') }}" class="btn btn-outline-light btn-sm" title="Làm mới"><i class="fas fa-sync"></i></a>
+                    </div>
+
+                    <a href="{{ url_for('export_v2_excel', year=year) }}" class="btn btn-export btn-sm fw-bold text-nowrap">
+                        <i class="fas fa-file-excel"></i> Excel
+                    </a>
+                </form>
+            </div>
+        </div>
+
+        <div class="card-body p-0">
+            <div class="table-container">
+                <table class="table table-bordered table-hover mb-0">
+                    <thead>
+                        <tr class="sticky-header">
+                            <th class="sticky-col-1 text-center">Mã NV</th>
+                            <th class="sticky-col-2 text-center">Họ và Tên</th>
+                            <th class="text-center px-3">Phòng ban</th>
+                            {% for m in range(1, 13) %}
+                            <th colspan="3" class="text-center month-group bg-info text-dark">THÁNG {{ m }}</th>
+                            {% endfor %}
+                            <th class="text-center bg-warning text-dark px-3">TỔNG NĂM</th>
+                        </tr>
+                        <tr class="sticky-header-2 text-center">
+                            <th class="sticky-col-1"></th>
+                            <th class="sticky-col-2"></th>
+                            <th></th>
+                            {% for m in range(1, 13) %}
+                            <th class="month-group">HSL</th>
+                            <th>Công</th>
+                            <th>Tiền V2</th>
+                            {% endfor %}
+                            <th class="bg-warning text-dark">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for emp in data %}
+                        <tr>
+                            <td class="sticky-col-1 text-center fw-bold text-primary">{{ emp.ma_nv }}</td>
+                            <td class="sticky-col-2">{{ emp.ho_ten }}</td>
+                            <td class="text-muted small">{{ emp.phong_ban }}</td>
+                            {% for m_data in emp.months %}
+                            <td class="col-hsl month-group">{{ "{:.2f}".format(m_data.hsl) }}</td>
+                            <td class="col-cong {% if m_data.cong_tt > 0 and m_data.cong_tt < m_data.cong_chuan %}low-work{% endif %}" title="Chuẩn: {{ m_data.cong_chuan }}">
+                                {{ m_data.cong_tt }}
+                            </td>
+                            <td class="col-tien px-2">{{ "{:,.0f}".format(m_data.tien) if m_data.tien > 0 else "-" }}</td>
+                            {% endfor %}
+                            <td class="text-end fw-bold bg-light text-danger px-3" style="border-left: 2px solid #ffc107 !important;">
+                                {{ "{:,.0f}".format(emp.tong_nam) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function calculateAllV2() {
+    const year = document.getElementById('targetYear').value;
+    if (!confirm(`Hệ thống sẽ tính lại lương V2 cho TOÀN BỘ nhân viên năm ${year}.\nLưu ý: Các tháng đã PHÊ DUYỆT sẽ được giữ nguyên (không tính lại).\nBạn có muốn tiếp tục?`)) return;
+
+    document.getElementById('loadingV2').style.display = 'flex';
+
+    fetch("{{ url_for('calculate_salary_global') }}", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ year: year, type: 'V2' })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('loadingV2').style.display = 'none';
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert("Lỗi: " + data.message);
+        }
+    })
+    .catch(error => {
+        document.getElementById('loadingV2').style.display = 'none';
+        alert("Lỗi kết nối máy chủ.");
+        console.error("Error:", error);
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Theo Dõi Nghỉ Phép{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">BẢNG THEO DÕI NGHỈ PHÉP NĂM {{ current_year }}</h5>
+            <div class="d-flex align-items-center">
+                {% if current_user.is_admin or current_user.ma_nhan_vien in ['200905691', '200900615'] %}
+                    <button type="button" class="btn btn-danger btn-sm mr-2" onclick="handleAction('chot')">
+                        <i class="fas fa-archive mr-1"></i> Chốt phép <span id="displayLastYear">{{ current_year - 1 }}</span>
+                    </button>
+
+                    <button type="button" class="btn btn-warning btn-sm mr-3" onclick="handleAction('update')">
+                        <i class="fas fa-sync-alt mr-1"></i> Cập nhật từ Chấm công
+                    </button>
+                {% endif %}
+
+                <form class="form-inline" method="GET" id="yearForm">
+                    {% if is_system_admin or is_phong_tong_hop %}
+                        <input type="text" name="search" class="form-control form-control-sm mr-2" 
+                               placeholder="Mã NV hoặc Họ tên..." value="{{ search_query }}">
+                    {% endif %}
+                    
+                    {% if is_system_admin %}
+                        <select name="don_vi" id="select_don_vi_phep" class="form-control form-control-sm mr-2" style="min-width: 250px;">
+                            {% if selected_don_vi %}
+                                <option value="{{ selected_don_vi }}" selected>{{ selected_don_vi }}</option>
+                            {% else %}
+                                <option value="">-- Tất cả đơn vị --</option>
+                            {% endif %}
+                        </select>
+                    {% else %}
+                        <span class="badge badge-info mr-2 p-2">Đơn vị: {{ selected_don_vi }}</span>
+                        <input type="hidden" name="don_vi" value="{{ selected_don_vi }}">
+                    {% endif %}
+
+                    <input type="number" id="inputYear" name="year" class="form-control form-control-sm mr-2" 
+                           value="{{ current_year }}" style="width: 80px;">
+                    
+                    <button type="submit" class="btn btn-light btn-sm mr-2">Xem</button>
+
+                    <button type="button" class="btn btn-success btn-sm" onclick="exportExcel()">
+                        <i class="fas fa-file-excel mr-1"></i> Xuất Excel
+                    </button>
+                </form>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover mb-0" id="phepTable">
+                    <thead class="thead-light text-center">
+                        <tr>
+                            <th>Mã NV</th>
+                            <th>Họ Tên</th>
+                            <th>Ngày tính phép</th>
+                            <th>Tháng Thâm niên</th>
+                            <th class="table-warning">Tồn Gốc</th>
+                            <th class="table-warning">Tồn Hiện Tại</th>
+                            <th class="table-success">Phép Năm</th>
+                            <th class="table-success">Thâm Niên</th>
+                            <th>Đã nghỉ Q1</th>
+                            <th>Đã nghỉ sau Q1</th>
+                            <th class="bg-primary text-white">Tổng Còn Lại</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in results %}
+                        {% set p = item.phep %}
+                        <tr>
+                            <td class="text-center">{{ p.ma_nhan_vien }}</td>
+                            <td>{{ p.ho_ten }}</td>
+                            <td class="text-center">
+                                {{ p.ngay_tinh_phep.strftime('%d/%m/%Y') if p.ngay_tinh_phep else '' }}
+                            </td>
+                            <td class="text-center text-info">{{ item.so_thang }}</td>
+                            <td class="text-center">{{ p.phep_ton_nam_truoc_goc }}</td>
+                            <td class="text-center font-weight-bold {{ 'text-danger' if p.phep_ton_kha_dung == 0 else '' }}">
+                                {{ p.phep_ton_kha_dung }}
+                            </td>
+                            <td class="text-center">{{ p.phep_huong_trong_nam }}</td>
+                            <td class="text-center">{{ p.phep_tham_nien }}</td>
+                            <td class="text-center">{{ p.da_nghi_p_q1 }}</td>
+                            <td class="text-center">{{ p.da_nghi_p_sau_q1 }}</td>
+                            <td class="text-center font-weight-bold text-primary">{{ p.tong_phep_con_lai }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="11" class="text-center">Không tìm thấy dữ liệu</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer clearfix">
+            <div class="float-left small text-muted">Hiển thị dữ liệu năm {{ current_year }}</div>
+            <ul class="pagination pagination-sm m-0 float-right">
+                {% if page > 1 %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('theo_doi_nghi_phep', year=current_year, search=search_query, don_vi=selected_don_vi, page=page-1) }}">&laquo;</a></li>
+                {% endif %}
+                
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p >= page - 2 and p <= page + 2 %}
+                    <li class="page-item {{ 'active' if p == page else '' }}">
+                        <a class="page-link" href="{{ url_for('theo_doi_nghi_phep', year=current_year, search=search_query, don_vi=selected_don_vi, page=p) }}">{{ p }}</a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page < total_pages %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('theo_doi_nghi_phep', year=current_year, search=search_query, don_vi=selected_don_vi, page=page+1) }}">&raquo;</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // 1. Khởi tạo Select2
+        const $selectDonVi = $('#select_don_vi_phep');
+        if ($selectDonVi.length > 0) {
+            $selectDonVi.select2({
+                theme: 'bootstrap4', // Sửa từ bootstrap5 thành bootstrap4
+                placeholder: "🔍 Tìm mã hoặc tên đơn vị...",
+                allowClear: true,
+                ajax: {
+                    url: "/api/search_don_vi",
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) { return { q: params.term || '' }; },
+                    processResults: function (data) { 
+                        return { results: data.results }; 
+                    },
+                    cache: true
+                },
+                minimumInputLength: 0
+            }).on('select2:open', function() {
+                setTimeout(function() {
+                    const searchField = document.querySelector('.select2-search__field');
+                    if (searchField) searchField.focus();
+                }, 50);
+            });
+
+            {% if is_system_admin and selected_don_vi %}
+                var initOption = new Option("{{ selected_don_vi }}", "{{ selected_don_vi }}", true, true);
+                $selectDonVi.append(initOption).trigger('change');
+            {% endif %}
+        }
+
+        // 2. DataTables - Sửa lỗi CORS bằng cách dùng HTTPS
+        $('#phepTable').DataTable({
+            "paging": false,
+            "searching": false,
+            "info": false,
+            "order": [[0, "asc"]],
+            "language": { 
+                "url": "https://cdn.datatables.net/plug-ins/1.10.24/i18n/Vietnamese.json" 
+            }
+        });
+    });
+
+    function updateButtonText() {
+        const year = document.getElementById('inputYear').value;
+        const target = document.getElementById('displayLastYear');
+        if(target) target.innerText = year - 1;
+    }
+
+    function handleAction(type) {
+        const selectedYear = document.getElementById('inputYear').value;
+        const donVi = $('#select_don_vi_phep').val() || ''; // Thêm đơn vị vào action nếu cần
+
+        if (type === 'chot') {
+            if (confirm('Hệ thống sẽ kết chuyển số dư từ năm ' + (selectedYear-1) + ' sang ' + selectedYear + '. Tiếp tục?')) {
+                // Có thể truyền thêm don_vi nếu backend hỗ trợ chốt theo đơn vị
+                window.location.href = "/chot-phep-nam/" + selectedYear + (donVi ? "?don_vi=" + donVi : "");
+            }
+        } else if (type === 'update') {
+            if (confirm('Cập nhật dữ liệu thâm niên và chấm công cho năm ' + selectedYear + '?')) {
+                window.location.href = "/update-nghi-phep/" + selectedYear + (donVi ? "?don_vi=" + donVi : "");
+            }
+        }
+    }
+
+    function exportExcel() {
+        const year = document.getElementById('inputYear').value;
+        // Tìm lấy value từ select (admin) hoặc input hidden (user)
+        const donVi = $('[name="don_vi"]').val() || ''; 
+        const searchInput = document.querySelector('input[name="search"]');
+        const search = searchInput ? searchInput.value : '';
+        
+        window.location.href = "/export-nghi-phep/" + year + "?don_vi=" + donVi + "&search=" + encodeURIComponent(search);
+    }
+</script>
+{% endblock %}
+
+<style>
+    /* Đảm bảo khung tìm kiếm Select2 hiển thị trên cùng */
+    .select2-container {
+        z-index: 9999 !important;
+    }
+    .select2-search__field {
+        height: 34px !important;
+        padding: 5px !important;
+    }
+    /* Khắc phục chiều cao cho form-inline của Bootstrap 4 */
+    .select2-container--bootstrap4 .select2-selection--single {
+        height: 31px !important;
+        line-height: 31px !important;
+    }
+</style>

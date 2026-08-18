@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block content %}
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap4.min.css">
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap4.min.css">
+
+<div class="container-fluid mt-4">
+    <h3><i class="fas fa-file-invoice-dollar"></i> Tra cứu Sao kê Hình thức File</h3>
+    <div class="card shadow mt-3">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="tbl_sao_ke" class="table table-bordered table-striped w-100">
+                    <thead>
+                        <tr>
+                            <th>Ngày</th>
+                            <th>Tháng</th>
+                            <th>Loại Báo Cáo</th>
+                            <th>Hình Thức</th>
+                            <th>Số Lượng</th>
+                            <th>Thời Điểm</th>
+                        </tr>
+                    </thead>
+                    </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap4.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap4.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    $('#tbl_sao_ke').DataTable({
+        "processing": true, // Hiển thị thông báo "Đang xử lý..."
+        "serverSide": true, // Bật chế độ xử lý phía Server
+        "ajax": {
+            "url": "/bc48/sao-ke", // Đường dẫn tới route Flask đã tạo
+            "type": "GET"
+        },
+        "columns": [
+            { "data": "Ngay" },
+            { "data": "Thang" },
+            { "data": "Loai" },
+            { "data": "HinhThuc" },
+            { 
+                "data": "SoLuong",
+                "render": function(data, type, row) {
+                    // Định dạng số có dấu phẩy ngăn cách hàng nghìn
+                    return data.toLocaleString('en-US');
+                }
+            },
+            { "data": "ThoiDiem" }
+        ],
+        "order": [[0, "desc"]], // Sắp xếp mặc định theo cột Ngày giảm dần
+        "pageLength": 25,
+        "dom": 'Bfrtip',
+        "buttons": ['excel', 'csv', 'print'],
+        "language": {
+            "processing": "Đang tải dữ liệu...",
+            "search": "Tìm kiếm (Ngày/Hình thức):",
+            "lengthMenu": "Hiển thị _MENU_ dòng",
+            "info": "Đang hiển thị từ _START_ đến _END_ trong tổng số _TOTAL_ dòng",
+            "paginate": {
+                "first": "Đầu",
+                "last": "Cuối",
+                "next": "Tiếp",
+                "previous": "Trước"
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

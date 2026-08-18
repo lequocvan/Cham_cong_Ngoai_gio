@@ -1,0 +1,678 @@
+{% extends 'base.html' %}
+
+{% block title %}Cục PCRT Trả Ra - Thống Kê Chi Tiết{% endblock %}
+
+{% block content %}
+<style>
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+    }
+
+    /* Scrollbar mượt cho bảng */
+    .table-responsive::-webkit-scrollbar { height: 6px; }
+    .table-responsive::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+
+    /* Định dạng chung: Ép tất cả các ô trên 1 dòng chuẩn */
+    #masterTable td, #masterTable th {
+        vertical-align: middle !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        padding: 0.45rem 0.6rem !important;
+        font-size: 12px;
+    }
+
+    /* Đặt giới hạn độ rộng cho cột mô tả/tên file */
+    .cell-truncate {
+        max-width: 250px !important;
+        cursor: pointer;
+    }
+
+    /* Hiệu ứng Hover ô đổi màu nhẹ nhàng - Không giật khung */
+    .table-hover tbody tr td:hover {
+        background-color: #e8f4fe !important;
+        color: #1a5276 !important;
+    }
+
+    /* Tooltip xám đen cao cấp (Được đẩy ra <body> nên không sợ bị che) */
+    .custom-tooltip .tooltip-inner {
+        background-color: #2c3e50 !important;
+        color: #ffffff !important;
+        font-weight: 500;
+        font-size: 12px;
+        line-height: 1.5;
+        padding: 8px 12px;
+        max-width: 380px !important;
+        text-align: left;
+        border-radius: 6px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        word-break: break-word;
+    }
+
+    .custom-tooltip.bs-tooltip-top .arrow::before { border-top-color: #2c3e50 !important; }
+    .custom-tooltip.bs-tooltip-bottom .arrow::before { border-bottom-color: #2c3e50 !important; }
+    .custom-tooltip.bs-tooltip-left .arrow::before { border-left-color: #2c3e50 !important; }
+    .custom-tooltip.bs-tooltip-right .arrow::before { border-right-color: #2c3e50 !important; }
+</style>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4 bg-white p-3 rounded shadow-sm">
+        <div>
+            <h4 class="text-dark font-weight-bold mb-1">
+                <i class="fas fa-chart-bar text-info mr-2"></i>CỤC PCRT TRẢ RA CSV
+            </h4>
+            <p class="text-muted mb-0 style-italic" style="font-size: 13px;">
+                Hệ thống vận hành cơ chế Server-side xử lý dữ liệu lớn tối ưu hiệu năng.
+            </p>
+        </div>
+    </div>
+
+    <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active font-weight-bold mr-2" id="pills-daily-tab" data-toggle="pill" data-target="#pills-daily" type="button" role="tab">
+                <i class="fas fa-calendar-day mr-1"></i> Thống kê chi tiết hàng ngày
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link font-weight-bold mr-2" id="pills-monthly-tab" data-toggle="pill" data-target="#pills-monthly" type="button" role="tab">
+                <i class="fas fa-calendar-alt mr-1"></i> Thống kê chỉ lỗi theo tháng
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link font-weight-bold mr-2 text-danger" id="pills-master-tab" data-toggle="pill" data-target="#pills-master" type="button" role="tab">
+                <i class="fas fa-list-alt mr-1"></i> Bảng kê chi tiết chi_tiet_loi_master (lưu ý: CSV do Cục PCRT trả lỗi chỉ có header, rỗng ruột)
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link font-weight-bold text-success" id="pills-tke-loi-tab" data-toggle="pill" data-target="#pills-tke-loi" type="button" role="tab">
+                <i class="fas fa-search-plus mr-1"></i> Thống kê kết quả dò tìm lỗi chi tiết
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="pills-tabContent">
+        
+        <!-- TAB 1: Thống kê chi tiết hàng ngày -->
+        <div class="tab-pane fade show active" id="pills-daily" role="tabpanel">
+            <div class="card shadow mb-4 border-0">
+                <div class="card-header bg-white py-3 d-flex flex-row align-items-center justify-content-between border-bottom">
+                    <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-sync-alt mr-2"></i>Dữ liệu hàng ngày từ sp_tong_hop_sodong_bang_error</h6>
+                    <div class="d-flex align-items-center">
+                        <button id="btn_run_procedure" class="btn btn-sm btn-primary font-weight-bold mr-2 shadow-sm">
+                            <i class="fas fa-play mr-1"></i> Chạy ngay Procedure
+                        </button>
+                        <button id="btn_run_full_refresh" class="btn btn-sm btn-danger font-weight-bold mr-2 shadow-sm">
+                            <i class="fas fa-database mr-1"></i> Làm mới toàn bộ (Full Refresh)
+                        </button>
+                        <div id="daily-buttons-container"></div>
+                    </div>
+                </div>
+                <div class="card-body bg-white p-3">
+                    <div class="table-responsive">
+                        {% if data_daily and data_daily[0].thoi_gian_cap_nhat %}
+                        <div class="alert alert-info py-2 mb-2" style="font-size: 13px;">
+                            <i class="fas fa-clock mr-2"></i> Dữ liệu cập nhật gần nhất: <strong>{{ data_daily[0].thoi_gian_cap_nhat }}</strong>
+                        </div>
+                        {% endif %}
+
+                        <table class="table table-bordered table-striped table-hover" id="dailyTable" style="width:100%">
+                            <thead class="thead-dark text-center" style="font-size: 13px;">
+                                <tr>
+                                    <th width="5%">STT</th>
+                                    <th>Ngày Báo Cáo</th>
+                                    <th>Loại Báo Cáo</th>
+                                    <th>Trạng Thái</th>
+                                    <th>Tổng Số Dòng</th>
+                                </tr>
+                            </thead>
+                            <tbody style="font-size: 13px;">
+                                {% if data_daily %}
+                                    {% for row in data_daily %}
+                                    <tr>
+                                        <td class="text-center font-weight-bold text-secondary">{{ loop.index }}</td>
+                                        <td class="text-center" title="{{ row.ngay_baocao }}">{{ row.ngay_baocao }}</td>
+                                        <td class="text-center" title="{{ row.loai_baocao }}">{{ row.loai_baocao }}</td> 
+                                        <td class="text-center" title="{{ row.trang_thai }}">{{ row.trang_thai }}</td>   
+                                        <td class="text-right font-weight-bold text-primary pr-4" title="{{ "{:,}".format(row.tong_so_dong | int) }}"> 
+                                            {{ "{:,}".format(row.tong_so_dong | int) }}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: Thống kê chỉ lỗi theo tháng -->
+        <div class="tab-pane fade" id="pills-monthly" role="tabpanel">
+            <div class="card shadow mb-4 border-0">
+                <div class="card-header bg-white py-3 d-flex flex-row align-items-center justify-content-between border-bottom">
+                    <h6 class="m-0 font-weight-bold text-danger"><i class="fas fa-exclamation-triangle mr-2"></i>Tổng số lượng lỗi theo tháng (bang_tonghop_ktra_gd_loi)</h6>
+                    <div id="monthly-buttons-container"></div>
+                </div>
+                <div class="card-body bg-white p-3">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped table-hover" id="monthlyTable" style="width:100%">
+                            <thead class="bg-danger text-white text-center" style="font-size: 13px;">
+                                <tr>
+                                    <th width="8%">STT</th>
+                                    <th width="25%">Tháng / Năm</th>
+                                    <th width="37%">Phạm vi Loại Báo Cáo</th>
+                                    <th width="30%">Tổng số lượng dòng (KIỂM TRA GIAO DỊCH LỖI)</th>
+                                </tr>
+                            </thead>
+                            <tbody style="font-size: 13px;">
+                                {% if data_monthly %}
+                                    {% for row in data_monthly %}
+                                    <tr>
+                                        <td class="text-center font-weight-bold text-secondary">{{ loop.index }}</td>
+                                        <td class="text-center font-weight-bold text-dark" title="{{ row.thang_nam }}">{{ row.thang_nam }}</td>
+                                        <td class="text-left pl-3 text-secondary text-ellipsis" style="font-style: italic;" title="{{ row.cac_loai_bc }}">{{ row.cac_loai_bc }}</td>
+                                        <td class="text-right text-danger font-weight-bold pr-5" title="{{ "{:,}".format(row.tong_dong_loi | int) }}">
+                                            {{ "{:,}".format(row.tong_dong_loi | int) }}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow mb-4 border-0">
+                <div class="card-header bg-light py-3 border-bottom">
+                    <h6 class="m-0 font-weight-bold text-dark">
+                        <i class="fas fa-clock text-info mr-2"></i>Bảng kê chi tiết lỗi theo Ngày Báo Cáo (bang_tonghop_ktra_gd_loi)
+                    </h6>
+                </div>
+                <div class="card-body bg-white p-3">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped table-hover" id="monthlyDetailTable" style="width:100%">
+                            <thead class="thead-dark text-center" style="font-size: 12px;">
+                                <tr>
+                                    <th width="5%">STT</th>
+                                    <th width="15%">Ngày Báo Cáo</th>
+                                    <th width="15%">Tháng / Năm</th>
+                                    <th width="15%">Loại BC</th>
+                                    <th width="35%">Trạng Thái</th>
+                                    <th width="15%">Số Lượng dòng</th>
+                                </tr>
+                            </thead>
+                            <tbody style="font-size: 12px;">
+                                {% if data_monthly_detail %}
+                                    {% for row in data_monthly_detail %}
+                                    <tr>
+                                        <td class="text-center font-weight-bold text-secondary">{{ loop.index }}</td>
+                                        <td class="text-center font-weight-bold text-primary" title="{{ row.ngay_baocao_fmt }}">
+                                            {{ row.ngay_baocao_fmt }}
+                                        </td>
+                                        <td class="text-center text-dark" title="{{ row.thang_nam }}">{{ row.thang_nam }}</td>
+                                        <td class="text-center font-weight-bold text-info" title="{{ row.loai_bc }}">{{ row.loai_bc }}</td>
+                                        <td class="text-left pl-3" title="{{ row.trang_thai }}"><span class="badge badge-warning text-dark px-2 py-1">{{ row.trang_thai }}</span></td>
+                                        <td class="text-right font-weight-bold text-danger pr-4" title="{{ "{:,}".format(row.so_luong_loi | int) }}">
+                                            {{ "{:,}".format(row.so_luong_loi | int) }}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: Bảng kê chi tiết chi_tiet_loi_master -->
+        <div class="tab-pane fade" id="pills-master" role="tabpanel">
+            <!-- KHU VỰC BỘ LỌC DỮ LIỆU -->
+            <div class="card shadow mb-3 border-0 bg-light">
+                <div class="card-body p-3">
+                    <div class="form-row">
+                        <div class="col-md-2 mb-2">
+                            <label class="font-weight-bold text-secondary" style="font-size:12px;">Loại BC:</label>
+                            <select id="filter_loai_bc" class="form-control form-control-sm bg-white border-secondary">
+                                <option value="">-- Tất cả --</option>
+                                {% for item in filter_options.loai_bc %}
+                                    <option value="{{ item }}">{{ item }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-2">
+                            <label class="font-weight-bold text-secondary" style="font-size:12px;">Tháng/Năm:</label>
+                            <select id="filter_thang_nam" class="form-control form-control-sm bg-white border-secondary">
+                                <option value="">-- Tất cả --</option>
+                                {% for item in filter_options.thang_nam %}
+                                    <option value="{{ item }}">{{ item }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="font-weight-bold text-secondary" style="font-size:12px;">Ngày Báo Cáo:</label>
+                            <input type="date" id="filter_ngay_bc" class="form-control form-control-sm bg-white border-secondary">
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="font-weight-bold text-secondary" style="font-size:12px;">Tên file gốc:</label>
+                            <select id="filter_ten_file" class="form-control form-control-sm bg-white border-secondary" style="width: 100%;">
+                                <option value="">-- Tất cả các file --</option>
+                                {% for item in filter_options.ten_file_goc %}
+                                    <option value="{{ item }}">{{ item }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-2 d-flex align-items-end">
+                            <button id="btn_clear_filter" class="btn btn-sm btn-secondary font-weight-bold w-100 shadow-sm">
+                                <i class="fas fa-undo mr-1"></i> Làm mới
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KHU VỰC BẢNG DỮ LIỆU MASTER -->
+            <div class="card shadow mb-4 border-0">
+                <div class="card-header bg-white py-3 d-flex flex-row align-items-center justify-content-between border-bottom">
+                    <h6 class="m-0 font-weight-bold text-dark">
+                        <i class="fas fa-database text-danger mr-2"></i>Dữ liệu Master tối ưu Server-side Processing
+                    </h6>
+                    <div>
+                        <button id="btn_export_csv" class="btn btn-sm btn-warning font-weight-bold px-3 text-dark shadow-sm">
+                            <i class="fas fa-file-csv mr-1"></i> Xuất file CSV (Đầy đủ)
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body bg-white p-3">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped table-hover" id="masterTable" style="width:100%">
+                            <thead class="thead-dark text-center" style="font-size: 12px;">
+                                <tr>
+                                    <th>ID gốc</th>
+                                    <th>Mã Giao Dịch</th>
+                                    <th>Loại BC</th>
+                                    <th>Tháng Năm</th>
+                                    <th>Trạng Status</th>
+                                    <th>Mã Lỗi</th>
+                                    <th>Mô Tả Chi Tiết Lỗi</th>
+                                    <th>Ngày Báo Cáo</th>
+                                    <th>Hình Thức</th>
+                                    <th>Số Lần</th>
+                                    <th>Tên File Gốc</th>
+                                </tr>
+                            </thead>
+                            <tbody style="font-size: 12px;"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: Thống kê kết quả dò tìm lỗi chi tiết -->
+        <div class="tab-pane fade" id="pills-tke-loi" role="tabpanel">
+            <div class="card shadow mb-4 border-0">
+                <div class="card-header bg-white py-3 d-flex flex-row align-items-center justify-content-between border-bottom">
+                    <h6 class="m-0 font-weight-bold text-success">
+                        <i class="fas fa-chart-line mr-2"></i>Thống kê kết quả dò tìm lỗi chi tiết (dashboard_tke_loi_chi_tiet)
+                    </h6>
+                    <div>
+                        <button id="btn_export_tke_loi_csv" class="btn btn-sm btn-success font-weight-bold px-3 shadow-sm">
+                            <i class="fas fa-file-csv mr-1"></i> Xuất file CSV (Đầy đủ từ Server)
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body bg-white p-3">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped table-hover" id="tkeLoiChiTietTable" style="width:100%">
+                            <thead class="bg-success text-white text-center" style="font-size: 12px;">
+                                <tr>
+                                    <th>Loại BC</th>
+                                    <th>Bảng Gốc</th>
+                                    <th>Năm Tháng</th>
+                                    <th>Mã Lỗi Nhận</th>
+                                    <th>Mô Tả Lỗi Nhận</th>
+                                    <th>Loại Tiền</th>
+                                    <th>Số Lượng File</th>
+                                    <th>Tổng Dòng Lỗi</th>
+                                    <th>Tổng Số Tiền Lỗi</th>
+                                    <th>Tổng Quy Đổi Lỗi</th>
+                                    <th>Ngày Cập Nhật</th>
+                                </tr>
+                            </thead>
+                            <tbody style="font-size: 12px;"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        var langConfig = { "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Vietnamese.json" };
+
+        // Hàm render ô tự giãn độ cao + Tooltip
+        function renderCellWithTooltip(data) {
+            if (data === null || data === undefined || data === '') {
+                return '<span class="text-muted">-</span>';
+            }
+            
+            var val = String(data);
+            var safeVal = val.replace(/&/g, "&amp;")
+                             .replace(/</g, "&lt;")
+                             .replace(/>/g, "&gt;")
+                             .replace(/"/g, "&quot;")
+                             .replace(/'/g, "&#039;");
+
+            return `<div class="cell-multi-line" 
+                         data-toggle="tooltip" 
+                         data-html="true" 
+                         data-placement="auto" 
+                         title="${safeVal}">
+                        ${safeVal}
+                    </div>`;
+        }
+
+        // ==========================================
+        // 0. KHỞI TẠO TÍNH NĂNG TÌM KIẾM SELECT2 (AJAX) Lọc theo tên file gốc
+        // ==========================================
+        $('#filter_ten_file').select2({
+            theme: 'bootstrap4',
+            placeholder: '-- Gõ để tìm tên file --',
+            allowClear: true,
+            minimumInputLength: 2,
+            ajax: {
+                url: '/bc48/api/get-filter-file-goc',
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return {
+                        q: params.term
+                    };
+                },
+                processResults: function (data) {
+                    return {
+                        results: data.results
+                    };
+                },
+                cache: true
+            }
+        });
+
+        // ==========================================
+        // 1. KHỞI TẠO BẢNG HÀNG NGÀY (TAB 1)
+        // ==========================================
+        if ($('#dailyTable tbody tr').length > 0) {
+            var tableDaily = $('#dailyTable').DataTable({
+                "language": langConfig,
+                "pageLength": 15,
+                "dom": 'Bfrtip',
+                "buttons": [
+                    {
+                        extend: 'excelHtml5',
+                        text: '<i class="fas fa-file-excel mr-1"></i> Xuất Excel',
+                        className: 'btn btn-sm btn-success font-weight-bold shadow-sm',
+                        title: 'Thong_Ke_Chi_Tiet_Hang_Ngay_' + new Date().toISOString().slice(0,10)
+                    }
+                ]
+            });
+            tableDaily.buttons().container().appendTo('#daily-buttons-container');
+        }
+
+        // Sự kiện nút kích hoạt chạy Procedure hàng ngày (Tab 1)
+        $('#btn_run_procedure').on('click', function() {
+            var $btn = $(this);
+            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> Đang chạy...');
+
+            $.ajax({
+                url: '/bc48/api/run-procedure-daily',
+                type: 'POST',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        alert('🎉 Kích hoạt chạy Procedure thành công! Trang web sẽ tự động tải lại dữ liệu mới.');
+                        window.location.reload();
+                    } else {
+                        alert('❌ Có lỗi xảy ra từ hệ thống: ' + response.message);
+                        $btn.prop('disabled', false).html('<i class="fas fa-play mr-1"></i> Chạy ngay Procedure');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('❌ Không thể kết nối đến máy chủ hoặc lỗi xử lý lâu quá hạn.');
+                    $btn.prop('disabled', false).html('<i class="fas fa-play mr-1"></i> Chạy ngay Procedure');
+                }
+            });
+        });
+
+        // ==========================================
+        // 2. KHỞI TẠO BẢNG THỐNG KÊ THÁNG (TAB 2)
+        // ==========================================
+        if ($('#monthlyTable tbody tr').length > 0) {
+            var tableMonthly = $('#monthlyTable').DataTable({
+                "language": langConfig,
+                "pageLength": 12,
+                "order": [],
+                "dom": 'Bfrtip',
+                "buttons": [
+                    {
+                        extend: 'excelHtml5',
+                        text: '<i class="fas fa-file-excel mr-1"></i> Xuất Excel Tháng',
+                        className: 'btn btn-sm btn-danger font-weight-bold shadow-sm',
+                        title: 'Tong_Hop_Loi_Theo_Thang'
+                    }
+                ]
+            });
+            tableMonthly.buttons().container().appendTo('#monthly-buttons-container');
+        }
+
+        // Bảng Chi Tiết Theo Ngày Báo Cáo (Tab 2 - Phía dưới)
+        if ($('#monthlyDetailTable tbody tr').length > 0) {
+            var tableMonthlyDetail = $('#monthlyDetailTable').DataTable({ 
+                "language": langConfig, 
+                "pageLength": 15,
+                "order": []
+            });
+        }
+
+        // ==========================================
+        // 3. KHỞI TẠO MASTER TABLE (TAB 3 - SERVER-SIDE Processing)
+        // ==========================================
+        var tableMaster = $('#masterTable').DataTable({
+            "language": { "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Vietnamese.json" },
+            "processing": true,
+            "serverSide": true,
+            "pageLength": 10,
+            "searching": true,
+            "autoWidth": false,
+            "deferRender": true,
+            "ajax": {
+                "url": "/bc48/api/master-serverside",
+                "type": "GET",
+                "data": function(d) {
+                    d.f_loai_bc = $('#filter_loai_bc').val();
+                    d.f_thang_nam = $('#filter_thang_nam').val();
+                    d.f_ngay_bc = $('#filter_ngay_bc').val();
+                    d.f_ten_file = $('#filter_ten_file').val();
+                }
+            },
+            "columns": [
+                { "data": "id", "width": "50px", "className": "text-center" },
+                { "data": "ma_giao_dich", "width": "110px", "className": "text-center font-weight-bold" },
+                { "data": "loai_bc", "width": "65px", "className": "text-center text-info font-weight-bold" },
+                { "data": "thang_nam", "width": "75px", "className": "text-center" },
+                { 
+                    "data": "trang_thai", 
+                    "width": "90px",
+                    "className": "text-center",
+                    "render": function(data) { 
+                        return data ? '<span class="badge badge-danger px-2 py-1">'+data+'</span>' : ''; 
+                    }
+                },
+                { "data": "ma_loi", "width": "75px", "className": "text-center text-danger font-weight-bold" },
+                
+                // Cột Mô Tả Lỗi
+                { "data": "mota_loi", "width": "280px", "className": "text-left cell-truncate" },
+                
+                { "data": "NGAY_BAOCAO", "width": "85px", "className": "text-center" },
+                { "data": "HINHTHUC_GUI", "width": "70px", "className": "text-center" },
+                { "data": "SOLAN_GUI", "width": "55px", "className": "text-center text-success font-weight-bold" },
+                
+                // Cột Tên File Gốc
+                { "data": "ten_file_goc", "width": "160px", "className": "text-left cell-truncate text-secondary" }
+            ],
+            "createdRow": function(row, data, dataIndex) {
+                // Chỉ gán Tooltip cho các ô thực sự cần hiển thị (tránh các ô chứa Badge HTML)
+                $('td', row).each(function() {
+                    var $cell = $(this);
+                    // Bỏ qua cột chứa html badge
+                    if ($cell.find('.badge').length > 0) return;
+
+                    var text = $cell.text().trim();
+                    if (text && text !== '-') {
+                        $cell.attr({
+                            'data-toggle': 'tooltip',
+                            'data-placement': 'auto',
+                            'title': text
+                        });
+                    }
+                });
+            },
+            "drawCallback": function() {
+                // Hủy hoàn toàn các instance Tooltip cũ trước khi vẽ lại bảng (Chống kẹt tooltip ma)
+                $('[data-toggle="tooltip"]').tooltip('dispose');
+
+                // Khởi tạo lại Tooltip mới ra ngoài body
+                $('[data-toggle="tooltip"]').tooltip({
+                    template: '<div class="tooltip custom-tooltip" role="tooltip"><div class="arrow"></div><div class="tooltip-inner"></div></div>',
+                    boundary: 'window',
+                    trigger: 'hover',
+                    container: 'body'
+                });
+            }
+        });
+
+        // Sự kiện lọc động khi thay đổi các ô select/input
+        $('#filter_loai_bc, #filter_thang_nam, #filter_ngay_bc, #filter_ten_file').on('change', function() {
+            tableMaster.ajax.reload();
+        });
+
+        // Xóa bộ lọc Master - Đã fix hoàn toàn lỗi Reload kép
+        $('#btn_clear_filter').on('click', function() {
+            $('#filter_loai_bc').val('');
+            $('#filter_thang_nam').val('');
+            $('#filter_ngay_bc').val('');
+            
+            // Tắt lắng nghe sự kiện change trước khi reset Select2
+            $('#filter_ten_file').off('change').val(null).trigger('change.select2');
+            
+            // Bật lại sự kiện change sau khi đã reset xong
+            $('#filter_ten_file').on('change', function() {
+                tableMaster.ajax.reload();
+            });
+
+            // Reload lại DataTables 1 lần duy nhất
+            tableMaster.ajax.reload();
+        });
+
+        // Xuất file CSV từ Server theo điều kiện bộ lọc
+        $('#btn_export_csv').on('click', function() {
+            var f_loai_bc = $('#filter_loai_bc').val();
+            var f_thang_nam = $('#filter_thang_nam').val();
+            var f_ngay_bc = $('#filter_ngay_bc').val();
+            var f_ten_file = $('#filter_ten_file').val();
+            
+            var exportUrl = '/bc48/master/export-csv?f_loai_bc=' + encodeURIComponent(f_loai_bc) +
+                            '&f_thang_nam=' + encodeURIComponent(f_thang_nam) +
+                            '&f_ngay_bc=' + encodeURIComponent(f_ngay_bc)+
+                            '&f_ten_file=' + encodeURIComponent(f_ten_file);
+            window.location.href = exportUrl;
+        });
+
+
+        // ==========================================
+        // 4. KHỞI TẠO TAB THỐNG KÊ KẾT QUẢ DÒ TÌM LỖI (TAB 4 - SERVER-SIDE)
+        // ==========================================
+        var tableTkeLoiChiTiet = $('#tkeLoiChiTietTable').DataTable({
+            "language": langConfig,
+            "processing": true,
+            "serverSide": true,
+            "pageLength": 10,
+            "searching": true, 
+            "deferRender": true,
+            "ajax": {
+                "url": "/bc48/api/tke-loi-chi-tiet-serverside",
+                "type": "GET"
+            },
+            "columns": [
+                { "data": "loai_bc", "className": "text-center font-weight-bold text-info" },
+                { "data": "bang_goc_tim_thay", "className": "text-left text-secondary" },
+                { "data": "nam_thang", "className": "text-center font-weight-bold" },
+                { "data": "ma_loi_nhan", "className": "text-center text-danger font-weight-bold" },
+                { "data": "mota_loi_nhan", "className": "text-left text-wrap" },
+                { "data": "loai_tien", "className": "text-center text-dark" },
+                { 
+                    "data": "so_luong_file", 
+                    "className": "text-right font-weight-bold pr-3",
+                    "render": function(data) { return data ? Number(data).toLocaleString('en-US') : '0'; }
+                },
+                { 
+                    "data": "tong_so_dong_loi",  
+                    "className": "text-right font-weight-bold text-danger pr-3",
+                    "render": function(data) { return data ? Number(data).toLocaleString('en-US') : '0'; }
+                },
+                { 
+                    "data": "tong_sotien_loi", 
+                    "className": "text-right pr-3",
+                    "render": function(data) { return data ? Number(data).toLocaleString('en-US') : '0'; }
+                },
+                { 
+                    "data": "tong_quydoi_loi", 
+                    "className": "text-right font-weight-bold text-primary pr-3",
+                    "render": function(data) { return data ? Number(data).toLocaleString('en-US') : '0'; }
+                },
+                { "data": "ngay_cap_nhat", "className": "text-center text-secondary", "defaultContent": "" }
+            ]
+        });
+
+        // ĐỊNH NGHĨA SỰ KIỆN CLICK NÚT XUẤT CSV TỪ BACKEND ĐỂ LẤY TOÀN BỘ DỮ LIỆU
+        $('#btn_export_tke_loi_csv').on('click', function() {
+            var exportUrl = '/bc48/api/tke-loi-chi-tiet/export-csv';
+            window.location.href = exportUrl;
+        });
+
+        // Sửa lỗi co rúm layout cột khi chuyển tab trong DataTables Bootstrap
+        $('button[data-toggle="pill"]').on('shown.bs.tab', function (e) {
+            $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+        });
+
+        // XỬ LÝ NÚT LÀM MỚI TOÀN BỘ DỮ LIỆU HỆ THỐNG (FULL REFRESH)
+        $('#btn_run_full_refresh').on('click', function() {
+            if (!confirm('⚠️ CẢNH BÁO ĐẶC BIỆT: Hành động này sẽ xóa hoàn toàn dữ liệu (TRUNCATE) tại các bảng log/master và chạy lại quy trình thủ tục lõi từ đầu. Bạn có chắc chắn muốn thực hiện không?')) {
+                return;
+            }
+
+            var $btn = $(this);
+            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> Đang xử lý Full Refresh...');
+
+            $.ajax({
+                url: '/bc48/api/run-full-refresh',
+                type: 'POST',
+                dataType: 'json',
+                success: function(response) {
+                    alert('✅ Thành công: ' + response.message);
+                    window.location.reload();
+                },
+                error: function(xhr, status, error) {
+                    alert('❌ Đã xảy ra lỗi trong quá trình Refresh: ' + error);
+                    $btn.prop('disabled', false).html('<i class="fas fa-database mr-1"></i> Làm mới toàn bộ (Full Refresh)');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

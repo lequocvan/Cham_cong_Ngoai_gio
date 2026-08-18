@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-user-lock"></i> Phân quyền Menu Hệ thống</h5>
+            <span class="badge badge-light">Quy mô hệ thống: Hàng nghìn nhân viên</span>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <label class="small font-weight-bold">Tìm kiếm:</label>
+                    <input type="text" id="searchInput" class="form-control" placeholder="Mã NV hoặc Tên...">
+                </div>
+                <div class="col-md-4">
+                    <label class="small font-weight-bold">Đơn vị (Mã hiệu 2):</label>
+                    <select id="donViFilter" class="form-control">
+                        <option value="">-- Tất cả đơn vị --</option>
+                        {% for dv in don_vis %}
+                        <option value="{{ dv }}">{{ dv }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" onclick="searchUsers()">
+                        <i class="fas fa-search"></i> Tìm
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-container shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered table-hover mb-0" id="permTable">
+                        <thead>
+                            <tr>
+                                <th class="sticky-col first-col">Mã NV</th>
+                                <th class="sticky-col second-col">Họ tên</th>
+                                {% for slug in managed_slugs %}
+                                <th class="text-center small align-middle" style="min-width: 140px;">{{ slug.name }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                            <tr>
+                                <td colspan="{{ managed_slugs|length + 2 }}" class="text-center py-5 text-muted">
+                                    <i class="fas fa-search fa-3x mb-3"></i><br>
+                                    Nhập thông tin hoặc chọn đơn vị để hiển thị danh sách nhân viên
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const MANAGED_SLUGS = {{ managed_slugs|tojson }};
+
+function searchUsers() {
+    const q = $('#searchInput').val();
+    const don_vi = $('#donViFilter').val();
+    const tbody = $('#userTableBody');
+
+    const btn = $('#btnSearch');
+    // Disable nút tìm kiếm để tránh nhấn liên tục
+    btn.prop('disabled', true);
+    tbody.html(`<tr><td colspan="${MANAGED_SLUGS.length + 2}" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div><br><span class="mt-2 d-block">Đang truy vấn dữ liệu nhân viên...</span></td></tr>`);
+
+    $.get(`/api/search-users`, { q: q, don_vi: don_vi }, function(data) {
+        btn.prop('disabled', false);
+        if (data.length === 0) {
+            tbody.html(`<tr><td colspan="${MANAGED_SLUGS.length + 2}" class="text-center py-4">Không tìm thấy nhân viên nào</td></tr>`);
+            return;
+        }
+
+        let html = '';
+        data.forEach(user => {
+            html += `<tr data-ma-nv="${user.ma_nhan_vien}">
+                <td class="sticky-col first-col align-middle bg-light-column">${user.ma_nhan_vien}</td>
+                <td class="sticky-col second-col align-middle bg-light-column"><strong>${user.fullname}</strong></td>`;
+            
+            MANAGED_SLUGS.forEach(slug => {
+                const isChecked = user.permissions.includes(slug.code) ? 'checked' : '';
+                const isDisabled = user.is_admin ? 'disabled' : '';
+                const title = user.is_admin ? 'Admin có toàn quyền' : 'Click để bật/tắt quyền';
+                
+                // Tạo ID an toàn: thay thế cả gạch chéo và dấu chấm
+                const safeId = `sw_${user.ma_nhan_vien}_${slug.code.replace(/[\/\.]/g, '_')}`;
+                
+                html += `
+                <td class="text-center align-middle">
+                    <div class="custom-control custom-switch" title="${title}">
+                        <input type="checkbox" class="custom-control-input perm-checkbox" 
+                               id="${safeId}" 
+                               data-ma-nv="${user.ma_nhan_vien}" 
+                               data-slug="${slug.code}"
+                               ${isChecked} ${isDisabled}>
+                        <label class="custom-control-label" style="cursor:pointer" for="${safeId}"></label>
+                    </div>
+                </td>`;
+            });
+            html += `</tr>`;
+        });
+        tbody.html(html);
+    }).fail(function() {
+        btn.prop('disabled', false);
+        tbody.html(`<tr><td colspan="${MANAGED_SLUGS.length + 2}" class="text-center py-4 text-danger font-weight-bold">Lỗi kết nối máy chủ! Vui lòng thử lại sau.</td></tr>`);
+    });
+}
+
+// Xử lý sự kiện thay đổi checkbox
+$(document).on('change', '.perm-checkbox', function() {
+    const checkbox = $(this);
+    const parentRow = checkbox.closest('tr');
+    
+    // Hiệu ứng loading nhẹ cho checkbox
+    checkbox.prop('disabled', true);
+
+    const data = {
+        ma_nhan_vien: checkbox.data('ma-nv'),
+        menu_slug: checkbox.data('slug'),
+        status: checkbox.is(':checked')
+    };
+
+    $.ajax({
+        url: '/api/update-permission',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function(res) {
+            checkbox.prop('disabled', false);
+            if (!res.success) {
+                alert('Lỗi: ' + res.message);
+                checkbox.prop('checked', !data.status); // Hoàn tác nếu lỗi
+            }
+        },
+        error: function() {
+            checkbox.prop('disabled', false);
+            alert('Lỗi kết nối đến máy chủ!');
+            checkbox.prop('checked', !data.status); // Hoàn tác nếu lỗi
+        }
+    });
+});
+// Enter để tìm kiếm
+$('#searchInput').keypress(function (e) { if (e.which == 13) { searchUsers(); return false; } });
+</script>
+
+<style>
+    /* 1. Container: Giới hạn chiều cao và tạo khung đổ bóng nhẹ */
+    .table-responsive {
+        max-height: 75vh; /* Sử dụng vh để tự co giãn theo màn hình */
+        overflow: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        position: relative;
+    }
+
+    /* 2. Cấu trúc bảng: Quan trọng để giữ border khi dùng sticky */
+    #permTable {
+        border-collapse: separate; /* Bắt buộc để sticky border hoạt động */
+        border-spacing: 0;
+        width: 100%;
+    }
+
+    /* 3. Cố định dòng tiêu đề (Header) */
+    #permTable thead th {
+        position: sticky;
+        top: 0;
+        z-index: 25; /* Thấp hơn giao điểm nhưng cao hơn thân bảng */
+        background-color: #f8f9fa;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        padding: 12px 8px;
+        border-bottom: 2px solid #dee2e6;
+        box-shadow: inset 0 -1px 0 #dee2e6;
+    }
+
+    /* 4. Cố định cột (Sticky Columns) */
+    .sticky-col {
+        position: sticky;
+        z-index: 10;
+        background-color: #ffffff !important;
+    }
+
+    /* Cột Mã NV */
+    .first-col {
+        left: 0;
+        min-width: 100px;
+    }
+
+    /* Cột Họ tên: Thêm đổ bóng bên phải để tạo cảm giác chiều sâu khi cuộn ngang */
+    .second-col {
+        left: 100px; 
+        min-width: 200px;
+        border-right: 2px solid #dee2e6 !important;
+        box-shadow: 4px 0 5px -2px rgba(0,0,0,0.1); 
+    }
+
+    /* 5. Giao điểm giữa Header và Cột cố định */
+    #permTable thead th.sticky-col {
+        z-index: 40; /* Ưu tiên hiển thị cao nhất */
+        background-color: #f8f9fa !important;
+    }
+
+    /* 6. Fix lỗi border cho các ô */
+    #permTable td, #permTable th {
+        border-bottom: 1px solid #dee2e6;
+        border-right: 1px solid #dee2e6;
+        padding: 8px;
+        vertical-align: middle;
+    }
+
+    /* 7. Hiệu ứng Hover: Đồng bộ màu cho cả các ô đang được cố định */
+    #permTable tbody tr:hover td {
+        background-color: #f1f8ff !important; /* Màu xanh nhạt */
+        transition: background-color 0.1s ease;
+    }
+    
+    #permTable tbody tr:hover .sticky-col {
+        background-color: #f1f8ff !important;
+    }
+
+    /* 8. Tùy chỉnh thanh cuộn (Scrollbar) cho hiện đại */
+    .table-responsive::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f8f9fa;
+    }
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 10px;
+    }
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* 9. Tinh chỉnh Switch phân quyền */
+    .custom-switch {
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        padding-left: 2.25rem;
+    }
+    .custom-control-input:checked ~ .custom-control-label::before {
+        border-color: #28a745;
+        background-color: #28a745;
+    }
+</style>
+{% endblock %}

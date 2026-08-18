@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}Quản lý Danh mục Nhóm hồ sơ{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb bg-white shadow-sm border-left-primary">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}"><i class="fas fa-home"></i> Trang chủ</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Quản trị Danh mục nhóm hồ sơ</li>
+        </ol>
+    </nav>
+
+    <div class="card shadow mb-4 border-0">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center bg-white border-bottom">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="fas fa-layer-group mr-2"></i>DANH MỤC NHÓM HỒ SƠ
+            </h6>
+            <button class="btn btn-primary btn-sm rounded-pill shadow-sm px-3" data-toggle="modal" data-target="#modalThemNhom" onclick="prepareAdd()">
+                <i class="fas fa-plus-circle mr-1"></i> Thêm nhóm mới
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="tableNhomHoSo" width="100%" cellspacing="0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th width="5%">ID</th>
+                            <th width="30%">Tên nhóm hồ sơ</th>
+                            <th width="35%">Mô tả</th>
+                            <th width="15%">Trạng thái</th>
+                            <th width="15%" class="text-center">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for nhom in ds_nhom %}
+                        <tr id="row-nhom-{{ nhom.id }}" class="{{ 'table-light text-muted italic' if not nhom.trang_thai }}">
+                            <td class="align-middle text-center">{{ nhom.id }}</td>
+                            <td class="align-middle font-weight-bold text-dark">{{ nhom.ten_nhom_ho_so }}</td>
+                            <td class="align-middle">{{ nhom.mo_ta or '<i class="text-muted small">Không có mô tả</i>' | safe }}</td>
+                            <td class="align-middle">
+                                <div class="custom-control custom-switch">
+                                    <input type="checkbox" class="custom-control-input btn-toggle-status" 
+                                           id="status-{{ nhom.id }}" 
+                                           data-id="{{ nhom.id }}" 
+                                           data-type="nhom"
+                                           {{ 'checked' if nhom.trang_thai }}>
+                                    <label class="custom-control-label font-weight-normal cursor-pointer" for="status-{{ nhom.id }}">
+                                        <span class="status-text">{{ 'Đang sử dụng' if nhom.trang_thai else 'Ngừng hoạt động' }}</span>
+                                    </label>
+                                </div>
+                            </td>
+                            <td class="text-center align-middle">
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-info mr-1 btn-edit-nhom" 
+                                            data-id="{{ nhom.id }}" 
+                                            data-ten="{{ nhom.ten_nhom_ho_so }}"
+                                            data-mota="{{ nhom.mo_ta or '' }}"
+                                            title="Chỉnh sửa">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalThemNhom" tabindex="-1" role="dialog" aria-labelledby="modalTitle" aria-hidden="true">
+    <div class="modal-dialog border-0" role="document">
+        <div class="modal-content border-0 shadow-lg">
+            <form id="formThemNhom">
+                <div class="modal-header bg-primary text-white font-weight-bold">
+                    <h5 class="modal-title" id="modalTitle"><i class="fas fa-folder-plus mr-2"></i>Thêm nhóm hồ sơ mới</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body bg-light">
+                    <input type="hidden" id="edit_id" name="edit_id">
+                    
+                    <div class="form-group">
+                        <label class="font-weight-bold text-dark small text-uppercase">Tên nhóm hồ sơ <span class="text-danger">*</span></label>
+                        <input type="text" name="ten_nhom_ho_so" id="inputTenNhom" class="form-control border-primary" placeholder="VD: Hồ sơ Khen thưởng" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="font-weight-bold text-dark small text-uppercase">Mô tả chi tiết:</label>
+                        <textarea name="mo_ta" id="inputMoTa" class="form-control" rows="3" placeholder="Nhập ghi chú..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-dismiss="modal" onclick="$('#modalThemNhom').modal('hide')">Hủy</button>
+                    <button type="submit" id="btnSaveNhom" class="btn btn-primary px-4 rounded-pill shadow-sm">Lưu thông tin</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Hàm chuẩn bị modal khi click "Thêm mới"
+    function prepareAdd() {
+        $('#edit_id').val('');
+        $('#formThemNhom')[0].reset(); // Reset form chuẩn hơn
+        $('#modalTitle').html('<i class="fas fa-folder-plus mr-2"></i>Thêm nhóm hồ sơ mới');
+        $('#btnSaveNhom').text('Lưu thông tin').prop('disabled', false).removeClass('btn-info').addClass('btn-primary');
+    }
+
+    $(document).ready(function() {
+        // 1. Khởi tạo DataTable (Sửa lỗi ngôn ngữ)
+        if ($.fn.DataTable.isDataTable('#tableNhomHoSo')) {
+            $('#tableNhomHoSo').DataTable().destroy();
+        }
+        var table = $('#tableNhomHoSo').DataTable({
+            "language": {
+                "sProcessing": "Đang xử lý...",
+                "sLengthMenu": "Xem _MENU_ mục",
+                "sZeroRecords": "Không tìm thấy dữ liệu",
+                "sInfo": "Hiển thị _START_ đến _END_ trong _TOTAL_ mục",
+                "sSearch": "Tìm kiếm:",
+                "oPaginate": {
+                    "sFirst": "Đầu", "sPrevious": "Trước", "sNext": "Tiếp", "sLast": "Cuối"
+                }
+            },
+            "pageLength": 10,
+            "order": [[0, "desc"]],
+            "columnDefs": [{ "orderable": false, "targets": [3, 4] }]
+        });
+
+        // 2. Click nút Sửa
+        $(document).on('click', '.btn-edit-nhom', function() {
+            const id = $(this).data('id');
+            const ten = $(this).data('ten');
+            const mota = $(this).data('mota');
+
+            $('#edit_id').val(id);
+            $('#inputTenNhom').val(ten);
+            $('#inputMoTa').val(mota);
+            
+            $('#modalTitle').html('<i class="fas fa-edit mr-2"></i>Cập nhật nhóm hồ sơ');
+            $('#btnSaveNhom').text('Cập nhật thay đổi').prop('disabled', false).removeClass('btn-primary').addClass('btn-info');
+            $('#modalThemNhom').modal('show');
+        });
+
+        // 3. AJAX Submit (Chống treo và xử lý đóng modal)
+        $('#formThemNhom').on('submit', function(e) {
+            e.preventDefault();
+            const $btn = $('#btnSaveNhom');
+            const editId = $('#edit_id').val();
+            const url = editId ? `/api/admin/sua-nhom-ho-so/${editId}` : '/api/admin/them-nhom-ho-so';
+
+            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Đang xử lý...');
+
+            $.ajax({
+                url: url,
+                type: 'POST',
+                data: $(this).serialize(),
+                success: function(res) {
+                    if(res.status === 'success') {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'success', title: 'Thành công!', text: res.message,
+                                timer: 1300, showConfirmButton: false
+                            }).then(() => location.reload());
+                        } else {
+                            alert(res.message);
+                            location.reload();
+                        }
+                    } else {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire('Thông báo', res.message, 'warning');
+                        } else { alert(res.message); }
+                        $btn.prop('disabled', false).text('Lưu thông tin');
+                    }
+                },
+                error: function(xhr) {
+                    $btn.prop('disabled', false).text('Lưu thông tin');
+                    let msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Lỗi kết nối server';
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire('Lỗi hệ thống!', msg, 'error');
+                    } else { alert('Lỗi: ' + msg); }
+                }
+            });
+        });
+
+        // 4. Bật/Tắt trạng thái
+        $(document).on('change', '.btn-toggle-status', function() {
+            const id = $(this).data('id');
+            const type = $(this).data('type');
+            const $checkbox = $(this);
+            const $label = $checkbox.siblings('label').find('.status-text');
+            const $row = $(`#row-nhom-${id}`);
+
+            $.ajax({
+                url: `/api/admin/toggle-status/${type}/${id}`,
+                type: 'POST',
+                success: function(res) {
+                    if(res.status === 'success') {
+                        if(res.new_status) {
+                            $label.text('Đang sử dụng');
+                            $row.removeClass('table-light text-muted italic');
+                        } else {
+                            $label.text('Ngừng hoạt động');
+                            $row.addClass('table-light text-muted italic');
+                        }
+                    }
+                },
+                error: function() {
+                    $checkbox.prop('checked', !$checkbox.prop('checked'));
+                    alert('Không thể kết nối máy chủ.');
+                }
+            });
+        });
+    });
+</script>
+
+<style>
+    .cursor-pointer { cursor: pointer; }
+    .italic { font-style: italic; opacity: 0.8; }
+    .table-light.text-muted td { color: #858796 !important; background-color: #f8f9fc !important; }
+    .border-left-primary { border-left: 0.25rem solid #4e73df !important; }
+</style>
+{% endblock %}

@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    :root {
+        --col-ma-nv: 80px;
+        --col-ho-ten: 180px;
+        --col-data: 90px;
+        --primary-color: #4e73df;
+    }
+
+    /* 1. CẤU TRÚC BẢNG TỔNG THỂ */
+    #dataTableChot {
+        table-layout: fixed !important;
+        width: auto !important;
+        border-collapse: separate !important;
+        border-spacing: 0;
+        font-size: 11px;
+    }
+
+    /* 2. CỐ ĐỊNH TIÊU ĐỀ & CỘT */
+    .dataTables_scrollHead {
+        position: sticky !important;
+        top: 0;
+        z-index: 1050 !important;
+        background-color: #f8f9fc !important;
+    }
+
+    /* Định dạng độ rộng cột */
+    #dataTableChot th:nth-child(1), #dataTableChot td:nth-child(1) { width: var(--col-ma-nv) !important; text-align: center; }
+    #dataTableChot th:nth-child(2), #dataTableChot td:nth-child(2) { 
+        width: var(--col-ho-ten) !important; 
+        white-space: nowrap !important; 
+        overflow: hidden; 
+        text-overflow: ellipsis; 
+    }
+    #dataTableChot th:nth-child(n+3), #dataTableChot td:nth-child(n+3) { width: var(--col-data) !important; }
+
+    /* 3. TRÌNH BÀY PHÂN CỤM */
+    .border-month-start { border-left: 2px solid #b7b9cc !important; }
+    
+    /* Highlight cột tiền (Cột thứ 3 trong mỗi cụm tháng) */
+    #dataTableChot td:nth-child(3n+5) { background-color: #fffaf0 !important; font-weight: 500; }
+
+    .bg-total-year { background-color: #f1f3f9 !important; font-weight: bold; }
+    .bg-final-money { background-color: #fff0f0 !important; color: #e74a3b !important; font-weight: bold; }
+
+    /* Viền ngăn cách vùng cố định */
+    .DTFC_LeftBodyWrapper, .DTFC_LeftHeadWrapper {
+        border-right: 3px solid var(--primary-color) !important;
+    }
+
+    .table-responsive { max-height: 70vh; overflow: auto; }
+    .form-inline .form-control { font-size: 0.75rem; }
+</style>
+
+<div class="container-fluid mt-3">
+    <div class="card shadow mb-4">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center bg-white">
+            <h6 class="m-0 font-weight-bold text-primary small">
+                <i class="fas fa-money-check-alt mr-2"></i>KẾT QUẢ NGOÀI GIỜ NĂM {{ year }} - {{ ten_phong_hien_tai }}
+            </h6>
+            
+            <form class="form-inline" method="GET" id="filterForm">
+                <input type="number" name="year" class="form-control mr-2 shadow-sm" value="{{ year }}" style="width: 75px;" onchange="this.form.submit()">
+
+                <div class="input-group input-group-sm mr-2 shadow-sm">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text bg-light"><i class="fas fa-university"></i></span>
+                    </div>
+                    <select name="ma_hieu_2" class="form-control" onchange="this.form.submit()">
+                        {% if is_system_admin %}
+                            <option value="">-- Tất cả Đơn vị --</option>
+                            {% for dv in don_vis_list %}
+                                <option value="{{ dv }}" {% if dv == current_don_vi %}selected{% endif %}>{{ dv }}</option>
+                            {% endfor %}
+                        {% else %}
+                            <option value="{{ current_don_vi }}">{{ current_don_vi }}</option>
+                        {% endif %}
+                    </select>
+                </div>
+
+                <div class="input-group input-group-sm mr-2 shadow-sm">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text bg-light"><i class="fas fa-building"></i></span>
+                    </div>
+                    {% if is_admin_or_th %}
+                        <select name="ma_phong_ban" class="form-control" onchange="this.form.submit()">
+                            <option value="all" {% if current_pb == "all" %}selected{% endif %}>-- Tất cả phòng --</option>
+                            {% for pb in phong_bans %}
+                                <option value="{{ pb.id }}" {% if current_pb|string == pb.id|string %}selected{% endif %}>{{ pb.ten_phong_ban }}</option>
+                            {% endfor %}
+                        </select>
+                    {% else %}
+                        <input type="text" class="form-control" value="{{ ten_phong_hien_tai }}" readonly style="width: 150px;">
+                        <input type="hidden" name="ma_phong_ban" value="{{ current_pb }}">
+                    {% endif %}
+                </div>
+
+                <div class="input-group input-group-sm mr-2 shadow-sm">
+                    <input type="text" name="ma_nhan_vien" class="form-control" placeholder="Mã hoặc Tên NV..." value="{{ current_nv }}">
+                    <div class="input-group-append">
+                        <button type="submit" class="btn btn-primary px-3"><i class="fas fa-search"></i></button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <div class="card-body p-2">
+            <div class="mb-2 d-flex justify-content-between align-items-center">
+                <div>
+                    {% if is_admin_or_th %}
+                    <button type="button" class="btn btn-danger btn-sm shadow-sm mr-2" id="btnSyncAll">
+                        <i class="fas fa-sync-alt"></i> Tính toán & Chốt dữ liệu {{ year }}
+                    </button>
+                    {% endif %}
+                    <button id="exportExcelCustom" class="btn btn-success btn-sm shadow-sm">
+                        <i class="fas fa-file-excel mr-1"></i> Xuất file báo cáo
+                    </button>
+                </div>
+                <div class="badge badge-info p-2 shadow-sm small">
+                    <i class="fas fa-info-circle mr-1"></i> Đơn vị: VNĐ | Giờ làm tròn 1 chữ số
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTableChot" width="100%">
+                    <thead class="thead-light text-center">
+                        <tr>
+                            <th rowspan="2" class="align-middle">Mã NV</th>
+                            <th rowspan="2" class="align-middle">Họ Tên</th>
+                            {% for i in range(1, 13) %}
+                            <th colspan="3" class="border-month-start align-middle">Tháng {{ i }}</th>
+                            {% endfor %}
+                            <th colspan="4" class="border-month-start bg-warning text-white align-middle">TỔNG CỘNG</th>
+                        </tr>
+                        <tr class="bg-light" style="font-size: 0.65rem;">
+                            {% for i in range(1, 13) %}
+                            <th class="border-month-start">Tiền Thường</th>
+                            <th>Tiền Nghỉ</th>
+                            <th>Tiền Lễ</th>
+                            {% endfor %}
+                            <th class="border-month-start bg-total-year">Giờ Thường</th>
+                            <th class="bg-total-year">Giờ Nghỉ</th>
+                            <th class="bg-total-year">Giờ Lễ</th>
+                            <th class="bg-danger text-white">TỔNG TIỀN</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in data %}
+                        <tr>
+                            <td class="font-weight-bold text-center text-primary">{{ row.ma_nhan_vien }}</td>
+                            <td class="text-truncate" title="{{ row.ho_ten }}">{{ row.ho_ten }}</td>
+                            {% for m in row.months %}
+                            <td class="border-month-start text-right">{{ "{:,.0f}".format(m.tien_thuong) if m.tien_thuong != 0 else '-' }}</td>
+                            <td class="text-right">{{ "{:,.0f}".format(m.tien_nghi) if m.tien_nghi != 0 else '-' }}</td>
+                            <td class="text-right">{{ "{:,.0f}".format(m.tien_le) if m.tien_le != 0 else '-' }}</td>
+                            {% endfor %}
+                            <td class="border-month-start text-center font-weight-bold">{{ "%.1f"|format(row.tong_gio_thuong) }}</td>
+                            <td class="text-center font-weight-bold">{{ "%.1f"|format(row.tong_gio_nghi) }}</td>
+                            <td class="text-center font-weight-bold">{{ "%.1f"|format(row.tong_gio_le) }}</td>
+                            <td class="font-weight-bold text-danger text-right bg-final-money">{{ "{:,.0f}".format(row.tong_tien_nam) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        var table = $('#dataTableChot').DataTable({
+            "scrollX": true,
+            "scrollY": "60vh",
+            "scrollCollapse": true,
+            "paging": true,
+            "pageLength": 50,
+            "autoWidth": false,
+            "fixedColumns": {
+                "leftColumns": 2
+            },
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Vietnamese.json"
+            },
+            "dom": 'rtipB',
+            "buttons": [{
+                extend: 'excelHtml5',
+                title: 'Ket-qua-ngoai-gio-nam-{{ year }}',
+                className: 'd-none',
+                exportOptions: { columns: ':visible' }
+            }]
+        });
+
+        // Tự động căn chỉnh lại các cột khi hiển thị
+        function adjustTable() {
+            table.columns.adjust();
+            if (table.fixedColumns()) {
+                table.fixedColumns().relayout();
+            }
+        }
+
+        $(window).on('resize', adjustTable);
+        setTimeout(adjustTable, 500);
+
+        // Nút xuất Excel
+        $('#exportExcelCustom').on('click', function() {
+            table.button(0).trigger();
+        });
+
+        // Nút Tính toán dữ liệu
+        $('#btnSyncAll').on('click', function() {
+            const year = "{{ year }}";
+            const confirmMsg = `HỆ THỐNG SẼ THỰC HIỆN:\n1. Sao lưu dữ liệu hiện tại.\n2. Tổng hợp lại số giờ công.\n3. Tính toán lại tiền theo lương V1 năm ${year}.\n\nBạn có chắc chắn muốn tiếp tục không?`;
+
+            if (confirm(confirmMsg)) {
+                $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Đang xử lý...');
+                
+                // CÁCH SỬA: 
+                // 1. Dùng url_for với một giá trị giả định (ví dụ 9999)
+                // 2. Sau đó dùng .replace để thay 9999 bằng biến 'year' của Javascript
+                let baseUrl = "{{ url_for('kich_hoat_tinh_ngoai_gio', year=9999) }}";
+                window.location.href = baseUrl.replace('9999', year);
+            }
+        });
+    });
+</script>
+{% endblock %}

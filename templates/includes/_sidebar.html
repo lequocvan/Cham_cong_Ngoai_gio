@@ -1,0 +1,68 @@
+<aside class="sidebar d-flex flex-column" id="sidebar">
+    <div class="p-3 d-flex align-items-center justify-content-between border-bottom border-secondary">
+        <a href="/" class="text-white text-decoration-none h5 mb-0 font-weight-bold">
+            <i class="bi bi-shield-lock-fill text-primary me-2"></i>Hệ Thống
+        </a>
+    </div>
+
+    <div class="py-3 flex-grow-1 overflow-auto">
+        <div class="px-3 mb-2 text-uppercase text-muted style-small" style="font-size: 0.75rem;">Tổng quan</div>
+        <ul class="nav nav-pills flex-column mb-3">
+            <li class="nav-item">
+                <a href="{{ url_for('index') }}" class="nav-link active">
+                    <i class="bi bi-speedometer2"></i> Trang chủ
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('attend') }}" class="nav-link">
+                    <i class="bi bi-calendar-check"></i> Chấm công
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('payslip') }}" class="nav-link">
+                    <i class="bi bi-cash-stack"></i> Bảng lương
+                </a>
+            </li>
+        </ul>
+
+        {% if current_user.is_authenticated and current_user.is_admin %}
+        <div class="px-3 mb-2 text-uppercase text-muted style-small" style="font-size: 0.75rem;">Quản trị</div>
+        <ul class="nav nav-pills flex-column mb-3">
+            <li class="nav-item">
+                <a href="{{ url_for('admin_users') }}" class="nav-link">
+                    <i class="bi bi-people"></i> Quản lý nhân sự
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('admin_attendance') }}" class="nav-link">
+                    <i class="bi bi-clock-history"></i> Duyệt chấm công
+                </a>
+            </li>
+        </ul>
+        {% endif %}
+
+        <div class="px-3 mb-2 text-uppercase text-muted style-small" style="font-size: 0.75rem;">Cộng đồng</div>
+        <ul class="nav nav-pills flex-column">
+            <li class="nav-item">
+                <a href="{{ url_for('forum') }}" class="nav-link">
+                    <i class="bi bi-chat-square-dots"></i> Diễn đàn nội bộ
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <!-- User Footer Profile -->
+    <div class="p-3 border-top border-secondary">
+        <div class="dropdown">
+            <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" id="dropdownUser1" data-bs-toggle="dropdown" aria-expanded="false">
+                <img src="https://via.placeholder.com/32" alt="" width="32" height="32" class="rounded-circle me-2">
+                <strong>{{ current_user.username if current_user.is_authenticated else 'Khách' }}</strong>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-dark text-small shadow" aria-labelledby="dropdownUser1">
+                <li><a class="dropdown-item" href="#">Hồ sơ</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="{{ url_for('logout') }}">Đăng xuất</a></li>
+            </ul>
+        </div>
+    </div>
+</aside>

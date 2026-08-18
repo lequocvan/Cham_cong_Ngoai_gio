@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Đăng nhập hệ thống{% endblock %}
+
+{% block content %}
+<style>
+    .login-container {
+        max-width: 400px;
+        margin: 80px auto;
+        padding: 30px;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    .login-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    .login-header i {
+        font-size: 50px;
+        color: #2c3e50;
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 600;
+        color: #555;
+    }
+    .form-control {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        box-sizing: border-box;
+    }
+    .btn-login {
+        width: 100%;
+        padding: 12px;
+        background-color: #2c3e50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+    .btn-login:hover {
+        background-color: #34495e;
+    }
+    .login-footer {
+        margin-top: 20px;
+        text-align: center;
+        font-size: 13px;
+        color: #777;
+    }
+</style>
+
+<div class="login-container">
+    <div class="login-header">
+        <i class="fas fa-user-shield"></i>
+        <h2 style="margin-top: 10px;">HỆ THỐNG NỘI BỘ</h2>
+        <p class="text-muted">Vui lòng đăng nhập để tiếp tục</p>
+    </div>
+
+    <form method="POST">
+        <div class="form-group">
+            <label for="username">Mã nhân viên</label>
+            <input type="text" name="username" id="username" class="form-control" placeholder="Nhập mã nhân viên..." required autofocus>
+        </div>
+        <div class="form-group">
+            <label for="password">Mật khẩu</label>
+            <input type="password" name="password" id="password" class="form-control" placeholder="Nhập mật khẩu..." required>
+        </div>
+        <button type="submit" class="btn-login">ĐĂNG NHẬP</button>
+    </form>
+
+    <div class="login-footer">
+        <small>Mật khẩu mặc định là Mã nhân viên</small>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Ép bảng theo chiều rộng cố định */
+    #tbl_tra_cuu_sao_ke {
+        table-layout: fixed !important;
+        width: 100% !important;
+    }
+
+    /* Đảm bảo ô dữ liệu xuống dòng */
+    #tbl_tra_cuu_sao_ke td {
+        word-wrap: break-word !important;
+        white-space: normal !important;
+        vertical-align: middle !important;
+    }
+
+    /* Cột Tên file là cột thứ 2 */
+    #tbl_tra_cuu_sao_ke th:nth-child(2),
+    #tbl_tra_cuu_sao_ke td:nth-child(2) {
+        width: 250px !important;
+        min-width: 250px !important;
+    }
+</style>
+
+<div class="container-fluid mt-4">
+    <h2 class="mb-4"><i class="fas fa-chart-pie text-success"></i> Tổng số; Chi tiết ngày; Sao kê chi tiết GLA của 4 loại báo cáo</h2>
+
+    <ul class="nav nav-tabs mb-3" id="mainTabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" data-toggle="tab" href="#tab-tong-quan" role="tab"><i class="fas fa-chart-line"></i> Tổng quan</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-toggle="tab" href="#tab-chi-tiet" role="tab"><i class="fas fa-list-ul"></i> Chi tiết theo ngày</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-toggle="tab" href="#tab-tra-cuu-sao-ke" role="tab"><i class="fas fa-search-dollar"></i> Sao kê chi tiết GLA</a>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="tab-tong-quan" role="tabpanel">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-light"><h6 class="m-0 text-dark"><i class="fas fa-filter"></i> Bộ lọc tiêu chí</h6></div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-2"><label class="font-weight-bold">Tháng:</label><select id="filter_thang" class="form-control"><option value="">-- Tất cả --</option>{% for t in matrix | map(attribute='Thang') | unique | sort(reverse=True) %}<option value="{{ t }}">{{ t }}</option>{% endfor %}</select></div>
+                        <div class="col-md-2"><label class="font-weight-bold">Loại Báo Cáo:</label><select id="filter_loai" class="form-control"><option value="">-- Tất cả --</option>{% for l in matrix | map(attribute='Loại Báo Cáo') | unique | sort %}<option value="{{ l }}">{{ l }}</option>{% endfor %}</select></div>
+                        <div class="col-md-2"><label class="font-weight-bold">Hình thức:</label><select id="filter_hinh_thuc" class="form-control"><option value="">-- Tất cả --</option>{% for ht in hinh_thuc_list %}<option value="{{ ht }}">{{ ht }}</option>{% endfor %}</select></div>
+                        <div class="col-md-2"><label class="font-weight-bold">Từ ngày:</label><input type="date" id="filter_tu_ngay" class="form-control"></div>
+                        <div class="col-md-2"><label class="font-weight-bold">Đến ngày:</label><input type="date" id="filter_den_ngay" class="form-control"></div>
+                        <div class="col-md-2 d-flex align-items-end"><button type="button" id="btn_clear_filter" class="btn btn-secondary w-100"><i class="fas fa-undo"></i> Xóa lọc</button></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-xl-8">
+                    <div class="card shadow">
+                        <div class="card-header bg-primary text-white"><h5><i class="fas fa-table"></i> Ma Trận Tổng Hợp</h5></div>
+                        <div class="card-body table-responsive">
+                            <table id="tbl_matrix" class="table table-bordered table-striped w-100">
+                                <thead><tr><th>Tháng</th><th>Loại Báo Cáo</th><th>GLD</th><th>GLA</th><th>GBS</th><th>Khác</th><th>Tổng</th><th>Cập nhật</th></tr></thead>
+                                <tbody>
+                                    {% for row in matrix %}
+                                    <tr data-ngay="{{ row['NgayBaoCao'] }}">
+                                        <td>{{ row['Thang'] }}</td>
+                                        <td><span class="badge badge-secondary">{{ row['Loại Báo Cáo'] }}</span></td>
+                                        <td class="text-right">{{ "{:,}".format(row['Lan dau (GLD)'] | int) }}</td>
+                                        <td class="text-right">{{ "{:,}".format(row['Gui lai (GLA)'] | int) }}</td>
+                                        <td class="text-right">{{ "{:,}".format(row['Bo sung (GBS)'] | int) }}</td>
+                                        <td class="text-right">{{ "{:,}".format(row['Chua phan loai'] | int) }}</td>
+                                        <td class="font-weight-bold text-right">{{ "{:,}".format(row['Tong Giao Dich'] | int) }}</td>
+                                        <td><small>{{ row['CapNhatCuoi'] }}</small></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-4">
+                    <div class="card shadow">
+                        <div class="card-header bg-success text-white"><h5><i class="fas fa-chart-bar"></i> Tỷ Lệ Đóng Góp</h5></div>
+                        <div class="card-body table-responsive">
+                            <table id="tbl_ratio" class="table table-bordered table-hover w-100">
+                                <thead><tr><th>Tháng</th><th>Loại</th><th>Hình Thức</th><th>Tổng</th><th>Tỷ Lệ</th></tr></thead>
+                                <tbody>
+                                    {% for row in ratio %}
+                                    <tr><td>{{ row['Thang'] }}</td><td>{{ row['Loại Báo Cáo'] }}</td><td>{{ row['Hinh Thuc Gui'] }}</td><td class="text-right">{{ "{:,}".format(row['Tong So Giao Dich'] | int) }}</td><td class="text-center">{{ row['Ty Le (%)'] }}%</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-chi-tiet" role="tabpanel">
+            <div class="card shadow">
+                <div class="card-header bg-dark text-white"><h5><i class="fas fa-list-alt"></i> Dữ liệu chi tiết theo ngày</h5></div>
+                <div class="card-body table-responsive">
+                    <table id="tbl_details" class="table table-bordered table-striped w-100">
+                        <thead class="thead-light">
+                            <tr><th>Ngày</th><th>Tháng</th><th>Loại Báo Cáo</th><th>Hình thức</th><th>Số lượng</th><th>Thời điểm</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for row in details %}
+                            <tr>
+                                <td>{{ row['Ngay'] }}</td>
+                                <td>{{ row['Thang'] }}</td>
+                                <td>{{ row['Loai'] }}</td>
+                                <td>{{ row['HinhThuc'] }}</td>
+                                <td class="text-right">{{ "{:,}".format(row['SoLuong'] | default(0) | int) }}</td>
+                                <td>{{ row['ThoiDiem'] }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-tra-cuu-sao-ke" role="tabpanel">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white"><h5><i class="fas fa-search"></i> Tra cứu Sao kê chi tiết</h5></div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-2">
+                            <select id="s_hinh_thuc" class="form-control">
+                                <option value="">-- Hình thức --</option>
+                                <option value="GLA" selected>GLA</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select id="s_loai" class="form-control">
+                                <option value="">-- Loại Báo Cáo --</option>
+                                <option value="ctr">ctr</option>
+                                <option value="dwt">dwt</option>
+                                <option value="eft">eft</option>
+                                <option value="ptr">ptr</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2"><input type="date" id="s_tu_ngay" class="form-control" title="Từ ngày"></div>
+                        <div class="col-md-2"><input type="date" id="s_den_ngay" class="form-control" title="Đến ngày"></div>
+                        <div class="col-md-2"><button id="btn_truy_van" class="btn btn-success w-100"><i class="fas fa-filter"></i> Truy vấn</button></div>
+                        <button id="btn_xoa_loc" class="btn btn-secondary flex-fill"><i class="fas fa-undo"></i> Xóa lọc</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="tbl_tra_cuu_sao_ke" class="table table-bordered table-striped w-100">
+                            <thead>
+                                <tr>
+                                    <th>Hình thức</th><th>Tên file</th><th>Mã CN</th><th>Mã GD</th><th>Thời điểm</th>
+                                    <th>Kiểu KH</th><th>Tên KH</th><th>Ngày sinh</th><th>Quốc tịch</th><th>Địa chỉ</th>
+                                    <th>Số GT</th><th>Loại tiền</th><th>Số tiền</th><th>Quy đổi</th><th>Lý do</th>
+                                </tr>
+                            </thead>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.datatables.net/buttons/1.7.0/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/1.7.0/js/buttons.print.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    var currentHinhThucFilter = "";
+    var hinhThucColumnMap = { 'GLD': 2, 'GLA': 3, 'GBS': 4 };
+
+    var tableMatrix = $('#tbl_matrix').DataTable({
+        "order": [[0, "desc"], [1, "asc"]],
+        "drawCallback": function(settings) {
+            var api = this.api();
+            $(api.rows({page:'current'}).nodes()).find('td').removeClass('bg-warning text-dark font-weight-bold');
+            var colIdx = hinhThucColumnMap[currentHinhThucFilter];
+            if (colIdx !== undefined) {
+                $(api.column(colIdx, {page: 'current'}).nodes()).addClass('bg-warning text-dark font-weight-bold');
+            }
+        }
+    });
+
+    var tableRatio = $('#tbl_ratio').DataTable({ "order": [[0, "desc"], [1, "asc"]] });
+    var tableDetails = $('#tbl_details').DataTable({ "order": [[0, "desc"]] });
+
+    // Lọc nâng cao cho bảng tĩnh
+    $.fn.dataTable.ext.search.push(function(settings, data, rowIdx) {
+        if (settings.nTable.id !== 'tbl_matrix' && settings.nTable.id !== 'tbl_ratio') return true;
+        var min = $('#filter_tu_ngay').val().replace(/-/g, "");
+        var max = $('#filter_den_ngay').val().replace(/-/g, "");
+        var ngay = $(settings.aoData[rowIdx].nTr).attr('data-ngay');
+        if (!ngay) return true;
+        return (parseInt(ngay) >= (min ? parseInt(min) : 0) && parseInt(ngay) <= (max ? parseInt(max) : 99991231));
+    });
+
+    $('#filter_thang, #filter_loai, #filter_hinh_thuc, #filter_tu_ngay, #filter_den_ngay').on('change', function() {
+        var vT = $('#filter_thang').val(), vL = $('#filter_loai').val();
+        currentHinhThucFilter = $('#filter_hinh_thuc').val();
+        tableMatrix.column(0).search(vT).column(1).search(vL).draw();
+        tableRatio.column(0).search(vT).column(1).search(vL).column(2).search(currentHinhThucFilter).draw();
+        tableDetails.column(1).search(vT).column(2).search(vL).draw();
+    });
+
+    $('#btn_clear_filter').on('click', function() {
+        $('select, input').val(''); currentHinhThucFilter = "";
+        tableMatrix.search('').columns().search('').draw();
+        tableRatio.search('').columns().search('').draw();
+        tableDetails.search('').columns().search('').draw();
+    });
+
+    // --- LOGIC TAB TRA CỨU SAO KÊ (SERVER-SIDE) ---
+    // LOGIC TAB TRA CỨU SAO KÊ
+    var tableSearch = null;
+    $('a[href="#tab-tra-cuu-sao-ke"]').on('shown.bs.tab', function (e) {
+        if (tableSearch !== null) {
+            tableSearch.columns.adjust();
+            return;
+        }
+
+        tableSearch = $('#tbl_tra_cuu_sao_ke').DataTable({
+            "processing": true,
+            "serverSide": true, 
+            "ajax": {
+                "url": "/bc48/sao-ke-gla",
+                "type": "GET",
+                "data": function (d) {
+                    d.hinh_thuc = $('#s_hinh_thuc').val();
+                    d.loai_bc = $('#s_loai').val();
+                    d.tu_ngay = $('#s_tu_ngay').val();
+                    d.den_ngay = $('#s_den_ngay').val();
+                }
+            },
+            "columns": [
+                { "data": "hinh_thuc_file", "defaultContent": "" },
+                { "data": "ten_file_goc", "defaultContent": "" },
+                { "data": "macn", "defaultContent": "" },
+                { "data": "magd", "defaultContent": "" },
+                { "data": "thoidiem", "defaultContent": "" },
+                { "data": "kieukh", "defaultContent": "" },
+                { "data": "tenkh", "defaultContent": "" },
+                { "data": "ngaysinh", "defaultContent": "" },
+                { "data": "quoctich", "defaultContent": "" },
+                { "data": "diachitt", "defaultContent": "" },
+                { "data": "sogt", "defaultContent": "" },
+                { "data": "loaitien", "defaultContent": "" },
+                { "data": "sotien", "defaultContent": "0", "render": function(data) { return data ? parseFloat(data).toLocaleString('en-US') : '0'; }},
+                { "data": "quydoi", "defaultContent": "0", "render": function(data) { return data ? parseFloat(data).toLocaleString('en-US') : '0'; }},
+                { "data": "lydomucdich", "defaultContent": "" }
+            ],
+            // Lưu ý: Đảm bảo thẻ <thead> trong HTML của bạn cũng có đủ số lượng <th> tương ứng
+            "scrollX": true, // Quan trọng khi bảng có quá nhiều cột
+            "order": [[4, "desc"]], // Sắp xếp theo thoidiem
+            "dom": 'Bfrtip',
+            "buttons": [
+                {
+                    extend: 'excel',
+                    text: 'Excel',
+                    // Tên file khoa học: SaoKeGLA_20260609_1650.xlsx
+                    filename: function() {
+                        var loai = $('#s_loai').val() || 'TatCa';
+                        var hinh_thuc = $('#s_hinh_thuc').val() || 'GLA';
+                        var timestamp = new Date().toISOString().slice(0,10).replace(/-/g, "");
+                        return 'SaoKe_' + hinh_thuc + '_' + loai + '_' + timestamp;
+                    }
+                },
+                {
+                    extend: 'csv',
+                    text: 'CSV',
+                    filename: function() {
+                        var loai = $('#s_loai').val() || 'TatCa';
+                        var hinh_thuc = $('#s_hinh_thuc').val() || 'GLA';
+                        return 'SaoKe_' + hinh_thuc + '_' + loai + '_' + new Date().getTime();
+                    }
+                },
+                {
+                    extend: 'print',
+                    text: 'Print',
+                    title: 'Báo cáo Sao kê chi tiết - ' + new Date().toLocaleDateString('vi-VN'),
+                    messageTop: 'Dữ liệu xuất ngày: ' + new Date().toLocaleString('vi-VN')
+                }
+            ]
+        });
+    });
+
+    
+    $('#btn_truy_van').on('click', function() {
+        // Kiểm tra xem bảng đã được khởi tạo qua DataTable chưa
+        if ($.fn.DataTable.isDataTable('#tbl_tra_cuu_sao_ke')) {
+            var table = $('#tbl_tra_cuu_sao_ke').DataTable();
+            
+            $('#btn_truy_van').prop('disabled', true);
+            table.ajax.reload(function() {
+                $('#btn_truy_van').prop('disabled', false);
+            });
+        } else {
+            alert("Vui lòng mở tab 'Tra cứu Sao kê' để khởi tạo bảng trước!");
+        }
+    });
+
+
+    // Vẽ lại bảng khi chuyển đổi giữa các tab
+    $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+        $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+    });
+});
+
+// Thêm vào sau đoạn xử lý $('#btn_truy_van')
+$('#btn_xoa_loc').on('click', function() {
+    // 1. Reset các giá trị input về mặc định
+    $('#s_hinh_thuc').val(''); 
+    $('#s_loai').val('');
+    $('#s_tu_ngay').val('');
+    $('#s_den_ngay').val('');
+
+    // 2. Reload bảng để hiển thị toàn bộ dữ liệu (vì code backend đã xử lý trường hợp trống)
+    if ($.fn.DataTable.isDataTable('#tbl_tra_cuu_sao_ke')) {
+        $('#tbl_tra_cuu_sao_ke').DataTable().ajax.reload();
+    }
+});
+</script>
+{% endblock %}

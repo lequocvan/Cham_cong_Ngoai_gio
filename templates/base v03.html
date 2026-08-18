@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Chấm_công_Ngày_phép_Ngoài_giờ{% endblock %}</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/dataTables.bootstrap4.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/fixedcolumns/3.3.2/css/fixedColumns.bootstrap4.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/1.7.0/css/buttons.bootstrap4.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ttskch/select2-bootstrap4-theme@1.0.0/dist/select2-bootstrap4.min.css">
+
+    <style>
+        :root {
+            --nav-bg: #2c3e50;
+            --home-color: #27ae60;
+            --work-color: #e67e22;
+            --logout-bg: #e74c3c;
+            --text-light: #ffffff;
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f6;
+        }
+
+        /* --- PHẦN FLASH TOAST --- */
+        #flash-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 320px;
+            pointer-events: none; 
+        }
+        
+        .toast-item {
+            pointer-events: auto; 
+            margin-bottom: 10px;
+            border: none;
+            border-left: 5px solid;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            animation: slideInRight 0.4s ease-out;
+            color: white !important;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        #flash-container .alert-success { background-color: var(--home-color) !important; border-left-color: #1e8449; }
+        #flash-container .alert-danger { background-color: var(--logout-bg) !important; border-left-color: #c0392b; }
+        #flash-container .alert .close { color: white; text-shadow: none; opacity: 0.8; }
+
+        /* --- NAVBAR & DROPDOWN --- */
+        .navbar-custom {
+            background-color: var(--nav-bg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            height: 60px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 2000;
+        }
+
+        .dropdown-menu {
+            border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 2001;
+        }
+
+        .nav-link-item {
+            text-decoration: none; color: white; font-size: 13px; font-weight: 600;
+            padding: 8px 14px; border-radius: 4px; transition: var(--transition);
+            display: flex; align-items: center; gap: 6px; text-transform: uppercase;
+        }
+
+        .nav-link-item:hover {
+            filter: brightness(1.1); transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2); color: white; text-decoration: none;
+        }
+
+        /* Thêm style riêng cho Dropdown chức năng của Báo cáo 48 */
+        .dropdown-menu-bc48 {
+            width: 420px;
+            padding: 10px 0;
+        }
+        .dropdown-item-bc48 {
+            padding: 10px 20px;
+            border-bottom: 1px solid #f8f9fa;
+            white-space: normal; /* Cho phép tự động xuống hàng đối với text mô tả dài */
+        }
+        .dropdown-item-bc48:last-child {
+            border-bottom: none;
+        }
+        .dropdown-item-bc48:hover {
+            background-color: #f1f3f5;
+        }
+
+        .main-content { padding: 20px; max-width: 100%; margin: 0 auto; }
+
+        .user-info-box {
+            color: #ecf0f1; font-size: 13px; margin-right: 15px;
+            display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2;
+        }
+        
+        .role-badge {
+            font-size: 10px; background: #34495e; color: #f1c40f;
+            padding: 2px 6px; border-radius: 10px; margin-top: 2px; text-transform: uppercase;
+        }
+
+        /* --- STYLE CHO THÔNG BÁO (NEW) --- */
+        #noti-count {
+            position: absolute;
+            top: 2px;
+            right: -2px;
+            font-size: 10px;
+            padding: 2px 5px;
+            border-radius: 50%;
+        }
+        .dropdown-list-noti {
+            width: 350px !important;
+            padding: 0;
+            overflow: hidden;
+        }
+        .dropdown-header-noti {
+            background-color: #34495e;
+            color: white;
+            padding: 12px;
+            text-align: center;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .noti-item {
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            padding: 12px;
+            text-decoration: none !important;
+            color: #333 !important;
+            transition: background 0.2s;
+        }
+        .noti-item:hover { background-color: #f8f9fa; }
+        .noti-unread { background-color: #ebf5ff; font-weight: 600; }
+        .noti-icon {
+            background: #3498db;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        .noti-content { flex-grow: 1; }
+        .noti-time { font-size: 11px; color: #999; }
+        .noti-title { font-size: 13px; margin-bottom: 2px; }
+        .noti-desc { font-size: 12px; color: #666; line-height: 1.3; }
+
+        /* Tùy chỉnh DataTables */
+        .DTFC_LeftBodyLiner { overflow-y: hidden !important; }
+    </style>
+</head>
+<body>
+
+    <div id="flash-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show toast-item" role="alert">
+                        <i class="fas {{ 'fa-check-circle' if category == 'success' else 'fa-exclamation-circle' }} mr-2"></i>
+                        {{ message }}
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
+        <a class="navbar-brand font-weight-bold" href="{{ url_for('index') }}">
+            <i class="fas fa-university text-warning"></i> TIỀN LƯƠNG
+        </a>
+        
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#mainMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="mainMenu">
+            <!-- MENU CHÍNH BÊN TRÁI -->
+            <ul class="navbar-nav mr-auto align-items-center">
+                <li class="nav-item">
+                    <a href="{{ url_for('index') }}" class="nav-link-item btn-home mr-2" style="background-color: var(--home-color);">
+                        <i class="fas fa-home"></i> Trang chủ
+                    </a>
+                </li>
+
+                {% if current_user.is_authenticated %}
+                <!-- DROPDOWN MENU PHÂN HỆ: BÁO CÁO 48 -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link-item dropdown-toggle" href="#" id="navbarDropdownBC48" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="background-color: #34495e;">
+                        <i class="fas fa-file-invoice-dollar text-info"></i> Phân hệ Báo cáo 48
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-bc48 shadow" aria-labelledby="navbarDropdownBC48">
+                        
+                        <!-- Menu 1: Cục PCRT trả ra (CSV) -->
+                        <a class="dropdown-item dropdown-item-bc48" href="{{ url_for('giaodien_cuc_pcrt_tra_loi') }}">
+                            <div class="font-weight-bold text-dark mb-1">
+                                <i class="fas fa-chart-bar text-info mr-2"></i>Cục PCRT trả ra
+                            </div>
+                            <small class="text-muted d-block" style="font-size: 11px; line-height: 1.4;">
+                                Từng ngày báo cáo có bao nhiêu dòng "KIỂM TRA FILE THÀNH CÔNG" và "KIỂM TRA GIAO DỊCH LỖI". Thống kê chi tiết theo tháng.
+                            </small>
+                        </a>
+                        
+                        <!-- Menu 2: Kết quả dò tìm lỗi -->
+                        <a class="dropdown-item dropdown-item-bc48" href="{{ url_for('giaodien_ket_qua_do_tim') }}">
+                            <div class="font-weight-bold text-primary mb-1">
+                                <i class="fas fa-search-location text-success mr-2"></i>Kết quả dò tìm lỗi
+                            </div>
+                            <small class="text-muted d-block" style="font-size: 11px; line-height: 1.4;">
+                                Sau khi nạp csv có các bảng _error, chi_tiet_loi_master (chỉ trạng thái LỖI), căn cứ theo "MA_GIAO_DICH" VÀ "KIỂM TRA GIAO DỊCH LỖI" tìm trong TXT (nhớ nạp đủ GLD, GBS, GLA), nếu thấy, sao kê chi tiết (ket_qua_do_tim_loi); phần chưa tìm thấy ở bảng giao_dich_error_khong_tim_thay.
+                            </small>
+                        </a>
+
+                    </div>
+                </li>
+                {% endif %}
+            </ul>
+
+            <!-- MENU THÔNG TIN TÀI KHOẢN BÊN PHẢI -->
+            <ul class="navbar-nav ml-auto align-items-center">
+                {% if current_user.is_authenticated %}
+                
+                <li class="nav-item dropdown no-arrow mx-3">
+                    <a class="nav-link dropdown-toggle p-0" href="#" id="alertsDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="position: relative;">
+                        <i class="fas fa-bell fa-lg text-light"></i>
+                        <span class="badge badge-danger" id="noti-count" style="display: none;">0</span>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right shadow dropdown-list-noti" aria-labelledby="alertsDropdown">
+                        <div class="dropdown-header-noti">Thông báo mới</div>
+                        <div id="noti-list" style="max-height: 350px; overflow-y: auto;"></div>
+                        <div class="dropdown-divider m-0"></div>
+                        <a class="dropdown-item text-center small text-primary py-2 font-weight-bold" href="javascript:void(0)" onclick="markAllRead()">
+                            <i class="fas fa-check-double mr-1"></i> Đánh dấu tất cả đã đọc
+                        </a>
+                    </div>
+                </li>
+
+                <li class="nav-item mr-3">
+                    <div class="user-info-box">
+                        <span><i class="fas fa-user-circle"></i> {{ current_user.fullname or current_user.ma_nhan_vien }}</span>
+                        <span class="role-badge">[{{ current_user.role }}]</span>
+                    </div>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('logout') }}" class="nav-link-item btn-logout shadow-sm" style="background-color: var(--logout-bg);">
+                        <i class="fas fa-sign-out-alt"></i> Thoát
+                    </a>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a href="{{ url_for('login') }}" class="nav-link-item px-4" style="background: #34495e;">
+                        <i class="fas fa-sign-in-alt"></i> Đăng nhập
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap4.min.js"></script>
+    <script src="https://cdn.datatables.net/fixedcolumns/3.3.2/js/dataTables.fixedColumns.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/1.7.0/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/1.7.0/js/buttons.bootstrap4.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/1.7.0/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        // Tự động ẩn Flash messages
+        document.addEventListener("DOMContentLoaded", function() {
+            setTimeout(function() {
+                const alerts = document.querySelectorAll('#flash-container .alert');
+                alerts.forEach(alert => {
+                    if (alert) {
+                        alert.style.transition = "all 0.6s ease";
+                        alert.style.opacity = "0";
+                        alert.style.transform = "translateX(50px)";
+                        setTimeout(() => { if (alert.parentNode) { alert.remove(); } }, 600);
+                    }
+                });
+            }, 3000); 
+        });
+
+        // Xử lý logic thông báo
+        function loadNotifications() {
+            $.get('/api/notifications', function(data) {
+                if (data.unread_count > 0) {
+                    $('#noti-count').text(data.unread_count > 9 ? '9+' : data.unread_count).show();
+                } else {
+                    $('#noti-count').hide();
+                }
+
+                let html = '';
+                if (!data.notifications || data.notifications.length === 0) {
+                    html = '<div class="p-4 text-center text-muted small">Không có thông báo mới nào</div>';
+                } else {
+                    data.notifications.forEach(n => {
+                        let unreadStyle = n.is_read ? '' : 'noti-unread';
+                        html += `
+                        <a class="noti-item ${unreadStyle}" href="${n.link}">
+                            <div class="noti-icon"><i class="fas fa-info-circle"></i></div>
+                            <div class="noti-content">
+                                <div class="noti-time">${n.time}</div>
+                                <div class="noti-title">${n.tieu_de}</div>
+                                <div class="noti-desc">${n.noi_dung}</div>
+                            </div>
+                        </a>`;
+                    });
+                }
+                $('#noti-list').html(html);
+            }).fail(function() {
+                console.log("Không thể tải thông báo.");
+            });
+        }
+
+        function markAllRead() {
+            $.post('/api/notifications/read-all', function() {
+                loadNotifications();
+            });
+        }
+
+        $(document).ready(function() {
+            {% if current_user.is_authenticated %}
+                loadNotifications();
+                setInterval(loadNotifications, 60000);
+            {% endif %}
+        });
+    </script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

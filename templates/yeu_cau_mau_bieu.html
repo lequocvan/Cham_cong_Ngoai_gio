@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Bố cục Explorer */
+    .explorer-container { display: flex; min-height: calc(100vh - 100px); background: #f8f9fa; margin: -24px; }
+    
+    /* Sidebar Danh mục */
+    .explorer-sidebar { width: 280px; background: white; border-right: 1px solid #e0e0e0; padding: 20px 0; }
+    .nav-category .nav-link { 
+        padding: 12px 25px; color: #555; border-left: 4px solid transparent; 
+        font-weight: 500; transition: 0.2s; cursor: pointer;
+    }
+    .nav-category .nav-link:hover { background: #f0f7ff; color: #0d6efd; }
+    .nav-category .nav-link.active { 
+        background: #e7f1ff; color: #0d6efd; border-left-color: #0d6efd; 
+    }
+
+    /* Vùng nội dung chính */
+    .explorer-main { flex: 1; padding: 30px; overflow-y: auto; }
+    .search-wrapper { max-width: 600px; position: relative; }
+    
+    /* Card Gói mẫu */
+    .folder-card {
+        background: white; border-radius: 12px; border: 1px solid #eee;
+        transition: 0.3s; height: 100%;
+    }
+    .folder-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.08); }
+    .folder-icon { width: 45px; height: 45px; background: #e7f1ff; color: #0d6efd; border-radius: 10px; }
+    
+    .file-item-link { transition: 0.2s; border-radius: 6px; }
+    .file-item-link:hover { background: #f8f9fa; padding-left: 10px !important; }
+</style>
+
+<div class="explorer-container">
+    <div class="explorer-sidebar shadow-sm">
+        <div class="px-4 mb-4">
+            <h6 class="text-uppercase text-muted fw-bold small">Bộ phận / Loại hồ sơ</h6>
+        </div>
+        <nav class="nav flex-column nav-category">
+            <a class="nav-link active filter-btn" data-category="all">
+                <i class="fas fa-th-large mr-2"></i> Tất cả mẫu biểu
+            </a>
+            {% for dm in danh_sach_dm %}
+            <a class="nav-link filter-btn" data-category="dm-{{ dm.id }}">
+                <i class="fas fa-folder mr-2"></i> {{ dm.ten_danh_muc }}
+            </a>
+            {% endfor %}
+        </nav>
+        
+        <div class="mt-5 px-4">
+            <div class="card bg-primary text-white border-0 shadow-sm rounded-lg">
+                <div class="card-body p-3 text-center">
+                    <p class="small mb-2">Không tìm thấy mẫu bạn cần?</p>
+                    <button class="btn btn-sm btn-light btn-block fw-bold" data-toggle="modal" data-target="#modalGuiYeuCau">Gửi yêu cầu mới</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="explorer-main">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="search-wrapper w-100">
+                <i class="fas fa-search position-absolute" style="top: 18px; left: 20px; color: #aaa;"></i>
+                <input type="text" id="smartSearch" class="form-control form-control-lg border-0 shadow-sm pl-5" 
+                       placeholder="Tìm mã mẫu, tên file, hoặc nội dung...">
+            </div>
+        </div>
+
+        <div id="active-filter-title" class="mb-4">
+            <h5 class="fw-bold text-dark">
+                <span id="title-text">Tất cả mẫu biểu</span> 
+                <span class="badge badge-pill badge-light border text-muted ml-2" id="visible-count">{{ goi_mau_co_san|length }}</span>
+            </h5>
+        </div>
+
+        <div class="row" id="templateGrid">
+            {% for goi in goi_mau_co_san %}
+            <div class="col-xl-4 col-md-6 mb-4 template-item" data-category="dm-{{ goi.danh_muc_id }}">
+                <div class="folder-card p-4 shadow-sm">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="folder-icon d-flex align-items-center justify-content-center mr-3">
+                            <i class="fas fa-file-archive fa-lg"></i>
+                        </div>
+                        <div class="text-truncate">
+                            <h6 class="fw-bold mb-0 text-dark" title="{{ goi.noi_dung_yeu_cau }}">{{ goi.noi_dung_yeu_cau }}</h6>
+                            <small class="text-primary font-weight-bold">
+                                {{ goi.danh_muc_obj.ten_danh_muc if goi.danh_muc_obj else 'Chung' }}
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div class="file-list mt-3">
+                        <p class="small text-muted mb-2 border-bottom pb-1">Danh sách file ({{ goi.danh_sach_mau|length }}):</p>
+                        {% for m in goi.danh_sach_mau %}
+                        <a href="{{ url_for('in_mau_bieu', ma_mau=m.ma_mau) }}" class="d-flex justify-content-between align-items-center p-2 mb-1 text-decoration-none file-item-link">
+                            <span class="small text-dark text-truncate pr-2">
+                                <i class="far fa-file-word text-primary mr-2"></i>{{ m.ten_mau }}
+                            </span>
+                            <i class="fas fa-download text-muted fa-xs"></i>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div id="no-results" class="text-center py-5 d-none">
+            <img src="https://cdn-icons-png.flaticon.com/512/6134/6134065.png" style="width: 100px; opacity: 0.5;">
+            <p class="text-muted mt-3">Không tìm thấy mẫu biểu phù hợp với từ khóa này.</p>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalGuiYeuCau" tabindex="-1">
+    <div class="modal-dialog">
+        <form action="{{ url_for('gui_yeu_cau') }}" method="POST">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title font-weight-bold">Gửi nhu cầu mới</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body p-4">
+                    <label class="font-weight-bold small text-muted">BẠN ĐANG CẦN MẪU BIỂU GÌ?</label>
+                    <textarea name="noi_dung_yeu_cau" class="form-control border-primary" rows="4" 
+                              placeholder="Ví dụ: Tôi cần bộ hồ sơ xin nghỉ phép dài hạn hoặc mẫu cam kết bảo mật thông tin..." required></textarea>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="submit" class="btn btn-primary btn-block font-weight-bold">Gửi yêu cầu cho Admin</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    const searchInput = $('#smartSearch');
+    const filterBtns = $('.filter-btn');
+    const items = $('.template-item');
+    const noResults = $('#no-results');
+
+    function applyFilter() {
+        const searchTerm = searchInput.val().toLowerCase().trim();
+        const activeCategory = $('.filter-btn.active').data('category');
+        let visibleCount = 0;
+
+        items.each(function() {
+            const itemCategory = $(this).data('category');
+            // Lấy toàn bộ text bên trong card để search thông minh (tìm được cả mã mẫu bên trong)
+            const itemText = $(this).text().toLowerCase();
+            
+            const matchCategory = (activeCategory === 'all' || itemCategory === activeCategory);
+            const matchSearch = itemText.includes(searchTerm);
+
+            if (matchCategory && matchSearch) {
+                $(this).fadeIn(200);
+                visibleCount++;
+            } else {
+                $(this).hide();
+            }
+        });
+
+        // Cập nhật số lượng hiển thị
+        $('#visible-count').text(visibleCount);
+        
+        // Hiển thị thông báo nếu trống
+        if (visibleCount === 0) {
+            noResults.removeClass('d-none');
+        } else {
+            noResults.addClass('d-none');
+        }
+    }
+
+    // Xử lý tìm kiếm
+    searchInput.on('input', applyFilter);
+
+    // Xử lý bấm danh mục bên Sidebar
+    filterBtns.on('click', function(e) {
+        e.preventDefault();
+        filterBtns.removeClass('active');
+        $(this).addClass('active');
+        
+        // Cập nhật tiêu đề vùng nội dung
+        const categoryName = $(this).contents().filter(function() {
+            return this.nodeType == 3; // Lấy text node (bỏ qua icon)
+        }).text().trim();
+        
+        $('#title-text').text(categoryName);
+        applyFilter();
+    });
+});
+</script>
+{% endblock %}

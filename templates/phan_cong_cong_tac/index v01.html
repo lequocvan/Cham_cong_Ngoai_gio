@@ -1,0 +1,372 @@
+{% extends 'base.html' %}
+
+{% block title %}Quản lý Phân công công tác{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <!-- TIÊU ĐỀ & NÚT TÁC VỤ -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="m-0 text-primary font-weight-bold">
+            <i class="fas fa-briefcase mr-2"></i> QUẢN LÝ PHÂN CÔNG CÔNG TÁC
+        </h4>
+        <div>
+            <a href="{{ url_for('phan_cong.thong_ke') }}" class="btn btn-outline-info mr-2">
+                <i class="fas fa-chart-pie mr-1"></i> Báo cáo / Thống kê
+            </a>
+            <a href="{{ url_for('phan_cong.export_excel') }}" class="btn btn-outline-success mr-2">
+                <i class="fas fa-file-excel mr-1"></i> Xuất Excel
+            </a>
+            <!-- Chuẩn Bootstrap 4: data-toggle & data-target -->
+            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modalTaoPhanCong">
+                <i class="fas fa-plus-circle mr-1"></i> Tạo phân công mới
+            </button>
+        </div>
+    </div>
+
+    <!-- BỘ LỌC TÌM KIẾM -->
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-body bg-light rounded">
+            <form method="GET" action="{{ url_for('phan_cong.index') }}" class="form-row">
+                <div class="col-md-3 mb-2 mb-md-0">
+                    <input type="text" name="keyword" class="form-control" placeholder="Tìm tên, mã NV, địa điểm..." value="{{ keyword or '' }}">
+                </div>
+                <div class="col-md-2 mb-2 mb-md-0">
+                    <select name="trang_thai" class="form-control">
+                        <option value="">-- Trạng thái --</option>
+                        <option value="CHO_DUYET" {% if trang_thai == 'CHO_DUYET' %}selected{% endif %}>Chờ duyệt</option>
+                        <option value="DA_DUYET" {% if trang_thai == 'DA_DUYET' %}selected{% endif %}>Đã duyệt</option>
+                        <option value="TU_CHOI" {% if trang_thai == 'TU_CHOI' %}selected{% endif %}>Từ chối</option>
+                        <option value="HOAN_THANH" {% if trang_thai == 'HOAN_THANH' %}selected{% endif %}>Hoàn thành</option>
+                    </select>
+                </div>
+                <div class="col-md-2 mb-2 mb-md-0">
+                    <input type="date" name="tu_ngay" class="form-control" value="{{ tu_ngay or '' }}" title="Từ ngày">
+                </div>
+                <div class="col-md-2 mb-2 mb-md-0">
+                    <input type="date" name="den_ngay" class="form-control" value="{{ den_ngay or '' }}" title="Đến ngày">
+                </div>
+                <div class="col-md-3 d-flex">
+                    <button type="submit" class="btn btn-secondary mr-2 flex-grow-1">
+                        <i class="fas fa-search mr-1"></i> Tìm kiếm
+                    </button>
+                    <a href="{{ url_for('phan_cong.index') }}" class="btn btn-outline-secondary" title="Làm mới">
+                        <i class="fas fa-undo"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- BẢNG DỮ LIỆU -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped align-middle mb-0">
+                    <thead class="thead-dark text-nowrap">
+                        <tr>
+                            <th class="text-center">#</th>
+                            <th>Họ và Tên</th>
+                            <th>Nơi công tác</th>
+                            <th>Nội dung công tác</th>
+                            <th class="text-center">Thời gian</th>
+                            <th class="text-center">Phương tiện</th>
+                            <th class="text-right">Dự trù KP</th>
+                            <th class="text-center">Trạng thái</th>
+                            <th class="text-center">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if ds_phan_cong %}
+                            {% for item in ds_phan_cong %}
+                            <tr>
+                                <td class="text-center font-weight-bold">
+                                    {{ loop.index + ((pagination.page - 1) * pagination.per_page) if pagination else loop.index }}
+                                </td>
+                                <td>
+                                    <strong>{{ item.ho_ten }}</strong><br>
+                                    <small class="text-muted">{{ item.ma_nhan_vien }} {% if item.ten_phong_ban %}- {{ item.ten_phong_ban }}{% endif %}</small>
+                                </td>
+                                <td><i class="fas fa-map-marker-alt text-danger mr-1"></i> {{ item.noi_cong_tac }}</td>
+                                <td style="max-width: 250px;" class="text-truncate" title="{{ item.noi_dung_cong_tac }}">
+                                    {{ item.noi_dung_cong_tac }}
+                                </td>
+                                <td class="text-center small">
+                                    {{ item.ngay_bat_dau.strftime('%d/%m/%Y') if item.ngay_bat_dau else '' }} <br>
+                                    <i class="fas fa-arrow-down text-muted" style="font-size: 0.75rem;"></i><br>
+                                    {{ item.ngay_ket_thuc.strftime('%d/%m/%Y') if item.ngay_ket_thuc else '' }}
+                                </td>
+                                <td class="text-center"><span class="badge badge-info">{{ item.phuong_tien or 'Chưa chọn' }}</span></td>
+                                <td class="text-right font-weight-bold text-success">{{ "{:,.0f}".format(item.kinh_phi_du_tru or 0) }} đ</td>
+                                <td class="text-center">
+                                    {% if item.trang_thai == 'CHO_DUYET' %}
+                                        <span class="badge badge-warning text-dark"><i class="fas fa-clock mr-1"></i>Chờ duyệt</span>
+                                    {% elif item.trang_thai == 'DA_DUYET' %}
+                                        <span class="badge badge-success"><i class="fas fa-check-circle mr-1"></i>Đã duyệt</span>
+                                    {% elif item.trang_thai == 'TU_CHOI' %}
+                                        <span class="badge badge-danger" title="{{ item.ly_do_tu_choi }}"><i class="fas fa-times-circle mr-1"></i>Từ chối</span>
+                                    {% elif item.trang_thai == 'HOAN_THANH' %}
+                                        <span class="badge badge-secondary"><i class="fas fa-flag-checkered mr-1"></i>Hoàn thành</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center text-nowrap">
+                                    <button class="btn btn-sm btn-info text-white mr-1" onclick="viewDetail({{ item.id }})" title="Xem chi tiết">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+
+                                    {% if current_user.can_approve or current_user.is_admin %}
+                                        {% if item.trang_thai == 'CHO_DUYET' %}
+                                            <button class="btn btn-sm btn-success mr-1" onclick="approveItem({{ item.id }}, 'approve')" title="Duyệt">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-danger mr-1" onclick="rejectItem({{ item.id }})" title="Từ chối">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        {% endif %}
+                                    {% endif %}
+                                    <form action="{{ url_for('phan_cong.delete', id=item.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bạn chắc chắn muốn xóa?');">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="9" class="text-center text-muted py-4">Chưa có dữ liệu phân công công tác nào.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PHÂN TRANG -->
+        {% if pagination and pagination.pages > 1 %}
+        <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2">
+            <small class="text-muted">Trang {{ pagination.page }} / {{ pagination.pages }} (Tổng {{ pagination.total }} bản ghi)</small>
+            <ul class="pagination pagination-sm m-0">
+                <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('phan_cong.index', page=pagination.prev_num, keyword=keyword, trang_thai=trang_thai, tu_ngay=tu_ngay, den_ngay=den_ngay) }}">Trước</a>
+                </li>
+                {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if p %}
+                        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('phan_cong.index', page=p, keyword=keyword, trang_thai=trang_thai, tu_ngay=tu_ngay, den_ngay=den_ngay) }}">{{ p }}</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+                <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('phan_cong.index', page=pagination.next_num, keyword=keyword, trang_thai=trang_thai, tu_ngay=tu_ngay, den_ngay=den_ngay) }}">Sau</a>
+                </li>
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- MODAL TẠO PHÂN CÔNG MỚI (BS4) -->
+<div class="modal fade" id="modalTaoPhanCong" tabindex="-1" role="dialog" aria-labelledby="modalTaoPhanCongLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <form action="{{ url_for('phan_cong.create') }}" method="POST">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="modalTaoPhanCongLabel"><i class="fas fa-plus-circle mr-2"></i> Thêm mới Phân công công tác</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label class="font-weight-bold">Cán bộ đi công tác <span class="text-danger">*</span></label>
+                            <select name="ma_nhan_vien" id="select_ma_nhan_vien" class="form-control select2" style="width: 100%;" required>
+                                <option value="">-- Chọn cán bộ --</option>
+                                {% for cb in ds_can_bo %}
+                                    <option value="{{ cb.ma_nhan_vien }}">{{ cb.ma_nhan_vien }} - {{ cb.ho_ten }} ({{ cb.phong_ban }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label class="font-weight-bold">Nơi công tác <span class="text-danger">*</span></label>
+                            <input type="text" name="noi_cong_tac" class="form-control" placeholder="Tên đơn vị, tỉnh/thành phố..." required>
+                        </div>
+                        <div class="form-group col-md-12">
+                            <label class="font-weight-bold">Nội dung / Mục đích công tác <span class="text-danger">*</span></label>
+                            <textarea name="noi_dung_cong_tac" class="form-control" rows="3" placeholder="Mô tả chi tiết nội dung công việc..." required></textarea>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label class="font-weight-bold">Từ ngày <span class="text-danger">*</span></label>
+                            <input type="date" name="ngay_bat_dau" class="form-control" required>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label class="font-weight-bold">Đến ngày <span class="text-danger">*</span></label>
+                            <input type="date" name="ngay_ket_thuc" class="form-control" required>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label class="font-weight-bold">Phương tiện di chuyển</label>
+                            <select name="phuong_tien" class="form-control">
+                                <option value="Ô tô">Ô tô cơ quan / Xe khách</option>
+                                <option value="Máy bay">Máy bay</option>
+                                <option value="Tàu hỏa">Tàu hỏa</option>
+                                <option value="Xe máy">Xe máy</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label class="font-weight-bold">Dự trù kinh phí (VNĐ)</label>
+                            <input type="number" name="kinh_phi_du_tru" class="form-control" value="0" step="100000">
+                        </div>
+                        <div class="form-group col-md-12">
+                            <label class="font-weight-bold">Ghi chú</label>
+                            <input type="text" name="ghi_chu" class="form-control" placeholder="Ghi chú thêm nếu có">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Hủy bỏ</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save mr-1"></i> Lưu thông tin</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL XEM CHI TIẾT (BS4) -->
+<div class="modal fade" id="modalChiTiet" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-info-circle mr-2"></i> Chi tiết Phân công công tác</h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6 mb-2"><strong>Cán bộ:</strong> <span id="dt_ho_ten"></span> (<span id="dt_ma_nv"></span>)</div>
+                    <div class="col-md-6 mb-2"><strong>Phòng ban:</strong> <span id="dt_phong_ban"></span></div>
+                    <div class="col-md-6 mb-2"><strong>Nơi công tác:</strong> <span id="dt_noi_cong_tac"></span></div>
+                    <div class="col-md-6 mb-2"><strong>Phương tiện:</strong> <span id="dt_phuong_tien"></span></div>
+                    <div class="col-md-6 mb-2"><strong>Từ ngày:</strong> <span id="dt_tu_ngay"></span></div>
+                    <div class="col-md-6 mb-2"><strong>Đến ngày:</strong> <span id="dt_den_ngay"></span></div>
+                    <div class="col-md-6 mb-2"><strong>Dự trù kinh phí:</strong> <span id="dt_kinh_phi" class="text-success font-weight-bold"></span> VNĐ</div>
+                    <div class="col-md-6 mb-2"><strong>Trạng thái:</strong> <span id="dt_trang_thai" class="badge badge-secondary"></span></div>
+                    <div class="col-12 mt-2">
+                        <strong>Nội dung công tác:</strong>
+                        <p id="dt_noi_dung" class="border p-2 rounded bg-light mt-1 mb-0"></p>
+                    </div>
+                    <div class="col-12 mt-2 d-none" id="dt_ly_do_tu_choi_wrap">
+                        <strong class="text-danger">Lý do từ chối:</strong>
+                        <p id="dt_ly_do_tu_choi" class="border p-2 rounded text-danger mt-1 mb-0" style="background-color: #f8d7da;"></p>
+                    </div>
+                    <div class="col-12 mt-2">
+                        <strong>Ghi chú:</strong>
+                        <p id="dt_ghi_chu" class="text-muted mb-0"></p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Khởi tạo Select2 tích hợp theme Bootstrap 4 trong Modal
+    $('#select_ma_nhan_vien').select2({
+        theme: 'bootstrap4',
+        dropdownParent: $('#modalTaoPhanCong')
+    });
+});
+
+function viewDetail(id) {
+    $.ajax({
+        url: '/phan-cong-cong-tac/detail/' + id,
+        type: 'GET',
+        success: function(res) {
+            if(res.success) {
+                var d = res.data;
+                $('#dt_ho_ten').text(d.ho_ten);
+                $('#dt_ma_nv').text(d.ma_nhan_vien);
+                $('#dt_phong_ban').text(d.ten_phong_ban || 'N/A');
+                $('#dt_noi_cong_tac').text(d.noi_cong_tac);
+                $('#dt_phuong_tien').text(d.phuong_tien || 'N/A');
+                $('#dt_tu_ngay').text(d.ngay_bat_dau);
+                $('#dt_den_ngay').text(d.ngay_ket_thuc);
+                $('#dt_kinh_phi').text(new Intl.NumberFormat('vi-VN').format(d.kinh_phi_du_tru || 0));
+                $('#dt_trang_thai').text(d.trang_thai);
+                $('#dt_noi_dung').text(d.noi_dung_cong_tac);
+                $('#dt_ghi_chu').text(d.ghi_chu || 'Không có');
+                
+                if(d.trang_thai === 'TU_CHOI' && d.ly_do_tu_choi) {
+                    $('#dt_ly_do_tu_choi').text(d.ly_do_tu_choi);
+                    $('#dt_ly_do_tu_choi_wrap').removeClass('d-none');
+                } else {
+                    $('#dt_ly_do_tu_choi_wrap').addClass('d-none');
+                }
+
+                $('#modalChiTiet').modal('show');
+            } else {
+                Swal.fire('Lỗi', res.message || 'Không thể tải chi tiết', 'error');
+            }
+        },
+        error: function() {
+            Swal.fire('Lỗi', 'Không thể kết nối đến máy chủ!', 'error');
+        }
+    });
+}
+
+function approveItem(id, action) {
+    Swal.fire({
+        title: 'Xác nhận duyệt?',
+        text: 'Bạn có chắc chắn muốn duyệt tờ trình này không?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Đồng ý',
+        cancelButtonText: 'Hủy'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.post('/phan-cong-cong-tac/approve/' + id, { action: action }, function(res) {
+                if(res.success) {
+                    location.reload();
+                } else {
+                    Swal.fire('Thất bại', res.message, 'error');
+                }
+            });
+        }
+    });
+}
+
+function rejectItem(id) {
+    Swal.fire({
+        title: 'Từ chối duyệt',
+        input: 'textarea',
+        inputPlaceholder: 'Nhập lý do từ chối...',
+        showCancelButton: true,
+        confirmButtonText: 'Từ chối',
+        cancelButtonText: 'Hủy',
+        inputValidator: (value) => {
+            if (!value) {
+                return 'Bạn cần nhập lý do từ chối!';
+            }
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.post('/phan-cong-cong-tac/approve/' + id, { action: 'reject', ly_do_tu_choi: result.value }, function(res) {
+                if(res.success) {
+                    location.reload();
+                } else {
+                    Swal.fire('Thất bại', res.message, 'error');
+                }
+            });
+        }
+    });
+}
+</script>
+{% endblock %}

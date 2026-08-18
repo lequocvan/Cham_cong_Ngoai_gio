@@ -1,0 +1,434 @@
+{% extends "base.html" %}
+
+{% block title %}Quản lý Nhân viên | HR System{% endblock %}
+
+{% block content %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .admin-container {
+        padding: 20px;
+        animation: fadeIn 0.5s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* Card chính */
+    .card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 25px rgba(0,0,0,0.1);
+        padding: 25px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .section-title {
+        border-bottom: 2px solid #edf2f7;
+        padding-bottom: 15px;
+    }
+    .section-title h2 {
+        margin: 0;
+        color: #2d3748;
+        font-size: 22px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* KHU VỰC IMPORT EXCEL */
+    .import-section {
+        background: #fff9f0;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #ffecb3;
+    }
+    .import-form {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    /* THANH CÔNG CỤ */
+    .action-toolbar {
+        display: grid;
+        grid-template-columns: 1fr auto; 
+        align-items: center;
+        gap: 20px;
+        background: #f8fafc;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+    }
+
+    /* FORM LỌC: 5 cột để chứa Đơn vị và Phòng ban */
+    .search-form {
+        display: grid;
+        grid-template-columns: minmax(150px, 1.5fr) minmax(200px, 2fr) minmax(150px, 1.2fr) auto auto;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .search-input-wrapper {
+        position: relative;
+        width: 100%;
+    }
+
+    .search-input-wrapper i {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        z-index: 2;
+    }
+
+    .search-input-wrapper input, .dept-select, .file-input {
+        width: 100%;
+        height: 42px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        outline: none;
+        background: white;
+        box-sizing: border-box;
+        font-size: 14px;
+    }
+
+    /* Tùy chỉnh riêng cho Select2 để cao bằng các input khác */
+    .select2-container .select2-selection--single {
+        height: 42px !important;
+        display: flex;
+        align-items: center;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+    }
+
+    .search-input-wrapper input { padding: 0 12px 0 40px; }
+    .dept-select { padding: 0 12px; cursor: pointer; }
+    .file-input { padding: 8px; font-size: 12px; }
+
+    .btn {
+        height: 42px;
+        padding: 0 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        text-decoration: none;
+        border: none;
+        transition: 0.2s;
+        font-size: 14px;
+        white-space: nowrap;
+    }
+
+    .btn-blue { background: #3b82f6; color: white; }
+    .btn-green { background: #10b981; color: white; }
+    .btn-orange { background: #f97316; color: white; }
+    .btn-gray { background: #64748b; color: white; }
+    .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    /* BẢNG DỮ LIỆU */
+    .table-container {
+        width: 100%;
+        max-height: 550px;
+        overflow: auto;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        min-width: 1200px;
+    }
+
+    thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: #f1f5f9;
+        color: #475569;
+        text-align: left;
+        padding: 15px;
+        font-size: 13px;
+        text-transform: uppercase;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #1e293b;
+        font-size: 14px;
+        vertical-align: middle;
+    }
+
+    .id-badge {
+        background: #f0f9ff;
+        color: #0369a1;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-weight: bold;
+        font-family: monospace;
+    }
+
+    /* PHÂN TRANG */
+    .pagination-wrapper { display: flex; gap: 5px; }
+    .page-link {
+        padding: 8px 14px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        text-decoration: none;
+        color: #475569;
+        font-size: 14px;
+    }
+    .page-link.active {
+        background: #3b82f6;
+        color: white;
+        border-color: #3b82f6;
+    }
+
+    tbody tr:hover { background-color: #f8fafc; }
+
+    @media (max-width: 1100px) {
+        .action-toolbar { grid-template-columns: 1fr; }
+        .search-form { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="admin-container">
+    <div class="card">
+        <div class="section-title">
+            <h2><i class="fas fa-user-shield"></i> Quản trị Nhân sự & Tài khoản Hệ thống</h2>
+        </div>
+
+        <div class="import-section">
+            <form action="{{ url_for('import_nhan_vien') }}" method="POST" enctype="multipart/form-data" class="import-form">
+                <label class="mb-0"><strong><i class="fas fa-file-import"></i> Nhập từ Excel:</strong></label>
+                <input type="file" name="file" accept=".xlsx, .xls" class="file-input" style="width: 250px;" required>
+                <button type="submit" class="btn btn-orange" style="height: 38px;">
+                    <i class="fas fa-upload"></i> Import & Tạo User
+                </button>
+            </form>
+        </div>
+
+        <div class="action-toolbar">
+            <form action="{{ url_for('danh_sach_nhan_vien') }}" method="GET" class="search-form" id="filter-form">
+                <div class="search-input-wrapper">
+                    <i class="fas fa-search"></i>
+                    <input type="text" name="search" value="{{ search_query or '' }}" placeholder="Tên, mã NV...">
+                </div>
+
+                <select name="don_vi" id="select-don-vi" class="dept-select">
+                    {% if don_vi_info %}
+                        <option value="{{ don_vi_info.ma_hieu_2 }}" selected>{{ don_vi_info.ten_ma_hieu_2 }} ({{ don_vi_info.ma_hieu_2 }})</option>
+                    {% else %}
+                        <option value="">-- Chọn Đơn vị --</option>
+                    {% endif %}
+                </select>
+
+                <select name="phong_ban" id="select-phong-ban" class="dept-select">
+                    <option value="">-- Phòng ban --</option>
+                    {% for pb in departments %}
+                        <option value="{{ pb.id }}" {{ 'selected' if selected_dept|string == pb.id|string else '' }}>
+                            {{ pb.ten_phong_ban }}
+                        </option>
+                    {% endfor %}
+                </select>
+
+                <button type="submit" class="btn btn-blue">Lọc</button>
+                
+                {% if search_query or selected_dept or selected_don_vi %}
+                    <a href="{{ url_for('danh_sach_nhan_vien') }}" class="btn btn-gray">Xóa</a>
+                {% endif %}
+            </form>
+
+            <a href="{{ url_for('export_nhan_vien', search=search_query, phong_ban=selected_dept, don_vi=selected_don_vi) }}" 
+               id="btn-export" class="btn btn-green" onclick="handleExport(event, this)">
+                <i class="fas fa-file-excel"></i> <span>Xuất Excel</span>
+            </a>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mã NV</th>
+                        <th>Họ và Tên</th>
+                        <th>Đơn vị</th>
+                        <th>Phòng ban</th>
+                        <th>Ngày sinh</th>
+                        <th>Giới tính</th>
+                        <th>Điện thoại</th>
+                        <th>Email Agribank</th>
+                        <th>Ngày tính phép</th>
+                        <th style="text-align: center;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emp in employees %}
+                    <tr>
+                        <td><span class="id-badge">{{ emp.ma_nhan_vien }}</span></td>
+                        <td style="font-weight: 600; white-space: nowrap;">{{ emp.ho_ten }}</td>
+                        <td>
+                            <span class="badge" style="background: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                {{ emp.ma_hieu_2 }}
+                            </span>
+                        </td>
+                        <td><span style="color: #64748b;">{{ emp.ten_phong_ban or 'Chưa xếp' }}</span></td>
+                        <td>{{ emp.ngay_sinh }}</td>
+                        <td>{{ emp.gioi_tinh }}</td>
+                        <td>{{ emp.so_dien_thoai }}</td>
+                        <td style="color: #2563eb;">{{ emp.mail_Agribank }}</td>
+                        <td>{{ emp.ngay_tinh_phep }}</td>
+                        <td style="text-align: center; white-space: nowrap;">
+                            <a href="{{ url_for('edit_nhan_vien', ma_nv=emp.ma_nhan_vien) }}" class="btn btn-blue" style="height: 32px; padding: 0 12px; font-size: 12px;">
+                                <i class="fas fa-edit"></i> Sửa
+                            </a>
+                            <button onclick="resetPassword('{{ emp.ma_nhan_vien }}')" class="btn" style="height: 32px; padding: 0 12px; font-size: 12px; background: #f97316; color: white;">
+                                <i class="fas fa-key"></i> Reset
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="10" style="text-align: center; padding: 30px; color: #94a3b8;">Không có dữ liệu.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-top: 5px;">
+            <div style="color: #64748b; font-size: 14px;">
+                Tổng cộng: <strong style="color: #2d3748; font-size: 16px;">{{ total_records }}</strong> nhân viên
+            </div>
+            {% if total_pages > 1 %}
+            <nav class="pagination-wrapper">
+                {% if page > 1 %}
+                <a href="{{ url_for('danh_sach_nhan_vien', page=page-1, search=search_query, phong_ban=selected_dept, don_vi=selected_don_vi) }}" class="page-link">&laquo;</a>
+                {% endif %}
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                    <a href="{{ url_for('danh_sach_nhan_vien', page=p, search=search_query, phong_ban=selected_dept, don_vi=selected_don_vi) }}" class="page-link {{ 'active' if p == page else '' }}">{{ p }}</a>
+                    {% elif p == page - 3 or p == page + 3 %}
+                    <span style="padding: 8px;">...</span>
+                    {% endif %}
+                {% endfor %}
+                {% if page < total_pages %}
+                <a href="{{ url_for('danh_sach_nhan_vien', page=page+1, search=search_query, phong_ban=selected_dept, don_vi=selected_don_vi) }}" class="page-link">&raquo;</a>
+                {% endif %}
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+    // Đảm bảo jQuery đã load xong mới chạy code
+    $(document).ready(function() {
+        const $donViSelect = $('#select-don-vi');
+        const $phongBanSelect = $('#select-phong-ban');
+
+        // 1. Khởi tạo Select2 cho Đơn vị
+        $('#select-don-vi').select2({
+            placeholder: "-- Tìm chọn đơn vị --",
+            allowClear: true,
+            width: '100%',
+            ajax: {
+                url: '/api/search_don_vi',
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return { q: params.term };
+                },
+                processResults: function (data) {
+                    return { results: data.results };
+                },
+                cache: true
+            }
+        });
+
+        // 2. Lắng nghe sự kiện thay đổi Đơn vị
+        $donViSelect.on('change', function() {
+            const maDonVi = $(this).val();
+            
+            // Xóa sạch các option cũ trong Phòng ban (trừ option mặc định)
+            $phongBanSelect.html('<option value="">-- Đang tải phòng ban... --</option>');
+
+            if (!maDonVi) {
+                $phongBanSelect.html('<option value="">-- Phòng ban --</option>');
+                return;
+            }
+
+            // Gọi API lấy danh sách phòng ban theo đơn vị
+            fetch(`/api/get_phong_ban/${maDonVi}`)
+                .then(response => response.json())
+                .then(data => {
+                    let options = '<option value="">-- Tất cả phòng ban --</option>';
+                    data.forEach(pb => {
+                        options += `<option value="${pb.id}">${pb.ten}</option>`;
+                    });
+                    $phongBanSelect.html(options);
+                })
+                .catch(error => {
+                    console.error('Lỗi:', error);
+                    $phongBanSelect.html('<option value="">-- Lỗi tải dữ liệu --</option>');
+                });
+        });
+    });
+
+    function resetPassword(ma_nv) {
+        if (confirm(`Đặt lại mật khẩu cho nhân viên [${ma_nv}] về mặc định (chính là Mã NV)?`)) {
+            const btn = event.currentTarget;
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            fetch(`/admin/reset_password/${ma_nv}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message);
+                if(data.success) location.reload();
+            })
+            .catch(() => alert("Lỗi kết nối máy chủ!"))
+            .finally(() => {
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+            });
+        }
+    }
+
+    function handleExport(event, element) {
+        if (element.classList.contains('is-loading')) {
+            event.preventDefault();
+            return;
+        }
+        const icon = element.querySelector('i');
+        const span = element.querySelector('span');
+        const originalIcon = icon.className;
+        const originalText = span.innerText;
+
+        element.classList.add('is-loading');
+        icon.className = 'fas fa-spinner fa-spin';
+        span.innerText = ' Đang trích xuất...';
+        element.style.pointerEvents = 'none';
+        element.style.opacity = '0.7';
+
+        setTimeout(() => {
+            icon.className = originalIcon;
+            span.innerText = originalText;
+            element.style.pointerEvents = 'auto';
+            element.style.opacity = '1';
+            element.classList.remove('is-loading');
+        }, 5000);
+    }
+</script>
+{% endblock %}

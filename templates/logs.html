@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Nhật ký hệ thống{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="card shadow">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-history me-2"></i> NHẬT KÝ HOẠT ĐỘNG HỆ THỐNG</h5>
+            <span class="badge bg-warning text-dark">500 thao tác gần nhất</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive" style="max-height: 80vh;">
+                <table class="table table-hover table-bordered mb-0" style="font-size: 13px;">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th style="width: 150px;">Thời gian</th>
+                            <th style="width: 180px;">Nhân viên</th>
+                            <th style="width: 180px;">Hành động</th>
+                            <th>Chi tiết thao tác</th>
+                            <th style="width: 130px;">Địa chỉ IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log, fullname in logs %}
+                        <tr>
+                            <td class="text-muted">{{ log.created_at.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+                            <td>
+                                <strong>{{ fullname }}</strong><br>
+                                <small class="text-primary">{{ log.ma_nhan_vien }}</small>
+                            </td>
+                            <td>
+                                {% if 'Xóa' in log.hanh_dong or 'Lỗi' in log.hanh_dong %}
+                                    <span class="badge bg-danger">{{ log.hanh_dong }}</span>
+                                {% elif 'Cập nhật' in log.hanh_dong or 'Sửa' in log.hanh_dong %}
+                                    <span class="badge bg-warning text-dark">{{ log.hanh_dong }}</span>
+                                {% else %}
+                                    <span class="badge bg-info text-dark">{{ log.hanh_dong }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-wrap">{{ log.chi_tiet }}</td>
+                            <td><code>{{ log.ip_address }}</code></td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">Chưa có dữ liệu nhật ký.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

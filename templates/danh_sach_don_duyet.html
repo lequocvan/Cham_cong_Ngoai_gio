@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h3 class="mb-3 text-primary">Danh Sách Đơn Trình Ký / Phê Duyệt (CHƯA TÍCH HỢP ĐƯỢC SDK USB TOKEN AGRIBANK HỎI PIN) </h3>
+
+    <!-- DÒNG GHI CHÚ NỔI BẬT -->
+    <div class="alert alert-warning border-0 shadow-sm d-flex align-items-center p-3 mb-4" style="border-radius: 12px; border-left: 5px solid #f39c12 !important; background-color: #fff9e6;">
+        <i class="fas fa-exclamation-circle text-warning fs-4 me-3" style="font-size: 1.5rem;"></i>
+        <div>
+            <strong><i class="fas fa-info-circle"></i> Lưu ý quan trọng:</strong> 
+            Vui lòng tải xuống và khởi động công cụ <a href="{{ url_for('download_file', filename='AgribankTokenAgent.exe') }}" class="fw-bold text-decoration-underline text-warning">AgribankTokenAgent</a> trước khi thực hiện ký duyệt đơn.
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-lg">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover shadow-sm background-white align-middle mb-0">
+                    <thead class="thead-dark small text-uppercase">
+                        <tr>
+                            <th width="220">Nhân viên / Đơn vị</th>
+                            <th width="90" class="text-center">Loại nghỉ</th>
+                            <th width="100" class="text-center">Từ ngày</th>
+                            <th width="100" class="text-center">Đến ngày</th>
+                            <th>Lý do</th>
+                            <th width="120" class="text-center">Trạng thái</th>
+                            <th width="200" class="text-center">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody class="small">
+                        {% for don in ds_don %}
+                        <tr id="row-don-{{ don.id }}">
+                            <!-- CỘT HIỂN THỊ GỘP: HỌ TÊN, MÃ NV, PHÒNG BÀN, MÃ HIỆU 2 -->
+                            <td class="align-middle">
+                                <div class="font-weight-bold text-dark mb-1">
+                                    {{ don.ho_ten or (don.thong_tin_lao_dong.ho_ten if don.thong_tin_lao_dong else don.ma_nhan_vien) }}
+                                </div>
+                                <div class="text-muted extra-small mb-1">
+                                    <i class="far fa-id-card mr-1"></i>{{ don.ma_nhan_vien }}
+                                </div>
+                                {% if don.ten_phong_ban %}
+                                <div class="text-primary extra-small">
+                                    <i class="fas fa-sitemap mr-1"></i>{{ don.ten_phong_ban }}
+                                </div>
+                                {% endif %}
+                                {% if don.ten_ma_hieu_2 %}
+                                <div class="text-secondary extra-small">
+                                    <i class="fas fa-building mr-1"></i>{{ don.ten_ma_hieu_2 }}
+                                </div>
+                                {% endif %}
+                            </td>
+
+                            <!-- LOẠI NGHỈ -->
+                            <td class="align-middle text-center">
+                                <span class="badge badge-info px-2 py-1 font-weight-bold">{{ don.loai_nghi }}</span>
+                            </td>
+
+                            <!-- TỪ NGÀY -->
+                            <td class="align-middle text-center font-weight-bold text-dark">
+                                {{ don.tu_ngay.strftime('%d/%m/%Y') if don.tu_ngay else '' }}
+                            </td>
+
+                            <!-- ĐẾN NGÀY -->
+                            <td class="align-middle text-center font-weight-bold text-dark">
+                                {{ don.den_ngay.strftime('%d/%m/%Y') if don.den_ngay else '' }}
+                            </td>
+
+                            <!-- LÝ DO -->
+                            <td class="align-middle text-wrap">
+                                {{ don.ly_do or '<i class="text-muted">Không có lý do</i>'|safe }}
+                            </td>
+
+                            <!-- TRẠNG THÁI -->
+                            <td class="align-middle text-center">
+                                <span class="badge badge-warning px-2 py-1 font-weight-bold">{{ don.trang_thai }}</span>
+                            </td>
+
+                            <!-- THAO TÁC -->
+                            <td class="align-middle text-center">
+                                <button class="btn btn-sm btn-success btn-ky-duyet font-weight-bold shadow-sm mb-1" data-id="{{ don.id }}" data-nv="{{ don.ma_nhan_vien }}">
+                                    <i class="fa fa-pen mr-1"></i> Ký & Phê duyệt
+                                </button>
+                                <button class="btn btn-sm btn-danger btn-tu-choi font-weight-bold shadow-sm mb-1" data-id="{{ don.id }}">
+                                    Từ chối
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                                Không có đơn nào đang chờ duyệt.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .extra-small { font-size: 0.73rem; line-height: 1.3; }
+    .table th, .table td { vertical-align: middle !important; }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    // Nút Ký & Phê duyệt
+    document.querySelectorAll('.btn-ky-duyet').forEach(btn => {
+        btn.addEventListener('click', async function () {
+            const donId = this.getAttribute('data-id');
+            const maNV = this.getAttribute('data-nv');
+
+            if (!confirm(`Xác nhận dùng Chữ ký số để phê duyệt đơn cho NV: ${maNV}?`)) return;
+
+            try {
+                // 1. Lấy mã Hash dữ liệu đơn từ Backend Flask
+                const hashRes = await fetch(`/api/don-xin-nghi/hash-ky-so/${donId}`);
+                const hashData = await hashRes.json();
+
+                if (!hashData.success) {
+                    alert("Không lấy được mã Hash để ký số: " + hashData.message);
+                    return;
+                }
+
+                let digitalSignature = "";
+                let certData = "";
+
+                // 2. Tích hợp chuẩn Plugin Chữ Ký Số (Ví dụ tích hợp Plugin USB Token chuẩn)
+                if (window.CASignPlugin) {
+                    // Gọi Plugin đọc Certificate trong USB Token
+                    certData = await window.CASignPlugin.getCertificate(); 
+                    // Gọi Plugin ký Hash -> Lúc này Plugin của USB Token sẽ tự bật Popup nhập mã PIN
+                    digitalSignature = await window.CASignPlugin.signHash(hashData.hash); 
+                } else {
+                    // THÔNG BÁO RÕ NẾU THIẾU PLUGIN / CHƯA CẮM USB TOKEN
+                    alert("Không tìm thấy phần mềm/Plugin ký số USB Token! Vui lòng kiểm tra lại thiết bị hoặc Cắm USB Token.");
+                    return;
+                }
+
+                if (!digitalSignature || !certData) {
+                    alert("Thao tác ký số bị hủy hoặc không nhận được thông tin Chứng thư số.");
+                    return;
+                }
+
+                // 3. Gửi cả digital_signature và chu_ky_so (certData) về backend
+                const res = await fetch(`/phe-duyet-don/${donId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'DA_DUYET',
+                        digital_signature: digitalSignature, // Giá trị lưu vào cột digital_signature
+                        chu_ky_so: certData                   // Giá trị lưu vào cột chu_ky_so
+                    })
+                });
+
+                const result = await res.json();
+                if (result.success) {
+                    alert(result.message);
+                    document.getElementById(`row-don-${donId}`).remove();
+                } else {
+                    alert('Lỗi: ' + result.message);
+                }
+
+            } catch (err) {
+                alert('Có lỗi xảy ra trong quá trình ký số: ' + err.message);
+            }
+        });
+    });
+
+    // Nút Từ chối
+    document.querySelectorAll('.btn-tu-choi').forEach(btn => {
+        btn.addEventListener('click', async function () {
+            const donId = this.getAttribute('data-id');
+            if (!confirm('Bạn có chắc chắn muốn từ chối đơn này?')) return;
+
+            const res = await fetch(`/phe-duyet-don/${donId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'TU_CHOI' })
+            });
+
+            const result = await res.json();
+            if (result.success) {
+                alert(result.message);
+                document.getElementById(`row-don-${donId}`).remove();
+            } else {
+                alert('Lỗi: ' + result.message);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản trị Câu hỏi</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --primary-color: #007bff; }
+        body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .table-container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .sticky-action { 
+            position: sticky; top: 10px; z-index: 1000; 
+            background: #ffffff; padding: 20px; border-radius: 12px; 
+            margin-bottom: 25px; border: 1px solid #dee2e6;
+        }
+        .table img { max-width: 100px; border-radius: 5px; }
+        .badge-topic { font-size: 0.85rem; padding: 5px 12px; }
+        .btn-action { width: 35px; height: 35px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; margin: 0 2px; }
+        .text-truncate-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        /* Custom Pagination Style */
+        .pagination .page-link { color: var(--primary-color); border-radius: 5px; margin: 0 2px; }
+        .pagination .page-item.active .page-link { background-color: var(--primary-color); border-color: var(--primary-color); }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 px-2">
+        <h2 class="fw-bold text-dark"><i class="fas fa-database text-primary me-2"></i>QUẢN LÝ NGÂN HÀNG CÂU HỎI</h2>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-primary shadow-sm">
+                <i class="fas fa-home"></i> Trang chủ
+            </a>
+            <a href="/trac_nghiem" class="btn btn-outline-secondary shadow-sm">
+                <i class="fas fa-eye me-1"></i> Xem trang thi
+            </a>
+        </div>
+    </div>
+
+    <div class="sticky-action shadow-sm">
+        <div class="row align-items-center">
+            <div class="col-md-5">
+                <form action="{{ url_for('import_questions') }}" method="POST" enctype="multipart/form-data" class="input-group" onsubmit="showLoading()">
+                    <input type="file" name="file" class="form-control" accept=".xlsx, .xls" required>
+                    <button type="submit" id="btnImport" class="btn btn-success px-4">
+                        <span id="importText"><i class="fas fa-file-import me-1"></i> Import Excel</span>
+                        <span id="importLoading" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                    </button>
+                </form>
+            </div>
+            <div class="col-md-7 text-end mt-3 mt-md-0">
+                <a href="{{ url_for('export_template') }}" class="btn btn-light border shadow-sm me-2"><i class="fas fa-download me-1"></i> Tải file mẫu</a>
+                <a href="{{ url_for('export_data') }}" class="btn btn-primary shadow-sm me-2"><i class="fas fa-file-export me-1"></i> Xuất dữ liệu</a>
+                <button class="btn btn-warning shadow-sm fw-bold" onclick="openAddModal()">
+                    <i class="fas fa-plus me-1"></i> Thêm mới
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle" id="questionsTable">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="text-center">ID</th>
+                        <th style="width: 35%;">Nội dung câu hỏi</th>
+                        <th>Chủ đề</th>
+                        <th>Đáp án đúng</th>
+                        <th style="width: 20%;">Giải thích</th> 
+                        <th class="text-center">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for q in questions %}
+                    <tr id="row-{{ q.id }}">
+                        <td class="text-center fw-bold text-muted">{{ q.id }}</td>
+                        <td>
+                            <div class="text-truncate-2" title="{{ q.question_text }}">
+                                {{ q.question_text }}
+                            </div>
+                        </td>
+                        <td><span class="badge bg-info text-dark badge-topic">{{ q.topic }}</span></td>
+                        <td><span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i>{{ q.correct_answer }}</span></td>
+                        <td>
+                            <small class="text-muted">
+                                {% if q.explanation %}
+                                    <div class="text-truncate-2">{{ q.explanation }}</div>
+                                {% else %}
+                                    <i class="text-secondary">Chưa có giải thích</i>
+                                {% endif %}
+                            </small>
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-info btn-action text-white" onclick="openEditModal({{ q.id }})" title="Sửa">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger btn-action" onclick="deleteQuestion({{ q.id }})" title="Xóa">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if pagination %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
+                    <a class="page-link" href="{{ url_for('admin_questions', page=pagination.prev_num) if pagination.has_prev else '#' }}">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+                
+                {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                        <li class="page-item {{ 'active' if page_num == pagination.page }}">
+                            <a class="page-link" href="{{ url_for('admin_questions', page=page_num) }}">{{ page_num }}</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+
+                <li class="page-item {{ 'disabled' if not pagination.has_next }}">
+                    <a class="page-link" href="{{ url_for('admin_questions', page=pagination.next_num) if pagination.has_next else '#' }}">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+            </ul>
+            <div class="text-center text-muted mt-2 small">
+                Hiển thị trang {{ pagination.page }} / {{ pagination.pages }} (Tổng số {{ pagination.total }} câu hỏi)
+            </div>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<div class="modal fade" id="addModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i>Thêm câu hỏi mới</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="add-question-form">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nội dung câu hỏi</label>
+                        <textarea class="form-control" id="add-text" rows="3" required placeholder="Nhập nội dung câu hỏi..."></textarea>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Chủ đề</label>
+                            <input type="text" class="form-control" id="add-topic" required placeholder="VD: An toàn lao động">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Đáp án đúng</label>
+                            <input type="text" class="form-control border-success" id="add-correct" required placeholder="Khớp với 1 phương án bên dưới">
+                        </div>
+                    </div>
+                    <label class="form-label fw-bold text-success"><i class="fas fa-list-ol me-1"></i>Các phương án trả lời</label>
+                    <div id="add-options-container" class="mb-3">
+                        <div class="input-group mb-2"><span class="input-group-text">A</span><input type="text" class="form-control add-opt" required></div>
+                        <div class="input-group mb-2"><span class="input-group-text">B</span><input type="text" class="form-control add-opt" required></div>
+                        <div class="input-group mb-2"><span class="input-group-text">C</span><input type="text" class="form-control add-opt"></div>
+                        <div class="input-group mb-2"><span class="input-group-text">D</span><input type="text" class="form-control add-opt"></div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label fw-bold">Giải thích đáp án</label>
+                        <textarea class="form-control" id="add-explanation" rows="2" placeholder="Tại sao đáp án này đúng?"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-success px-4" onclick="saveNewQuestion()">Lưu câu hỏi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="editModalLabel"><i class="fas fa-edit me-2"></i>Chỉnh sửa câu hỏi #<span id="modal-q-id"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="edit-question-form">
+                    <input type="hidden" id="edit-id">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nội dung câu hỏi</label>
+                        <textarea class="form-control" id="edit-text" rows="4"></textarea>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Chủ đề</label>
+                            <input type="text" class="form-control" id="edit-topic">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Đáp án đúng</label>
+                            <input type="text" class="form-control border-success" id="edit-correct">
+                        </div>
+                    </div>
+                    <hr>
+                    <label class="form-label fw-bold text-primary"><i class="fas fa-list-ul me-1"></i>Danh sách các lựa chọn</label>
+                    <div id="options-container" class="mb-3"></div>
+                    <div class="mb-0">
+                        <label class="form-label fw-bold">Giải thích đáp án</label>
+                        <textarea class="form-control" id="edit-explanation" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
+                <button type="button" class="btn btn-primary px-4" onclick="saveQuestion()">
+                    <i class="fas fa-save me-1"></i> Lưu thay đổi
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const editModal = new bootstrap.Modal(document.getElementById('editModal'));
+const addModal = new bootstrap.Modal(document.getElementById('addModal'));
+
+// --- TÍNH NĂNG THÊM MỚI ---
+function openAddModal() {
+    document.getElementById('add-question-form').reset();
+    addModal.show();
+}
+
+function saveNewQuestion() {
+    const options = [];
+    document.querySelectorAll('.add-opt').forEach(input => {
+        if(input.value.trim() !== "") options.push(input.value.trim());
+    });
+
+    if(options.length < 2) {
+        alert("Vui lòng nhập ít nhất 2 phương án trả lời!");
+        return;
+    }
+
+    const data = {
+        question_text: document.getElementById('add-text').value,
+        topic: document.getElementById('add-topic').value,
+        correct_answer: document.getElementById('add-correct').value,
+        explanation: document.getElementById('add-explanation').value,
+        options: options
+    };
+
+    fetch('/admin/question/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(res => res.json())
+    .then(result => {
+        if(result.status === 'success') {
+            alert('Thêm câu hỏi thành công!');
+            location.reload(); 
+        } else {
+            alert('Lỗi: ' + result.message);
+        }
+    })
+    .catch(err => alert('Lỗi kết nối server!'));
+}
+
+// --- TÍNH NĂNG XÓA ---
+function deleteQuestion(id) {
+    if(confirm('Bạn có chắc chắn muốn xóa câu hỏi này?')) {
+        fetch(`/admin/question/delete/${id}`, { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if(data.status === 'success') {
+                const row = document.getElementById(`row-${id}`);
+                row.style.opacity = '0';
+                setTimeout(() => row.remove(), 500);
+            } else {
+                alert('Lỗi: ' + data.message);
+            }
+        });
+    }
+}
+
+// --- TÍNH NĂNG SỬA ---
+function openEditModal(qId) {
+    fetch(`/admin/get_question_detail/${qId}`)
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById('modal-q-id').innerText = data.id;
+        document.getElementById('edit-id').value = data.id;
+        document.getElementById('edit-text').value = data.question_text;
+        document.getElementById('edit-topic').value = data.topic;
+        document.getElementById('edit-correct').value = data.correct_answer;
+        document.getElementById('edit-explanation').value = data.explanation || '';
+
+        const container = document.getElementById('options-container');
+        container.innerHTML = '';
+        data.options.forEach((opt, index) => {
+            container.innerHTML += `
+                <div class="input-group mb-2 shadow-sm">
+                    <span class="input-group-text bg-light fw-bold">${index + 1}</span>
+                    <input type="text" class="form-control edit-opt-input" data-opt-id="${opt.id}" value="${opt.option_text}">
+                </div>`;
+        });
+        editModal.show();
+    })
+    .catch(err => alert('Không thể lấy thông tin câu hỏi!'));
+}
+
+function saveQuestion() {
+    const qId = document.getElementById('edit-id').value;
+    const options = [];
+
+    document.querySelectorAll('.edit-opt-input').forEach(input => {
+        options.push({
+            id: input.dataset.optId,
+            text: input.value.trim()
+        });
+    });
+
+    const updateData = {
+        question_text: document.getElementById('edit-text').value.trim(),
+        topic: document.getElementById('edit-topic').value.trim(),
+        correct_answer: document.getElementById('edit-correct').value.trim(),
+        explanation: document.getElementById('edit-explanation').value.trim(),
+        options: options
+    };
+
+    const isCorrectInOptions = options.some(opt => opt.text === updateData.correct_answer);
+    if (!isCorrectInOptions) {
+        alert("Lỗi: Nội dung 'Đáp án đúng' phải trùng khớp hoàn toàn với 1 trong các lựa chọn bên dưới!");
+        return;
+    }
+
+    fetch(`/admin/question/update/${qId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.status === 'success') {
+            editModal.hide();
+            
+            const row = document.getElementById(`row-${qId}`);
+            if (row) {
+                row.cells[1].innerHTML = `<div class="text-truncate-2">${updateData.question_text}</div>`;
+                row.cells[2].innerHTML = `<span class="badge bg-info text-dark badge-topic">${updateData.topic}</span>`;
+                row.cells[3].innerHTML = `<span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i>${updateData.correct_answer}</span>`;
+                
+                const expText = updateData.explanation 
+                    ? `<div class="text-truncate-2">${updateData.explanation}</div>` 
+                    : '<i class="text-secondary">Chưa có giải thích</i>';
+                row.cells[4].innerHTML = `<small class="text-muted">${expText}</small>`;
+            }
+            
+            alert('Đã cập nhật thay đổi thành công!');
+        } else {
+            alert('Cập nhật thất bại: ' + data.message);
+        }
+    })
+    .catch(err => {
+        console.error('Fetch Error:', err);
+        alert('Lỗi kết nối máy chủ!');
+    });
+}
+
+function showLoading() {
+    // Vô hiệu hóa nút và hiện icon load để tránh nhấn nhiều lần
+    document.getElementById('btnImport').disabled = true;
+    document.getElementById('importText').classList.add('d-none');
+    document.getElementById('importLoading').classList.remove('d-none');
+    
+    // Thông báo cho người dùng
+    alert("Hệ thống đang xử lý file lớn (5000+ dòng), vui lòng KHÔNG tắt trình duyệt cho đến khi có thông báo thành công.");
+}
+</script>
+</body>
+</html>
