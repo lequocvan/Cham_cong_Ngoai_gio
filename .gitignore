@@ -3,6 +3,7 @@
 .env.*
 
 # 2. Dữ liệu Vector Database (ChromaDB) & CSDL tạm cục bộ
+flask_session_data/
 chroma_db_data/
 *.sqlite3
 *.db
