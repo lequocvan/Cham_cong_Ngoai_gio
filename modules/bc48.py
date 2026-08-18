@@ -2773,11 +2773,9 @@ def tao_mat_khau_ngau_nhien(length=8):
 def tao_mat_khau_co_dinh(manh8so_moi, loai_bc):
     """
     Sinh mật khẩu cố định theo nguyên lý riêng biệt từng loại báo cáo:
-    Mã CN chuẩn 8 số + Loại BC thực tế (CTR/DWT/EFT) + _NHNN
+    123456
     """
-    ma_cn = str(manh8so_moi).strip().zfill(8)
-    bc = str(loai_bc).strip().upper()
-    return f"{ma_cn}{bc}_NHNN"
+    return f"123456"
 
 def chi_xuat_csv_ket_qua_do_tim_loi(engine, loai_bc, tu_ngay, den_ngay, loai_mat_khau="fixed", nguoi_thuc_hien="Hệ thống", filters_data=None):
     """
